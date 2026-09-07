@@ -19,6 +19,8 @@ module RecordingStudioAgents
         column :status, title: "Status"
         column :extra_skills, title: "Extra skills",
                               value: ->(row, _context) { row.selected_skill_labels.presence || "None" }
+        column :steps, title: "Steps",
+                       value: ->(row, _context) { Progress.for(row).map(&:label).join(", ").presence || "None" }
         column :idempotency_key, title: "Attempt key"
         column :recording_studio_ai_run_id, title: "AI run"
         column :created_at, title: "Created"

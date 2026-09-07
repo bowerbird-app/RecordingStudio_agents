@@ -7,7 +7,7 @@ This Rails app exists to prove Recording Studio Agents in a real host.
 - Devise authentication with a seeded admin user (`admin@admin.com` / `Password`)
 - Workspace, Folder, and Page with Accessible grants
 - An Admin root for Recording Studio Admin
-- Page librarian demo on `/` (`POST /agents/demo`)
+- Page librarian demo on `/` (`POST /agents/demo`). After a run, home lists what it did.
 - Support clerk registered for optional skill and pack tests (no second home button)
 - Mounted Agents, AI, Accessible, and Admin (`/admin`)
 
@@ -24,7 +24,7 @@ Run those commands from the dummy app directory.
 
 ## Useful routes
 
-- `/` - page librarian demo
+- `/` - page librarian demo, with steps after a run
 - `/users/sign_in` - Devise sign-in
 - `/admin` - Agents admin section
 - `/recording_studio` - redirects to `/`

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-09-07
+
+Coarse progress for an agent attempt, read from knowledge load and Recording Studio AI tool invocations.
+
+### Added
+- `RecordingStudioAgents::Progress.for(run)` returns ordered steps with Done / Working / Waiting / Failed badges
+- Dummy page librarian lists those steps on home after a run
+- Admin Runs table has a compact Steps column
+
+### Upgrade notes
+- Call `Progress.for(run)` from a host screen or job poll. There is no new Agents migration.
+- Join the AI run by `recording_studio_ai_run_id` or `request_id` `recording-studio-agents:<agent_run_id>`.
+- Do not stream token text as progress, and do not copy model output onto the agent run.
+
 ## [0.3.0] - 2026-09-07
 
 Recording Studio Agents V1. This is a product release, not a template bump.
@@ -44,5 +58,6 @@ Recording Studio Agents V1. This is a product release, not a template bump.
 
 Template Cloud Agent environment. See git history for the template notes that shipped under this version.
 
+[0.4.0]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.0
 [0.3.0]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.3.0
 [0.2.1]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.2.1

@@ -83,5 +83,7 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "page_librarian"
     assert_includes response.body, "failed"
     assert_includes response.body, "Extra skills"
+    assert_includes response.body, "Steps"
+    assert_includes response.body, "Did not finish"
   end
 end
