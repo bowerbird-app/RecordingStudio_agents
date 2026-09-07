@@ -19,17 +19,8 @@ module RecordingStudioAgents
       return unless defined?(::RecordingStudioAdmin)
 
       RecordingStudioAdmin.register_section(Section)
-      RecordingStudioAdmin.register_screen(AgentsScreen)
-      RecordingStudioAdmin.register_screen(SkillsScreen)
-      RecordingStudioAdmin.register_screen(SkillPacksScreen)
-      RecordingStudioAdmin.register_screen(TasksScreen)
-      RecordingStudioAdmin.register_screen(RunsScreen)
-      RecordingStudioAdmin.register_screen(UsageScreen)
-      RecordingStudioAdmin.register_screen(EvaluationsScreen)
-      RecordingStudioAdmin.register_widget(Widgets::FAILED_RUNS)
-      RecordingStudioAdmin.register_widget(Widgets::ATTEMPTS_THIS_PERIOD)
-      RecordingStudioAdmin.register_widget(Widgets::TOKENS_THIS_PERIOD)
-      RecordingStudioAdmin.register_widget(Widgets::HUNGRY_AGENTS)
+      register_screens!
+      register_widgets!
     end
 
     def registered?
@@ -37,5 +28,28 @@ module RecordingStudioAgents
 
       RecordingStudioAdmin.section_for("agents").present?
     end
+
+    def register_screens!
+      [
+        AgentsScreen,
+        SkillsScreen,
+        SkillPacksScreen,
+        TasksScreen,
+        RunsScreen,
+        UsageScreen,
+        EvaluationsScreen
+      ].each { |screen| RecordingStudioAdmin.register_screen(screen) }
+    end
+    private_class_method :register_screens!
+
+    def register_widgets!
+      [
+        Widgets::FAILED_RUNS,
+        Widgets::ATTEMPTS_THIS_PERIOD,
+        Widgets::TOKENS_THIS_PERIOD,
+        Widgets::HUNGRY_AGENTS
+      ].each { |widget| RecordingStudioAdmin.register_widget(widget) }
+    end
+    private_class_method :register_widgets!
   end
 end
