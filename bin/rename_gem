@@ -49,6 +49,8 @@ class GemRenamer
   LEFTOVER_HOMEPAGES = %w[
     https://github.com/bowerbird-app/RecordingStudio_gem_template
     https://github.com/bowerbird-app/gem_template
+    https://github.com/bowerbird-app/recording_studio_agents
+    https://github.com/bowerbird-app/RecordingStudio_agents
   ].freeze
 
   def initialize(new_name, from: nil, dry_run: false)

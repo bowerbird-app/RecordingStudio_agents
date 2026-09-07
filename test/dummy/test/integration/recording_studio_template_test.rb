@@ -10,19 +10,21 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     assert_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
   end
 
-  test "dummy app validates recordable declarations" do
+  test "dummy app validates declarations" do
     assert RecordingStudio.validate_recordable_declarations!
-    assert_equal [ "Workspace" ], RecordingStudio.root_recordable_types
+    assert_includes RecordingStudio.root_recordable_types, "Workspace"
+    assert_includes RecordingStudio.root_recordable_types, "AdminRoot"
     assert_equal [ "Workspace", "Folder" ], RecordingStudio.allowed_parent_types_for("Page")
   end
 
-  test "dummy app schema keeps accessible grants and excludes removed core tables" do
+  test "dummy app schema keeps agents tables and accessible grants" do
     connection = ActiveRecord::Base.connection
 
     assert connection.column_exists?(:recording_studio_recordings, :root_recording_id)
     assert connection.table_exists?(:recording_studio_accesses)
+    assert connection.table_exists?(:recording_studio_agents_agent_runs)
+    assert connection.table_exists?(:admin_roots)
     refute connection.table_exists?(:recording_studio_access_boundaries)
-    refute connection.table_exists?(:recording_studio_device_sessions)
   end
 
   test "dummy seeds use hierarchy idempotently and restore current actor" do
@@ -50,6 +52,7 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     assert_equal folder_recording, page_recording.parent_recording
     assert_equal root_recording, page_recording.root_recording
     assert_equal 3, Workspace.count
+    assert RecordingStudioAgents::AgentRun.exists?(idempotency_key: "seed:page_librarian")
 
     assert_no_difference -> { User.count } do
       assert_no_difference -> { RecordingStudio::Recording.count } do
@@ -61,23 +64,19 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     Current.actor = nil
   end
 
-  test "workspace opts into accessible and the example mixin without enabling them globally" do
+  test "workspace and admin root opt into accessible without a template mixin" do
     workspace_source = File.read(Rails.root.join("app/models/workspace.rb"))
-    example_source = File.read(GemTemplate::Engine.root.join("lib/gem_template/capabilities/example.rb"))
+    admin_source = File.read(Rails.root.join("app/models/admin_root.rb"))
 
-    assert_includes workspace_source, "include RecordingStudio::Capabilities::Example.to(label: \"dummy workspace\")"
-    assert_includes example_source, "RecordingStudio::Capabilities.include_for(:example, **)"
-    refute_includes example_source, "enable_capability"
-    refute_includes example_source, "set_capability_options"
+    assert_includes workspace_source, "enable_capability(:accessible"
+    assert_includes admin_source, "enable_capability(:accessible"
+    refute_includes workspace_source, "Capabilities::Example"
+    refute File.exist?(RecordingStudioAgents::Engine.root.join("lib/recording_studio_agents/capabilities/example.rb"))
 
     assert RecordingStudio.capability_enabled?(:accessible, for: Workspace)
-    assert RecordingStudio.capability_enabled?(:example, for: Workspace)
-    assert_equal({ label: "dummy workspace" }, RecordingStudio.capability_options(:example, for: Workspace))
+    assert RecordingStudio.capability_enabled?(:accessible, for: AdminRoot)
     refute RecordingStudio.capability_enabled?(:accessible, for: Folder)
     refute RecordingStudio.capability_enabled?(:accessible, for: Page)
-    refute RecordingStudio.capability_enabled?(:example, for: Folder)
-    refute RecordingStudio.capability_enabled?(:example, for: Page)
-    assert_equal [ "Workspace" ], RecordingStudio.configuration.enabled_recordable_types_for(:example)
     assert_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
   end
 end
