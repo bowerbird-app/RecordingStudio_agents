@@ -1,170 +1,242 @@
-# GemTemplate
+# Recording Studio Agents
 
-Internal template for building Rails engine addons on top of Recording Studio 4.x.
+Recording Studio Agents defines reusable agents in code and records each task attempt as an `AgentRun`. An agent compiles exact versions of its skills, tools, knowledge sources, and allowed handoff targets into one immutable program. `Agent#run` validates the task, authorizes the actor through Recording Studio AI, creates or reuses the run, and executes through `RecordingStudioAI.generate`.
 
-## What's Included
-
-- **Recording Studio** 4.x gem pinned and configured
-- **Devise** authentication with a pre-seeded admin user
-- **Workspace**, **Folder**, and **Page** recordables seeded into the dummy host app
-- **FlatPack** UI component library for all views
-- **Dummy app** (`test/dummy/`) with a FlatPack sign-in screen, a home page on Recording Studio's default layout, mounted Recording Studio routes, and FlatPack's built-in rounded theme
-
-Authenticated dummy pages use Recording Studio's shared default layout (`RecordingStudio::UsesDefaultLayout`) plus FlatPack CSS and JS. Devise keeps its own sign-in layout. Dummy `/docs/*` pages stay in the dummy app as a host-app sandbox; they are not the product README.
-
-## Quick Start
-
-### Cursor Cloud Agent (Recommended)
-
-A Cloud Agent boots this repo into a ready-to-use dev environment with no manual steps. The setup lives in `.cursor/`:
-
-- `install.sh` provisions Ruby (pinned by `.ruby-version`), PostgreSQL 16, all gems, the seeded dummy database, and compiled CSS at build time, then fetches Recording Studio skills.
-- `start.sh` starts PostgreSQL on every boot.
-- `environment.json` runs the `rails-server` and `tailwind-watch` terminals and exposes port 3000.
-
-Open port 3000 and sign in at `/users/sign_in`. No environment variables are required — the dummy app's `database.yml` defaults match the provisioned PostgreSQL cluster.
-
-### GitHub Codespaces
-
-1. Click **Code** → **Codespaces** → **Create codespace**
-2. Wait for setup to complete
-3. Run:
-   ```bash
-   cd test/dummy
-   bin/rails db:setup
-   bin/dev
-   ```
-4. Open port 3000 — you'll land on the dummy app home page and can sign in at `/users/sign_in`
-
-The dummy app is intended as a host-app validation surface for authentication, FlatPack rendering, Tailwind source scanning, and Recording Studio route wiring.
-
-### Login Credentials
-
-| Field    | Value             |
-|----------|-------------------|
-| Email    | admin@admin.com   |
-| Password | Password          |
-
-The login form is prefilled with these credentials for fast access.
-
-### Useful Routes
-
-- `/` — dummy app home page
-- `/users/sign_in` — Devise sign-in page
-- `/recording_studio` — redirect to `/` while the mounted Recording Studio engine remains data/API-focused
-- `/docs/install`, `/docs/config`, `/docs/recordable_types`, `/docs/recordings_tree`, `/docs/gem_views`, `/docs/methods` — dummy-only starter pages
-
-The home page in `test/dummy/app/views/home/index.html.erb` is a starting point for a minimal demo of the gem's primary behavior. Keep deeper explanations on the dummy docs pages, not in this README.
-
-## Architecture
-
-### Root Recording Pattern
-
-This template follows Recording Studio's root recording pattern:
-
-- **Workspace** is the top-level recordable
-- **Folder** and **Page** demonstrate nested recordables under the workspace root
-- Each configured recordable declares `recording_studio_recordable(...)`; strict declaration validation stays enabled
-- A root `RecordingStudio::Recording` wraps the Workspace
-- `Current.actor` is set from `current_user` (Devise) in `ApplicationController`
-
-### Extending Recording Studio
-
-To add new recordable types:
-
-1. Create your model (e.g., `Page`, `Comment`)
-2. Register it in `config/initializers/recording_studio.rb`:
-   ```ruby
-   RecordingStudio.configure do |config|
-     config.recordable_types = ["Workspace", "YourNewType"]
-   end
-   ```
-3. Declare whether the model can be a root and which parents may contain it:
-   ```ruby
-   class YourNewType < ApplicationRecord
-     recording_studio_recordable label: "Your new type",
-                                 root: false,
-                                 allowed_parent_types: ["Workspace", "Folder"]
-   end
-   ```
-4. Validate declarations and create recordings under the root:
-   ```ruby
-   RecordingStudio.validate_recordable_declarations!
-   root_recording = RecordingStudio.root_recording_for(workspace)
-   root_recording.record(YourNewType) do |record|
-     record.title = "Example"
-   end
-   ```
-
-### Recordable Declarations
-
-Every configured ActiveRecord recordable type must declare its hierarchy rules. Declarations are required; they are not version-specific.
-
-- `Workspace` declares `root: true`
-- `Folder` and `Page` declare `root: false, allowed_parent_types: ["Workspace", "Folder"]`
-- `config.require_recordable_declarations = true` remains enabled in the dummy app initializer
-
-Useful console checks:
+Agents does not add a second authorization callback. Configure Recording Studio AI with its Accessible adapter.
 
 ```ruby
-RecordingStudio.validate_recordable_declarations!
-RecordingStudio.root_recordable_types
-RecordingStudio.allowed_parent_types_for("Page")
+RecordingStudioAI.configure do |config|
+  config.authorization_handler =
+    RecordingStudioAI::AccessibleAuthorization.method(:call)
+end
 ```
 
-### Capabilities
+## Conceptual model
 
-Capability mixins are opt-in. Installing this gem does not enable mixins on host types.
+An **agent** is a reusable definition. It is not an execution and it does not own a schedule.
 
-The dummy Workspace enables Accessible because that addon is bundled:
+A **skill** is versioned procedure text. Other gems register skills. A skill can name the tools it needs. It does not grant those tools to an agent. Required skills always compile. Optional skills compile only when a run selects a pack or extra skills.
+
+A **skill pack** is a named bundle of optional skills. Pack skills must already be on the agent's optional allowlist.
+
+A **tool** is an executable capability registered with Recording Studio AI. Agents never grows a parallel tool system.
+
+**Knowledge** is application data loaded at run time. Loaders return typed entries. Agents authorizes the run before it invokes a loader. Gathered entries are capped at 5 seconds, 40 entries, and 32KB. When an entry cites a source recording, it must stay inside the task root.
+
+A **task** is a durable goal inside a workspace, identified by a stable key.
+
+An **agent run** is one attempt. It stores status, an optional output digest, and the Recording Studio AI run id. It does not copy prompts, model output, or chain-of-thought. Duplicate delivery of the same `idempotency_key` reuses that attempt.
+
+A **handoff** is an allowlisted request recorded by an internal AI tool. `Agent#run` never starts the target. The host routes the next call.
+
+`enabled` is a registry boolean. Lookup for a disabled agent raises `AgentDisabled`. Admin still lists disabled agents.
+
+## Install
+
+Add the gem, then copy and run the engine migrations.
+
+```sh
+bin/rails generate recording_studio_agents:install
+bin/rails generate recording_studio_agents:migrations
+bin/rails db:migrate
+```
+
+Register the `agents` section on an admin root and mount Recording Studio Admin.
 
 ```ruby
-RecordingStudio.enable_capability(:accessible, on: Workspace)
+recording_studio_admin_for :admin, at: "/admin", root_section: :agents
 ```
 
-The template also ships one example mixin that uses core 4.2.0's `include_for` factory:
+## Register a skill and a tool
+
+Tools belong to Recording Studio AI. A skill names the tools it needs, but the agent must also allow them.
 
 ```ruby
-include RecordingStudio::Capabilities::Example.to(label: "dummy workspace")
+RecordingStudioAI.tools.register(
+  key: :find_page,
+  version: 1,
+  name: "Find page",
+  description: "Find a page by title inside the current workspace.",
+  use_when: "The task names a page to locate.",
+  do_not_use_when: "The task asks to change a page.",
+  parameters: [
+    {
+      name: "title",
+      type: "string",
+      required: true,
+      description: "Exact page title to find."
+    }
+  ],
+  returns: "Whether the page was found.",
+  cost: :low,
+  latency: :fast,
+  read_only: true,
+  destructive: false,
+  requires_confirmation: false,
+  idempotent: true,
+  executor_label: "FindPage",
+  executor: FindPage.method(:call)
+)
+
+RecordingStudioAgents.skills.register(
+  key: :page_lookup,
+  version: 1,
+  name: "Page lookup",
+  description: "Find a named page and stop.",
+  instructions: <<~TEXT,
+    Use the find page tool when the task names a page.
+    Quote the title you found.
+  TEXT
+  required_tools: { find_page: 1 }
+)
 ```
 
-`.to` wraps `RecordingStudio::Capabilities.include_for`. It does not add a fourth verb and it does not call `enable_capability` / `set_capability_options` itself. Folder and Page stay without the example mixin.
+Registration rejects a duplicate key and version. Boot and `agent()` raise when a required tool is missing from the agent allowlist or from Recording Studio AI.
 
-Use core `RecordingStudio::Hooks` and `RecordingStudio::Services::BaseService`. Do not copy those classes into a new addon.
+## Define agents and knowledge in the host
 
-### FlatPack UI Components
+```ruby
+RecordingStudioAgents.knowledge.register(
+  key: :workspace_outline,
+  version: 1,
+  name: "Workspace outline",
+  description: "Folders and pages in the current workspace.",
+  loader: lambda do |context|
+    [
+      RecordingStudioAgents::Knowledge::Entry.new(
+        key: "workspace_outline",
+        title: "Workspace outline",
+        content: WorkspaceOutline.call(context.root_recording),
+        source_recording: context.root_recording
+      )
+    ]
+  end
+)
 
-All views use FlatPack ViewComponents. Available components include:
+RecordingStudioAgents.agents.register(
+  key: :page_librarian,
+  version: 1,
+  name: "Page librarian",
+  description: "Finds a page in the current workspace.",
+  instructions: "Find the named page with the allowed tool.",
+  skills: { page_lookup: 1 },
+  tools: { find_page: 1 },
+  knowledge: { workspace_outline: 1 },
+  handoffs: { page_reviewer: 1 },
+  enabled: true
+)
+```
 
-- `FlatPack::Button::Component` — Buttons (`:primary`, `:secondary`, `:ghost`)
-- `FlatPack::Card::Component` — Cards (`:default`, `:elevated`, `:outlined`)
-- `FlatPack::Alert::Component` — Alerts (`:success`, `:error`, `:warning`, `:info`)
-- `FlatPack::Badge::Component` — Status badges
-- `FlatPack::Table::Component` — Data tables
-- `FlatPack::TextInput::Component`, `EmailInput`, `PasswordInput` — Form inputs
-- `FlatPack::PageNav::Component` — Default-layout page navigation
-- `FlatPack::PageTitle::Component` — Page titles
+All references pin an exact positive integer version.
 
-Use the live FlatPack demo app at [flatpack.bowerbird.io](https://flatpack.bowerbird.io/) as the approved UI reference for current shared patterns. Its component table is the fastest way to discover available FlatPack components before introducing new custom UI.
+## Optional skills and packs
 
-See the [FlatPack README](https://github.com/bowerbird-app/flatpack) for full documentation.
+`skills:` always compile into the program. `optional_skills:` is an allowlist. A run loads those skills only when the host passes `pack:` or `extra_skills:`.
 
-## Tech Stack
+A **skill pack** groups optional skills. Pack skills must already be listed on `optional_skills:`. The agent lists the packs it allows. `pack: :billing_tickets` uses that listed version. A one-key hash such as `{ billing_tickets: 1 }` also works.
 
-| Component       | Version |
-|-----------------|---------|
-| Ruby            | 3.3+    |
-| Rails           | 8.1+    |
-| PostgreSQL      | 16      |
-| TailwindCSS     | 4       |
-| RecordingStudio | 4.x (`~> 4.1` in the gemspec; dummy GitHub tag `v4.2.0`) |
-| Accessible      | dummy GitHub tag `v0.6.0` |
-| Root Switchable | dummy GitHub tag `v0.5.0` |
-| FlatPack        | dummy GitHub tag `v0.1.133` |
-| Devise          | latest  |
+`agent()` returns a definition handle. The program compiles at `run`, so the digest includes the selected set. Reusing an `idempotency_key` with a different pack raises `IdempotencyConflict`.
 
-The dummy Gemfile keeps `github:` sources so Bundler can fetch those gems. The gemspec still pins `recording_studio` to `~> 4.1` so copied addons declare the core dependency even when GitHub is the fetch source.
+Skills may set `use_when` and `do_not_use_when` for host catalogs. Those strings are not added to a generate prompt unless the skill is selected.
 
-## Documentation
+Tools named only by an unselected optional skill are dropped from that generate call. They still belong on the agent allowlist and in Recording Studio AI.
 
-The original gem template documentation is preserved in `docs/gem_template/` as architectural reference material. Use it as background on the engine conventions; this README and the dummy app are the source of truth for the Recording Studio addon workflow.
+```ruby
+RecordingStudioAgents.skill_packs.register(
+  key: :billing_tickets,
+  version: 1,
+  name: "Billing tickets",
+  description: "Refund and invoice questions.",
+  skills: { refund_policy: 1, invoice_lookup: 1 }
+)
+
+RecordingStudioAgents.agents.register(
+  key: :support,
+  version: 1,
+  name: "Support",
+  description: "Handles a support ticket.",
+  instructions: "Answer the ticket with the loaded skills.",
+  skills: { support_voice: 1 },
+  optional_skills: { refund_policy: 1, invoice_lookup: 1, access_reset: 1 },
+  packs: { billing_tickets: 1 },
+  tools: { lookup_invoice: 1 }
+)
+
+RecordingStudioAgents.agent(:support, version: 1).run(
+  task: task,
+  root_recording: root,
+  initiator: user,
+  initiator_kind: :user,
+  execution_source: :job,
+  idempotency_key: job_id,
+  pack: :billing_tickets
+)
+```
+
+`extra_skills: { access_reset: 1 }` can load optional skills without a pack, and can combine with `pack:`.
+
+## Execute a task from a job
+
+A task key identifies one durable goal inside a workspace. An idempotency key identifies one attempt. Use the Active Job `job_id` as that attempt key so retries and duplicate delivery converge on the same `AgentRun`.
+
+```ruby
+class FindPageJob < ApplicationJob
+  def perform(root_recording_id:, user_id:)
+    root = RecordingStudio::Recording.find(root_recording_id)
+    user = User.find(user_id)
+
+    task = RecordingStudioAgents::TaskInput.new(
+      key: "find_page:#{root.id}",
+      goal: "Find the Getting Started page.",
+      context: {}
+    )
+
+    result = RecordingStudioAgents.agent(:page_librarian, version: 1).run(
+      task: task,
+      root_recording: root,
+      initiator: user,
+      initiator_kind: :user,
+      execution_source: :job,
+      idempotency_key: job_id
+    )
+
+    case result
+    when RecordingStudioAgents::Results::Completed
+      Rails.logger.info("agent_run=#{result.run.id} completed")
+    when RecordingStudioAgents::Results::HandoffRequested
+      HandoffRouterJob.perform_later(
+        target_agent_key: result.request.target.key,
+        target_agent_version: result.request.target.version,
+        task_id: result.run.task_id,
+        requested_by_run_id: result.run.id
+      )
+    when RecordingStudioAgents::Results::Blocked
+      result
+    when RecordingStudioAgents::Results::Failed
+      raise RecordingStudioAgents::ExecutionFailed.new(result) if result.failure.retryable?
+    when RecordingStudioAgents::Results::Existing,
+         RecordingStudioAgents::Results::InProgress
+      result
+    end
+  end
+end
+```
+
+`Results::Completed` carries in-memory output for the call that ran. Replay returns `Results::Existing`. `Results::Blocked` means a tool is waiting on Recording Studio AI confirmation. Call `run` again with the same idempotency key after the host confirms.
+
+## Admin
+
+The `agents` section lists code-defined agents, skills, and skill packs as read-only catalogs. It lists tasks, runs, and evaluations from the engine tables. Run rows show which extra skills were loaded and link to the associated Recording Studio AI execution. Admin never displays chain-of-thought.
+
+Hosts that use importmap must pin Recording Studio Admin controllers so screen tables load:
+
+```ruby
+pin_all_from RecordingStudioAdmin::Engine.root.join("app/javascript/recording_studio_admin/controllers"),
+             under: "controllers/recording_studio_admin",
+             to: "recording_studio_admin/controllers",
+             preload: false
+```
+
+## Dummy app
+
+`test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is Recording Studio Admin with the agents section. Tests do not call a live model provider.

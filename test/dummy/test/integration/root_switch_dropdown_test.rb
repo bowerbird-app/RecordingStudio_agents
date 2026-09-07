@@ -71,11 +71,11 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
       scope: "all_workspaces",
       root_switch: {
         root_recording_id: target_root_recording.id,
-        return_to: "/docs/install"
+        return_to: "/"
       }
     }
 
-    assert_redirected_to "/docs/install"
+    assert_redirected_to "/"
   end
 
   test "switching falls back to home when return_to is not a valid internal route" do

@@ -4,14 +4,14 @@
 
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
-- Recording Studio 4.x (`~> 4.1` in the gemspec; dummy GitHub tag `v4.2.0`)
-- Accessible dummy tag `v0.6.0` and Root Switchable dummy tag `v0.5.0`
-- FlatPack dummy tag `v0.1.133`
-- Public RubyGems and GitHub access for dependency installation
+- Recording Studio `~> 4.2` (dummy GitHub tag `v4.2.0`)
+- Recording Studio AI `~> 0.3` (dummy tag `v0.3.1`)
+- Recording Studio Admin `~> 2.0` (dummy tag `v2.0.2`)
+- Accessible `~> 0.6` (dummy tag `v0.7.0`)
+- Root Switchable dummy tag `v0.5.0`
+- FlatPack dummy tag `v0.1.143`
 
 ## Verification
-
-Install both bundles and run the complete gem and dummy app test path:
 
 ```bash
 bundle install
@@ -19,11 +19,9 @@ BUNDLE_GEMFILE=test/dummy/Gemfile bundle install
 bundle exec rake test:all
 ```
 
-Run the dummy app from its directory for browser verification:
+Run the dummy app from its directory:
 
 ```bash
 cd test/dummy
 bin/dev
 ```
-
-Use the [FlatPack repository](https://github.com/bowerbird-app/flatpack) and the live FlatPack demo linked from the top-level README for current component documentation.

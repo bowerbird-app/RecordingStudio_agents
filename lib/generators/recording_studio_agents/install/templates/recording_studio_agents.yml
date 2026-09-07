@@ -1,0 +1,5 @@
+development:
+  lease_seconds: 300
+
+production:
+  lease_seconds: 300
