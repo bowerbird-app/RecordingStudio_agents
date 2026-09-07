@@ -39,20 +39,64 @@ class AgentsController < ApplicationController
 
     singleton = RecordingStudioAI.singleton_class
     original = singleton.instance_method(:generate)
-    response = stubbed_response
-    singleton.define_method(:generate) { |**_kwargs| response }
+    controller = self
+    singleton.define_method(:generate) { |**kwargs| controller.send(:stubbed_response, **kwargs) }
     yield
   ensure
     singleton&.define_method(:generate, original) if original
   end
 
-  def stubbed_response
+  def stubbed_response(**kwargs)
+    ai_run = persist_stubbed_ai_run(**kwargs)
     RecordingStudioAI::Contracts::GenerationResponse.new(
       operation: "generation",
-      purpose: "agent_page_librarian",
+      purpose: kwargs[:purpose] || "agent_page_librarian",
       text: "Found Getting Started.",
-      run: Struct.new(:id).new(SecureRandom.random_number(2**31 - 1) + 1)
+      run: ai_run
     )
+  end
+
+  def persist_stubbed_ai_run(**kwargs)
+    initiator = kwargs.fetch(:initiator)
+    root = kwargs.fetch(:root_recording)
+    now = Time.current
+    context = kwargs[:context_recording]
+
+    ai_run = RecordingStudioAI::Run.create!(
+      operation: "generation",
+      purpose: kwargs[:purpose],
+      status: "completed",
+      root_recording_id: root.id,
+      context_recording_id: context&.id,
+      initiator_type: initiator.class.name,
+      initiator_id: initiator.id.to_s,
+      initiator_kind: (kwargs[:initiator_kind] || :user).to_s,
+      execution_source: (kwargs[:execution_source] || :web).to_s,
+      request_id: kwargs[:request_id],
+      metadata: kwargs[:metadata],
+      started_at: now,
+      completed_at: now,
+      custom_tool_invocation_count: 1,
+      total_tokens: 1_200,
+      latency_ms: 400,
+      input_tokens: 900,
+      output_tokens: 300
+    )
+    RecordingStudioAI::CustomToolInvocation.create!(
+      run: ai_run,
+      tool_key: "find_page",
+      tool_version: 1,
+      tool_name_snapshot: "Find page",
+      status: "completed",
+      read_only: true,
+      destructive: false,
+      requires_confirmation: false,
+      idempotent: true,
+      confirmation_status: "not_required",
+      started_at: now,
+      completed_at: now
+    )
+    ai_run
   end
 
   def notice_for(result)

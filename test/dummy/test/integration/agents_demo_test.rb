@@ -36,11 +36,29 @@ class AgentsDemoTest < ActionDispatch::IntegrationTest
     follow_redirect!
     assert_response :success
     assert_includes response.body, "Found it."
+    assert_includes response.body, "What it did"
+    assert_includes response.body, "Checked this workspace"
+    assert_includes response.body, "Find page"
+    assert_includes response.body, "Done"
+    refute_includes response.body, "find_page"
+    refute_includes response.body, "Retitle page"
+    refute_includes response.body, "lookup_invoice"
 
     run = RecordingStudioAgents::AgentRun.order(:created_at).last
     assert_equal "page_librarian", run.agent_key
     assert_equal "succeeded", run.status
     assert run.output_digest.present?
     refute_includes run.attributes.keys, "output_text"
+    assert RecordingStudioAI::CustomToolInvocation.exists?(
+      run_id: run.recording_studio_ai_run_id,
+      tool_key: "find_page",
+      tool_name_snapshot: "Find page"
+    )
+
+    run.update_column(:recording_studio_ai_run_id, nil)
+    labels = RecordingStudioAgents::Progress.for(run.reload).map(&:label)
+    assert_includes labels, "Find page"
+    assert_includes labels, "Checked this workspace"
+    assert_includes labels, "Done"
   end
 end

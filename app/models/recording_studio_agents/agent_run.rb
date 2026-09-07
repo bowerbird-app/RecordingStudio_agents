@@ -48,6 +48,10 @@ module RecordingStudioAgents
       lease_expires_at.present? && lease_expires_at < Time.current
     end
 
+    def progress
+      Progress.for(self)
+    end
+
     def record_evaluation(
       evaluator:,
       evaluator_key:,

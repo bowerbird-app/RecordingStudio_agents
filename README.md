@@ -224,9 +224,15 @@ end
 
 `Results::Completed` carries in-memory output for the call that ran. Replay returns `Results::Existing`. `Results::Blocked` means a tool is waiting on Recording Studio AI confirmation. Call `run` again with the same idempotency key after the host confirms.
 
+## Progress
+
+`RecordingStudioAgents::Progress.for(run)` returns coarse steps for one attempt. Steps come from knowledge load plus Recording Studio AI tool invocations, joined by `recording_studio_ai_run_id` or `request_id` (`recording-studio-agents:<agent_run_id>`). Hosts can poll that helper from a job. Do not stream token text as progress, and do not copy model output onto the agent run.
+
+Each step has a label and a badge: Done, Working, Waiting, or Failed. Tool labels use the tool name (for example "Find page"), not the registry key. The dummy home lists steps after a librarian run. Admin run rows show the labels in a Steps column, plus token and tool counts from the linked model call.
+
 ## Admin
 
-The `agents` section lists code-defined agents, skills, and skill packs as read-only catalogs. It lists tasks, runs, and evaluations from the engine tables. Run rows show which extra skills were loaded and link to the associated Recording Studio AI execution. Admin never displays chain-of-thought.
+The `agents` section lists code-defined agents, skills, and skill packs as read-only catalogs. Hub widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents. Runs filters by agent, status, and date, charts attempts over time, and links the AI run into Recording Studio AI. By agent averages attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Catalogs stay identity-only. Admin never displays chain-of-thought.
 
 Hosts that use importmap must pin Recording Studio Admin controllers so screen tables load:
 
@@ -239,4 +245,4 @@ pin_all_from RecordingStudioAdmin::Engine.root.join("app/javascript/recording_st
 
 ## Dummy app
 
-`test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is Recording Studio Admin with the agents section. Tests do not call a live model provider.
+`test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page, then lists what it did. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is Recording Studio Admin with the agents section. Tests do not call a live model provider.

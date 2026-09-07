@@ -6,7 +6,7 @@ module RecordingStudioAgents
       key "agents"
       icon :sparkles
       title "Agents"
-      subtitle "Who ran, what they tried, and what failed."
+      subtitle "Who ran, what they tried, and how heavy the model calls were."
 
       link :agents,
            text: "Agents",
@@ -24,12 +24,17 @@ module RecordingStudioAgents
       link :runs,
            text: "Runs",
            url: ->(context) { context.admin_screen_path("agent_runs") }
+      link :usage,
+           text: "By agent",
+           url: ->(context) { context.admin_screen_path("agent_usage") }
       link :evaluations,
            text: "Evaluations",
            url: ->(context) { context.admin_screen_path("agent_evaluations") }
 
       widget "widgets.agents.failed_runs"
-      widget "widgets.agents.run_count"
+      widget "widgets.agents.attempts_this_period"
+      widget "widgets.agents.tokens_this_period"
+      widget "widgets.agents.hungry_agents"
     end
   end
 end

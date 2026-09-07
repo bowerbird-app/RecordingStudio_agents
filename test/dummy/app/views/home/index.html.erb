@@ -14,3 +14,24 @@
     type: "submit"
   ) %>
 <% end %>
+
+<% if @progress_steps.present? %>
+  <%= render FlatPack::PageTitle::Component.new(
+    title: progress_heading,
+    variant: :h2,
+    class: "mt-10"
+  ) %>
+  <%= render FlatPack::List::Component.new(spacing: :dense) do %>
+    <% @progress_steps.each do |step| %>
+      <%= render FlatPack::List::Item.new(
+        trailing: render(FlatPack::Badge::Component.new(
+          text: step.badge,
+          style: step.badge_style,
+          size: :sm
+        ))
+      ) do %>
+        <%= step.label %>
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>

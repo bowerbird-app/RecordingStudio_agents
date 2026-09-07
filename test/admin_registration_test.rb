@@ -14,8 +14,12 @@ class AdminRegistrationTest < Minitest::Test
     refute_nil RecordingStudioAdmin.screen_for("agent_tasks")
     refute_nil RecordingStudioAdmin.screen_for("agent_runs")
     refute_nil RecordingStudioAdmin.screen_for("agent_evaluations")
+    refute_nil RecordingStudioAdmin.screen_for("agent_usage")
     refute_nil RecordingStudioAdmin.widget_for("widgets.agents.failed_runs")
-    refute_nil RecordingStudioAdmin.widget_for("widgets.agents.run_count")
+    refute_nil RecordingStudioAdmin.widget_for("widgets.agents.attempts_this_period")
+    refute_nil RecordingStudioAdmin.widget_for("widgets.agents.tokens_this_period")
+    refute_nil RecordingStudioAdmin.widget_for("widgets.agents.hungry_agents")
+    assert_nil RecordingStudioAdmin.widget_for("widgets.agents.run_count")
     assert RecordingStudioAgents::Admin.registered?
   end
 

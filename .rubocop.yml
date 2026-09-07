@@ -68,6 +68,7 @@ Metrics/BlockLength:
 
 Metrics/CyclomaticComplexity:
   Exclude:
+    - "test/**/*"
     - "lib/recording_studio_agents/persistence.rb"
     - "lib/recording_studio_agents/execution.rb"
     - "lib/recording_studio_agents/programs.rb"
