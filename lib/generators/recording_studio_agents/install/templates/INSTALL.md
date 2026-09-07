@@ -8,4 +8,5 @@ Next steps:
 4. Configure Recording Studio AI with AccessibleAuthorization. Agents does not add a second authorization handler.
 5. Register skills, knowledge, and agents, then call Agent#run from a controller or job.
 6. Mount Recording Studio Admin and enable the agents section.
-7. Keep auth, layout, and current actor integration aligned with the host app.
+7. Pin Recording Studio Admin Stimulus controllers in `config/importmap.rb` so Admin screen tables load.
+8. Keep auth, layout, and current actor integration aligned with the host app.

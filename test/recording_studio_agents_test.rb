@@ -62,6 +62,16 @@ class RecordingStudioAgentsTest < Minitest::Test
     refute File.exist?(File.expand_path("../lib/recording_studio_agents/services/base_service.rb", __dir__))
   end
 
+  def test_dummy_importmap_pins_admin_screen_controllers
+    importmap = File.read(File.expand_path("dummy/config/importmap.rb", __dir__))
+    application_js = File.read(File.expand_path("dummy/app/javascript/application.js", __dir__))
+
+    assert_includes importmap, 'pin "@hotwired/turbo-rails", to: "turbo.min.js"'
+    assert_includes importmap, "RecordingStudioAdmin::Engine.root.join(\"app/javascript/recording_studio_admin/controllers\")"
+    assert_includes importmap, 'under: "controllers/recording_studio_admin"'
+    assert_includes application_js, 'import "@hotwired/turbo-rails"'
+  end
+
   def test_dummy_app_uses_recording_studio_default_layout
     application_controller_path = File.expand_path("dummy/app/controllers/application_controller.rb", __dir__)
     controller_source = File.read(application_controller_path)

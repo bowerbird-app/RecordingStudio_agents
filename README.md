@@ -180,6 +180,15 @@ end
 
 The `agents` section lists code-defined agents and skills as read-only catalogs. It lists tasks, runs, and evaluations from the engine tables. Run rows link to the associated Recording Studio AI execution. Admin never displays chain-of-thought.
 
+Hosts that use importmap must pin Recording Studio Admin controllers so screen tables load:
+
+```ruby
+pin_all_from RecordingStudioAdmin::Engine.root.join("app/javascript/recording_studio_admin/controllers"),
+             under: "controllers/recording_studio_admin",
+             to: "recording_studio_admin/controllers",
+             preload: false
+```
+
 ## Dummy app
 
 `test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page. `/admin` is Recording Studio Admin with the agents section. Tests do not call a live model provider.

@@ -29,4 +29,4 @@ Run those commands from the dummy app directory.
 - `/recording_studio` - redirects to `/`
 - `/up` - health check
 
-Authenticated pages use Recording Studio's shared default layout. Devise sign-in keeps `layouts/application`.
+Authenticated pages use Recording Studio's shared default layout. Devise sign-in keeps `layouts/application`. Admin screen tables lazy-load through Turbo frames. The dummy importmap pins Turbo and Recording Studio Admin controllers so those frames fill.

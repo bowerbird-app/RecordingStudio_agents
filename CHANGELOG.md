@@ -16,7 +16,7 @@ Recording Studio Agents V1. This is a product release, not a template bump.
 - `awaiting_confirmation` run status and public `Results::Blocked`
 - Internal handoff tool that records an allowlisted target and never starts it
 - Recording Studio Admin section `agents` with read-only catalogs plus tasks, runs, and evaluations
-- Dummy page librarian over Workspace, Folder, and Page
+- Dummy page librarian over Workspace, Folder, and Page. Dummy importmap pins Turbo and Recording Studio Admin screen controllers so Admin tables load in the browser.
 
 ### Changed
 - Gem identity is `recording_studio_agents` at `https://github.com/bowerbird-app/RecordingStudio_agents`
@@ -32,6 +32,7 @@ Recording Studio Agents V1. This is a product release, not a template bump.
 - Configure `RecordingStudioAI.configuration.authorization_handler`. Agents does not add a second handler.
 - Register skills, knowledge, and agents in an initializer. Call `Agent#run` with `idempotency_key: job_id` from Active Job so retries converge.
 - Mount Recording Studio Admin and enable the `agents` section on an admin root.
+- Pin Recording Studio Admin Stimulus controllers in the host importmap so Admin screen tables load. The dummy importmap shows the pin.
 
 ## [0.2.1] - 2026-09-01
 

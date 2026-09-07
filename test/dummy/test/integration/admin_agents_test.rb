@@ -48,9 +48,29 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "Agents"
 
+    get "/admin/screens/registered_agents"
+    assert_response :success
+    assert_includes response.body, 'id="screen-table"'
+    assert_includes response.body, "/admin/screens/registered_agents/table"
+
+    get "/admin/screens/registered_agents/table"
+    assert_response :success
+    assert_includes response.body, "page_librarian"
+    assert_includes response.body, "page_reviewer"
+
+    get "/admin/screens/registered_skills/table"
+    assert_response :success
+    assert_includes response.body, "page_lookup"
+
+    get "/admin/screens/agent_tasks/table"
+    assert_response :success
+    assert_includes response.body, "Find the Getting Started page."
+
     get "/admin/screens/agent_runs"
     assert_response :success
     assert_includes response.body, "Runs"
+    assert_includes response.body, 'id="screen-table"'
+    assert_includes response.body, "/admin/screens/agent_runs/table"
 
     get "/admin/screens/agent_runs/table"
     assert_response :success
