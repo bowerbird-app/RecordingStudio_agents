@@ -30,3 +30,5 @@ Run those commands from the dummy app directory.
 - `/up` - health check
 
 Authenticated pages use Recording Studio's shared default layout. Devise sign-in keeps `layouts/application`. Admin screen tables lazy-load through Turbo frames. The dummy importmap pins Turbo and Recording Studio Admin controllers so those frames fill.
+
+`bin/rails tailwindcss:build` writes Bundler gem `@source` paths first, then compiles. Without that step, layout and Admin table utilities are missing from the CSS.

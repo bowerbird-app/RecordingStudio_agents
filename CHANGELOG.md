@@ -18,6 +18,9 @@ Recording Studio Agents V1. This is a product release, not a template bump.
 - Recording Studio Admin section `agents` with read-only catalogs plus tasks, runs, and evaluations
 - Dummy page librarian over Workspace, Folder, and Page. Dummy importmap pins Turbo and Recording Studio Admin screen controllers so Admin tables load in the browser.
 
+### Fixed
+- Dummy Tailwind now resolves Bundler gem roots before build so Recording Studio layout and Admin table utilities are in the compiled CSS.
+
 ### Changed
 - Gem identity is `recording_studio_agents` at `https://github.com/bowerbird-app/RecordingStudio_agents`
 - Dependencies: `recording_studio ~> 4.2`, `recording_studio_ai ~> 0.3`, `recording_studio_admin ~> 2.0`, `recording_studio_accessible ~> 0.6`
