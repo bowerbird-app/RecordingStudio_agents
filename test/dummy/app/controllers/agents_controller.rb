@@ -76,7 +76,11 @@ class AgentsController < ApplicationController
       metadata: kwargs[:metadata],
       started_at: now,
       completed_at: now,
-      custom_tool_invocation_count: 1
+      custom_tool_invocation_count: 1,
+      total_tokens: 1_200,
+      latency_ms: 400,
+      input_tokens: 900,
+      output_tokens: 300
     )
     RecordingStudioAI::CustomToolInvocation.create!(
       run: ai_run,

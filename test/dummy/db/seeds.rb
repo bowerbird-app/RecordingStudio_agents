@@ -102,6 +102,51 @@ begin
       completed_at: Time.current
     )
   end
+
+  unless RecordingStudioAgents::AgentRun.exists?(idempotency_key: "seed:page_librarian_ok")
+    task = RecordingStudioAgents::Task.find_or_create_by!(
+      root_recording_id: root_recording.id,
+      task_key: "seed:find_page"
+    ) do |record|
+      record.goal = "Find the Getting Started page."
+      record.context_json = {}
+      record.input_digest = "seed"
+    end
+    now = Time.current
+    ai_run = RecordingStudioAI::Run.create!(
+      operation: "generation",
+      purpose: "agent_page_librarian",
+      status: "completed",
+      root_recording_id: root_recording.id,
+      initiator_type: "User",
+      initiator_id: user.id.to_s,
+      initiator_kind: "user",
+      execution_source: "console",
+      request_id: "recording-studio-agents:seed-success",
+      started_at: now,
+      completed_at: now,
+      total_tokens: 12_000,
+      input_tokens: 9_600,
+      output_tokens: 2_400,
+      custom_tool_invocation_count: 4,
+      latency_ms: 1_800
+    )
+    RecordingStudioAgents::AgentRun.create!(
+      task: task,
+      root_recording_id: root_recording.id,
+      agent_key: "page_librarian",
+      agent_version: 1,
+      program_digest: "seed-ok",
+      idempotency_key: "seed:page_librarian_ok",
+      status: "succeeded",
+      recording_studio_ai_run_id: ai_run.id,
+      initiator_type: "User",
+      initiator_id: user.id,
+      initiator_kind: "user",
+      execution_source: "console",
+      completed_at: now
+    )
+  end
 ensure
   Current.actor = previous_actor
 end

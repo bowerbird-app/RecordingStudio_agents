@@ -228,11 +228,11 @@ end
 
 `RecordingStudioAgents::Progress.for(run)` returns coarse steps for one attempt. Steps come from knowledge load plus Recording Studio AI tool invocations, joined by `recording_studio_ai_run_id` or `request_id` (`recording-studio-agents:<agent_run_id>`). Hosts can poll that helper from a job. Do not stream token text as progress, and do not copy model output onto the agent run.
 
-Each step has a label and a badge: Done, Working, Waiting, or Failed. Tool labels use the tool name (for example "Find page"), not the registry key. The dummy home lists steps after a librarian run. Admin run rows show the labels in a Steps column.
+Each step has a label and a badge: Done, Working, Waiting, or Failed. Tool labels use the tool name (for example "Find page"), not the registry key. The dummy home lists steps after a librarian run. Admin run rows show the labels in a Steps column, plus token and tool counts from the linked model call.
 
 ## Admin
 
-The `agents` section lists code-defined agents, skills, and skill packs as read-only catalogs. It lists tasks, runs, and evaluations from the engine tables. Run rows show which extra skills were loaded, a compact Steps column, and a link to the associated Recording Studio AI execution. Admin never displays chain-of-thought.
+The `agents` section lists code-defined agents, skills, and skill packs as read-only catalogs. Hub widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents. Runs filters by agent, status, and date, charts attempts over time, and links the AI run into Recording Studio AI. By agent averages attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Catalogs stay identity-only. Admin never displays chain-of-thought.
 
 Hosts that use importmap must pin Recording Studio Admin controllers so screen tables load:
 

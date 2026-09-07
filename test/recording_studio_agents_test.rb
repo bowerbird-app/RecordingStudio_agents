@@ -142,6 +142,8 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes readme, "optional_skills"
     assert_includes readme, "pack:"
     assert_includes readme, "Progress.for"
+    assert_includes readme, "By agent"
+    assert_includes readme, "Hungry agents"
     refute_includes readme, "ExampleService"
     refute_includes readme, "recordable"
     refute_includes readme, "\u2014"

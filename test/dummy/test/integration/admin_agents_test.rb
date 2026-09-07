@@ -47,6 +47,12 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     get "/admin"
     assert_response :success
     assert_includes response.body, "Agents"
+    assert_includes response.body, "Attempts this period"
+    assert_includes response.body, "Tokens this period"
+    assert_includes response.body, "Hungry agents"
+    assert_includes response.body, "By agent"
+    assert_includes response.body, "12k tokens"
+    refute_includes response.body, "widgets.agents.run_count"
 
     get "/admin/screens/registered_agents"
     assert_response :success
@@ -82,8 +88,24 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "page_librarian"
     assert_includes response.body, "failed"
-    assert_includes response.body, "Extra skills"
     assert_includes response.body, "Steps"
+    assert_includes response.body, "Tokens"
+    assert_includes response.body, "Tools"
     assert_includes response.body, "Did not finish"
+    assert_includes response.body, "12,000"
+    assert_match(/tool_calls\?.*run_id=/, response.body)
+    assert_match(/ai_calls\?.*search=/, response.body)
+
+    get "/admin/screens/agent_usage"
+    assert_response :success
+    assert_includes response.body, "By agent"
+    assert_includes response.body, 'id="screen-table"'
+    assert_includes response.body, "/admin/screens/agent_usage/table"
+
+    get "/admin/screens/agent_usage/table"
+    assert_response :success
+    assert_includes response.body, "page_librarian"
+    assert_includes response.body, "Avg tokens"
+    assert_includes response.body, "12,000"
   end
 end
