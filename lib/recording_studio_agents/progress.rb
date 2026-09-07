@@ -36,11 +36,12 @@ module RecordingStudioAgents
 
     def initialize(run)
       @run = run
+      @source = Source.new(run)
     end
 
     def steps
       collected = []
-      collected << knowledge_step if knowledge_loaded?
+      collected << knowledge_step if @source.knowledge_loaded?
       collected.concat(tool_steps)
       closing = status_step_for(collected)
       collected << closing if closing
@@ -49,17 +50,13 @@ module RecordingStudioAgents
 
     private
 
-    def knowledge_loaded?
-      activities.any? { |activity| activity.kind.to_s == "knowledge_loaded" }
-    end
-
     def knowledge_step
       step(:knowledge, KNOWLEDGE_LABEL, :done)
     end
 
     def tool_steps
-      invocations.filter_map do |invocation|
-        key = read(invocation, :tool_key).to_s
+      @source.invocations.filter_map do |invocation|
+        key = Source.read(invocation, :tool_key).to_s
         next if key == Handoffs::INTERNAL_TOOL_KEY.to_s
 
         step(:tool, tool_label(invocation), tool_status(invocation))
@@ -68,107 +65,108 @@ module RecordingStudioAgents
 
     def status_step_for(collected)
       case @run.status.to_s
-      when "awaiting_confirmation"
-        return if collected.any? { |item| item.status == :waiting }
-
-        step(:confirmation, WAITING_LABEL, :waiting)
-      when "handoff_requested"
-        step(:handoff, HANDOFF_LABEL, :done)
-      when "failed", "cancelled"
-        step(:failed, FAILED_LABEL, :failed)
-      when "succeeded"
-        step(:finished, FINISHED_LABEL, :done)
-      when "running", "pending"
-        return if collected.any? { |item| item.kind == :tool }
-
-        step(:running, RUNNING_LABEL, :running)
+      when "awaiting_confirmation" then confirmation_step(collected)
+      when "handoff_requested" then step(:handoff, HANDOFF_LABEL, :done)
+      when "failed", "cancelled" then step(:failed, FAILED_LABEL, :failed)
+      when "succeeded" then step(:finished, FINISHED_LABEL, :done)
+      when "running", "pending" then running_step(collected)
       end
+    end
+
+    def confirmation_step(collected)
+      return if collected.any? { |item| item.status == :waiting }
+
+      step(:confirmation, WAITING_LABEL, :waiting)
+    end
+
+    def running_step(collected)
+      return if collected.any? { |item| item.kind == :tool }
+
+      step(:running, RUNNING_LABEL, :running)
     end
 
     def tool_label(invocation)
-      snapshot = read(invocation, :tool_name_snapshot)
+      snapshot = Source.read(invocation, :tool_name_snapshot)
       return snapshot.to_s if snapshot.present?
 
-      read(invocation, :tool_key).to_s.tr("_", " ").sub(/\A./, &:upcase)
+      Source.read(invocation, :tool_key).to_s.tr("_", " ").sub(/\A./, &:upcase)
     end
 
     def tool_status(invocation)
-      TOOL_STATUSES.fetch(read(invocation, :status).to_s, :running)
-    end
-
-    def activities
-      return [] unless @run.respond_to?(:run_activities)
-
-      records = @run.run_activities
-      records = records.order(:sequence) if records.respond_to?(:order)
-      Array(records)
-    rescue StandardError
-      []
-    end
-
-    def invocations
-      run = ai_run
-      return [] unless run&.respond_to?(:custom_tool_invocations)
-
-      records = run.custom_tool_invocations
-      if records.respond_to?(:order)
-        records = records.order(:created_at, :id)
-      else
-        records = Array(records).sort_by do |item|
-          [read(item, :created_at) || Time.at(0), read(item, :id).to_i]
-        end
-      end
-      Array(records)
-    rescue StandardError
-      []
-    end
-
-    def ai_run
-      return @ai_run if defined?(@ai_run)
-
-      @ai_run = lookup_ai_run
-    end
-
-    def lookup_ai_run
-      found = lookup_ai_run_by_id
-      return found if found
-
-      Ai.find_run(request_id: Ai.request_id_for(@run))
-    rescue StandardError
-      nil
-    end
-
-    def lookup_ai_run_by_id
-      id = @run.recording_studio_ai_run_id
-      return if id.blank?
-
-      klass = ai_run_class
-      return unless klass
-
-      klass.find_by(id: id)
-    rescue StandardError
-      nil
-    end
-
-    def ai_run_class
-      return unless defined?(RecordingStudioAI::Run)
-
-      RecordingStudioAI::Run
-    rescue StandardError
-      nil
-    end
-
-    def read(record, key)
-      if record.respond_to?(key)
-        record.public_send(key)
-      elsif record.respond_to?(:[])
-        record[key] || record[key.to_s]
-      end
+      TOOL_STATUSES.fetch(Source.read(invocation, :status).to_s, :running)
     end
 
     def step(kind, label, status)
       badge = BADGES.fetch(status)
       Step.new(kind: kind, label: label, status: status, badge: badge[:badge], badge_style: badge[:badge_style])
+    end
+
+    class Source
+      def initialize(run)
+        @run = run
+      end
+
+      def knowledge_loaded?
+        activities.any? { |activity| activity.kind.to_s == "knowledge_loaded" }
+      end
+
+      def invocations
+        run = ai_run
+        return [] if run.nil? || !run.respond_to?(:custom_tool_invocations)
+
+        ordered_invocations(run.custom_tool_invocations)
+      rescue StandardError
+        []
+      end
+
+      def self.read(record, key)
+        if record.respond_to?(key)
+          record.public_send(key)
+        elsif record.respond_to?(:[])
+          record[key] || record[key.to_s]
+        end
+      end
+
+      private
+
+      def activities
+        return [] unless @run.respond_to?(:run_activities)
+
+        records = @run.run_activities
+        records = records.order(:sequence) if records.respond_to?(:order)
+        Array(records)
+      rescue StandardError
+        []
+      end
+
+      def ordered_invocations(records)
+        return records.order(:created_at, :id) if records.respond_to?(:order)
+
+        Array(records).sort_by do |item|
+          [self.class.read(item, :created_at) || Time.at(0), self.class.read(item, :id).to_i]
+        end
+      end
+
+      def ai_run
+        return @ai_run if defined?(@ai_run)
+
+        @ai_run = lookup_ai_run
+      end
+
+      def lookup_ai_run
+        lookup_ai_run_by_id || Ai.find_run(request_id: Ai.request_id_for(@run))
+      rescue StandardError
+        nil
+      end
+
+      def lookup_ai_run_by_id
+        id = @run.recording_studio_ai_run_id
+        return if id.blank? || !defined?(RecordingStudioAI::Run)
+
+        RecordingStudioAI::Run.find_by(id: id)
+      rescue StandardError
+        nil
+      end
     end
   end
 end

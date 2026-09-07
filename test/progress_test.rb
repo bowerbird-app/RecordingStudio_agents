@@ -27,11 +27,11 @@ class ProgressTest < PersistenceTestCase
                           )
                         ]) { RecordingStudioAgents::Progress.for(run) }
 
-    assert_equal [
-      [ :knowledge, "Checked this workspace", :done, "Done", :success ],
-      [ :tool, "Find page", :done, "Done", :success ],
-      [ :finished, "Done", :done, "Done", :success ]
-    ], steps.map { |step| [ step.kind, step.label, step.status, step.badge, step.badge_style ] }
+    assert_equal([
+                   [:knowledge, "Checked this workspace", :done, "Done", :success],
+                   [:tool, "Find page", :done, "Done", :success],
+                   [:finished, "Done", :done, "Done", :success]
+                 ], steps.map { |step| [step.kind, step.label, step.status, step.badge, step.badge_style] })
     refute_includes RecordingStudioAgents::AgentRun.column_names, "output_text"
     refute_includes run.attributes.keys, "output_text"
   end
@@ -108,14 +108,14 @@ class ProgressTest < PersistenceTestCase
     run = create_run(status: "awaiting_confirmation")
     labels = with_ai_run(invocations: []) { RecordingStudioAgents::Progress.for(run).map(&:label) }
 
-    assert_equal [ "Waiting on a yes" ], labels
+    assert_equal ["Waiting on a yes"], labels
   end
 
   def test_cancelled_run_uses_failed_copy
     run = create_run(status: "cancelled")
     steps = with_ai_run(invocations: []) { RecordingStudioAgents::Progress.for(run) }
 
-    assert_equal [ "Did not finish" ], steps.map(&:label)
+    assert_equal ["Did not finish"], steps.map(&:label)
     assert_equal :failed, steps.last.status
   end
 
@@ -124,7 +124,7 @@ class ProgressTest < PersistenceTestCase
     note_knowledge!(run)
     steps = with_ai_run(invocations: []) { RecordingStudioAgents::Progress.for(run) }
 
-    assert_equal [ "Checked this workspace", "Did not finish" ], steps.map(&:label)
+    assert_equal ["Checked this workspace", "Did not finish"], steps.map(&:label)
     assert_equal :failed, steps.last.status
     assert_equal "Failed", steps.last.badge
   end
@@ -133,7 +133,7 @@ class ProgressTest < PersistenceTestCase
     run = create_run(status: "running")
     labels = with_ai_run(invocations: []) { RecordingStudioAgents::Progress.for(run).map(&:label) }
 
-    assert_equal [ "On it" ], labels
+    assert_equal ["On it"], labels
   end
 
   def test_running_with_tools_does_not_add_on_it
@@ -148,7 +148,7 @@ class ProgressTest < PersistenceTestCase
                            )
                          ]) { RecordingStudioAgents::Progress.for(run).map(&:label) }
 
-    assert_equal [ "Find page" ], labels
+    assert_equal ["Find page"], labels
     refute_includes labels, "On it"
   end
 
@@ -157,7 +157,7 @@ class ProgressTest < PersistenceTestCase
     note_knowledge!(run)
     RecordingStudioAgents::Ai.stub(:find_run, nil) do
       steps = RecordingStudioAgents::Progress.for(run)
-      assert_equal [ "Checked this workspace", "Done" ], steps.map(&:label)
+      assert_equal ["Checked this workspace", "Done"], steps.map(&:label)
     end
   end
 
@@ -201,8 +201,8 @@ class ProgressTest < PersistenceTestCase
     )
   end
 
-  def with_ai_run(invocations:)
+  def with_ai_run(invocations:, &)
     fake = FakeAiRun.new(id: 99, custom_tool_invocations: invocations)
-    RecordingStudioAgents::Ai.stub(:find_run, fake) { yield }
+    RecordingStudioAgents::Ai.stub(:find_run, fake, &)
   end
 end

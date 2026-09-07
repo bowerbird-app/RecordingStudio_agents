@@ -155,7 +155,10 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes view_source, "Find Getting Started"
     assert_includes view_source, "dummy_page_nav"
     assert_includes view_source, "FlatPack::List::Component"
-    assert_includes view_source, "What it did"
+    assert_includes view_source, "progress_heading"
+    controller_source = File.read(File.expand_path("dummy/app/controllers/home_controller.rb", __dir__))
+    assert_includes controller_source, "What it did"
+    assert_includes controller_source, "On it"
     refute_includes view_source, "FlatPack::Card::Component"
     refute_includes view_source, "Template Demo"
   end
