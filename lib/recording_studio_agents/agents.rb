@@ -6,7 +6,7 @@ module RecordingStudioAgents
   module Agents
     class Definition
       attr_reader :key, :version, :name, :description, :instructions,
-                  :skills, :tools, :knowledge, :handoffs, :enabled
+                  :skills, :optional_skills, :packs, :tools, :knowledge, :handoffs, :enabled
 
       def initialize(
         key:,
@@ -15,6 +15,8 @@ module RecordingStudioAgents
         description:,
         instructions:,
         skills:,
+        optional_skills:,
+        packs:,
         tools:,
         knowledge:,
         handoffs:,
@@ -25,10 +27,14 @@ module RecordingStudioAgents
         @name = name.to_s
         @description = description.to_s
         @instructions = instructions.to_s
-        @skills = Array(skills)
-        @tools = Array(tools)
-        @knowledge = Array(knowledge)
-        @handoffs = Array(handoffs)
+        assign_lists(
+          skills: skills,
+          optional_skills: optional_skills,
+          packs: packs,
+          tools: tools,
+          knowledge: knowledge,
+          handoffs: handoffs
+        )
         @enabled = enabled == true
         Reference.new(key: @key, version: @version)
         validate!
@@ -40,6 +46,15 @@ module RecordingStudioAgents
       end
 
       private
+
+      def assign_lists(skills:, optional_skills:, packs:, tools:, knowledge:, handoffs:)
+        @skills = Array(skills)
+        @optional_skills = Array(optional_skills)
+        @packs = Array(packs)
+        @tools = Array(tools)
+        @knowledge = Array(knowledge)
+        @handoffs = Array(handoffs)
+      end
 
       def validate!
         raise ContractError, "agent name must be present" if name.strip.empty?
@@ -57,6 +72,8 @@ module RecordingStudioAgents
         description:,
         instructions:,
         skills: {},
+        optional_skills: {},
+        packs: {},
         tools: {},
         knowledge: {},
         handoffs: {},
@@ -69,6 +86,8 @@ module RecordingStudioAgents
           description: description,
           instructions: instructions,
           skills: normalize_references(skills),
+          optional_skills: normalize_references(optional_skills),
+          packs: normalize_references(packs),
           tools: normalize_references(tools),
           knowledge: normalize_references(knowledge),
           handoffs: normalize_references(handoffs),

@@ -15,7 +15,9 @@ end
 
 An **agent** is a reusable definition. It is not an execution and it does not own a schedule.
 
-A **skill** is versioned procedure text. Other gems register skills. A skill can name the tools it needs. It does not grant those tools to an agent.
+A **skill** is versioned procedure text. Other gems register skills. A skill can name the tools it needs. It does not grant those tools to an agent. Required skills always compile. Optional skills compile only when a run selects a pack or extra skills.
+
+A **skill pack** is a named bundle of optional skills. Pack skills must already be on the agent's optional allowlist.
 
 A **tool** is an executable capability registered with Recording Studio AI. Agents never grows a parallel tool system.
 
@@ -127,6 +129,52 @@ RecordingStudioAgents.agents.register(
 
 All references pin an exact positive integer version.
 
+## Optional skills and packs
+
+`skills:` always compile into the program. `optional_skills:` is an allowlist. A run loads those skills only when the host passes `pack:` or `extra_skills:`.
+
+A **skill pack** groups optional skills. Pack skills must already be listed on `optional_skills:`. The agent lists the packs it allows. `pack: :billing_tickets` uses that listed version. A one-key hash such as `{ billing_tickets: 1 }` also works.
+
+`agent()` returns a definition handle. The program compiles at `run`, so the digest includes the selected set. Reusing an `idempotency_key` with a different pack raises `IdempotencyConflict`.
+
+Skills may set `use_when` and `do_not_use_when` for host catalogs. Those strings are not added to a generate prompt unless the skill is selected.
+
+Tools named only by an unselected optional skill are dropped from that generate call. They still belong on the agent allowlist and in Recording Studio AI.
+
+```ruby
+RecordingStudioAgents.skill_packs.register(
+  key: :billing_tickets,
+  version: 1,
+  name: "Billing tickets",
+  description: "Refund and invoice questions.",
+  skills: { refund_policy: 1, invoice_lookup: 1 }
+)
+
+RecordingStudioAgents.agents.register(
+  key: :support,
+  version: 1,
+  name: "Support",
+  description: "Handles a support ticket.",
+  instructions: "Answer the ticket with the loaded skills.",
+  skills: { support_voice: 1 },
+  optional_skills: { refund_policy: 1, invoice_lookup: 1, access_reset: 1 },
+  packs: { billing_tickets: 1 },
+  tools: { lookup_invoice: 1 }
+)
+
+RecordingStudioAgents.agent(:support, version: 1).run(
+  task: task,
+  root_recording: root,
+  initiator: user,
+  initiator_kind: :user,
+  execution_source: :job,
+  idempotency_key: job_id,
+  pack: :billing_tickets
+)
+```
+
+`extra_skills: { access_reset: 1 }` can load optional skills without a pack, and can combine with `pack:`.
+
 ## Execute a task from a job
 
 A task key identifies one durable goal inside a workspace. An idempotency key identifies one attempt. Use the Active Job `job_id` as that attempt key so retries and duplicate delivery converge on the same `AgentRun`.
@@ -178,7 +226,7 @@ end
 
 ## Admin
 
-The `agents` section lists code-defined agents and skills as read-only catalogs. It lists tasks, runs, and evaluations from the engine tables. Run rows link to the associated Recording Studio AI execution. Admin never displays chain-of-thought.
+The `agents` section lists code-defined agents, skills, and skill packs as read-only catalogs. It lists tasks, runs, and evaluations from the engine tables. Run rows show which extra skills were loaded and link to the associated Recording Studio AI execution. Admin never displays chain-of-thought.
 
 Hosts that use importmap must pin Recording Studio Admin controllers so screen tables load:
 
@@ -191,4 +239,4 @@ pin_all_from RecordingStudioAdmin::Engine.root.join("app/javascript/recording_st
 
 ## Dummy app
 
-`test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page. `/admin` is Recording Studio Admin with the agents section. Tests do not call a live model provider.
+`test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is Recording Studio Admin with the agents section. Tests do not call a live model provider.

@@ -50,4 +50,54 @@ module RegistryHelpers
       handoffs: handoffs
     )
   end
+
+  def register_support_clerk
+    register_ai_tool(:lookup_invoice)
+    RecordingStudioAgents.skills.register(
+      key: :support_voice,
+      version: 1,
+      name: "Support voice",
+      description: "How to talk on a support ticket.",
+      instructions: "Keep a steady voice and ask one question at a time.",
+      use_when: "Every support ticket.",
+      do_not_use_when: "The work is not a support ticket."
+    )
+    RecordingStudioAgents.skills.register(
+      key: :billing_help,
+      version: 1,
+      name: "Billing help",
+      description: "Refunds and invoices.",
+      instructions: "Explain the refund window and look up the invoice before you promise anything.",
+      required_tools: { lookup_invoice: 1 },
+      use_when: "The ticket is about a charge or refund.",
+      do_not_use_when: "The ticket is about signing in."
+    )
+    RecordingStudioAgents.skills.register(
+      key: :login_help,
+      version: 1,
+      name: "Login help",
+      description: "People who cannot sign in.",
+      instructions: "Never ask for a password. Send a reset link instead.",
+      use_when: "The person cannot sign in.",
+      do_not_use_when: "The ticket is about billing."
+    )
+    RecordingStudioAgents.skill_packs.register(
+      key: :billing_tickets,
+      version: 1,
+      name: "Billing tickets",
+      description: "Refund and invoice questions.",
+      skills: { billing_help: 1 }
+    )
+    RecordingStudioAgents.agents.register(
+      key: :support_clerk,
+      version: 1,
+      name: "Support clerk",
+      description: "Handles a support ticket with only the skills that ticket needs.",
+      instructions: "Answer the ticket. Load extra help only when the host selected it.",
+      skills: { support_voice: 1 },
+      optional_skills: { billing_help: 1, login_help: 1 },
+      packs: { billing_tickets: 1 },
+      tools: { lookup_invoice: 1 }
+    )
+  end
 end

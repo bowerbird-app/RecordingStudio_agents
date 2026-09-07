@@ -13,6 +13,10 @@ module RecordingStudioAgents
         RecordingStudioAgents.skills.all
       end
 
+      def skill_packs
+        RecordingStudioAgents.skill_packs.all
+      end
+
       def tasks(context:)
         Task.where(root_recording_id: visible_root_ids(context)).order(created_at: :desc)
       end

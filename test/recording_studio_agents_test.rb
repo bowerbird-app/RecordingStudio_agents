@@ -139,6 +139,8 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes readme, "idempotency_key"
     assert_includes readme, "job_id"
     refute_includes readme, "job_id:\#{executions}"
+    assert_includes readme, "optional_skills"
+    assert_includes readme, "pack:"
     refute_includes readme, "ExampleService"
     refute_includes readme, "recordable"
     refute_includes readme, "\u2014"

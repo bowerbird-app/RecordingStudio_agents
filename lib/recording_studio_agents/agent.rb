@@ -2,22 +2,26 @@
 
 module RecordingStudioAgents
   class Agent
-    attr_reader :program
+    attr_reader :definition
 
-    def initialize(program:)
-      @program = program
+    def initialize(definition:)
+      @definition = definition
     end
 
     def key
-      program.key
+      definition.key
     end
 
     def version
-      program.version
+      definition.version
     end
 
     def name
-      program.name
+      definition.name
+    end
+
+    def program
+      Programs::Compiler.compile(definition: definition)
     end
 
     def run(
@@ -28,8 +32,16 @@ module RecordingStudioAgents
       idempotency_key:,
       context_recording: nil,
       initiator_kind: :user,
-      executor: nil
+      executor: nil,
+      pack: nil,
+      extra_skills: {}
     )
+      selection = SkillSelection.parse(
+        definition: definition,
+        pack: pack,
+        extra_skills: extra_skills || {}
+      )
+      compiled = Programs::Compiler.compile(definition: definition, selection: selection)
       request = Execution::Request.parse(
         task: task,
         root_recording: root_recording,
@@ -38,9 +50,10 @@ module RecordingStudioAgents
         idempotency_key: idempotency_key,
         context_recording: context_recording,
         initiator_kind: initiator_kind,
-        executor: executor
+        executor: executor,
+        selection: selection
       )
-      Execution::Engine.new(program: program).call(request: request)
+      Execution::Engine.new(program: compiled).call(request: request)
     end
   end
 end

@@ -18,6 +18,8 @@ require "recording_studio_agents/task_input"
 require "recording_studio_agents/skills"
 require "recording_studio_agents/knowledge"
 require "recording_studio_agents/agents"
+require "recording_studio_agents/skill_packs"
+require "recording_studio_agents/skill_selection"
 require "recording_studio_agents/programs"
 require "recording_studio_agents/results"
 require "recording_studio_agents/lifecycle"
@@ -51,17 +53,22 @@ module RecordingStudioAgents
       @agents ||= Agents::Registry.new
     end
 
+    def skill_packs
+      @skill_packs ||= SkillPacks::Registry.new
+    end
+
     def agent(key, version:)
       definition = agents.fetch(key, version: version)
       raise AgentDisabled.new(key, version) unless definition.enabled
 
-      Agent.new(program: Programs::Compiler.compile(definition: definition))
+      Agent.new(definition: definition)
     end
 
     def reset!
       @skills = Skills::Registry.new
       @knowledge = Knowledge::Registry.new
       @agents = Agents::Registry.new
+      @skill_packs = SkillPacks::Registry.new
     end
 
     def finalize!

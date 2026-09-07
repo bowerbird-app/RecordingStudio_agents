@@ -26,6 +26,24 @@ module RecordingStudioAgents
       run_activities.order(:sequence)
     end
 
+    def selected_skill_key_list
+      selected_skill_keys.join(",")
+    end
+
+    def selected_skill_labels
+      selected_skill_keys.join(", ")
+    end
+
+    def selected_skill_keys
+      Array(selected_skills_json).filter_map do |item|
+        hash = item.respond_to?(:stringify_keys) ? item.stringify_keys : item
+        key = hash["key"]
+        next if key.blank?
+
+        "#{key}:#{hash['version']}"
+      end
+    end
+
     def lease_expired?
       lease_expires_at.present? && lease_expires_at < Time.current
     end

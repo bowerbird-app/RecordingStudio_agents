@@ -8,6 +8,7 @@ This Rails app exists to prove Recording Studio Agents in a real host.
 - Workspace, Folder, and Page with Accessible grants
 - An Admin root for Recording Studio Admin
 - Page librarian demo on `/` (`POST /agents/demo`)
+- Support clerk registered for optional skill and pack tests (no second home button)
 - Mounted Agents, AI, Accessible, and Admin (`/admin`)
 
 ## Quick start

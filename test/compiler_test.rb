@@ -145,4 +145,122 @@ class CompilerTest < Minitest::Test
     refute program.allows_handoff?(:stranger, 1)
     assert_includes program.effective_tool_references.map(&:key), "recording_studio_agents_request_handoff"
   end
+
+  def test_default_compile_omits_optional_skills
+    register_support_clerk
+    program = RecordingStudioAgents::Programs::Compiler.compile(
+      definition: RecordingStudioAgents.agents.fetch(:support_clerk, version: 1)
+    )
+
+    texts = program.instruction_blocks.map(&:text)
+    assert(texts.any? { |text| text.include?("Keep a steady voice") })
+    refute(texts.any? { |text| text.include?("refund window") })
+    refute(texts.any? { |text| text.include?("reset link") })
+    refute_includes program.tool_references.map(&:key), "lookup_invoice"
+  end
+
+  def test_pack_compile_includes_pack_skills_and_their_tools
+    register_support_clerk
+    definition = RecordingStudioAgents.agents.fetch(:support_clerk, version: 1)
+    selection = RecordingStudioAgents::SkillSelection.parse(definition: definition, pack: :billing_tickets)
+    program = RecordingStudioAgents::Programs::Compiler.compile(definition: definition, selection: selection)
+
+    texts = program.instruction_blocks.map(&:text)
+    assert(texts.any? { |text| text.include?("refund window") })
+    refute(texts.any? { |text| text.include?("reset link") })
+    assert_includes program.tool_references.map(&:key), "lookup_invoice"
+  end
+
+  def test_extra_skills_compile_includes_named_optional_skill
+    register_support_clerk
+    definition = RecordingStudioAgents.agents.fetch(:support_clerk, version: 1)
+    selection = RecordingStudioAgents::SkillSelection.parse(
+      definition: definition,
+      extra_skills: { login_help: 1 }
+    )
+    program = RecordingStudioAgents::Programs::Compiler.compile(definition: definition, selection: selection)
+
+    texts = program.instruction_blocks.map(&:text)
+    assert(texts.any? { |text| text.include?("reset link") })
+    refute(texts.any? { |text| text.include?("refund window") })
+  end
+
+  def test_unknown_extra_skill_is_rejected
+    register_support_clerk
+    definition = RecordingStudioAgents.agents.fetch(:support_clerk, version: 1)
+    error = assert_raises(RecordingStudioAgents::ContractError) do
+      RecordingStudioAgents::SkillSelection.parse(
+        definition: definition,
+        extra_skills: { page_lookup: 1 }
+      )
+    end
+    assert_match(/not an optional skill/, error.message)
+  end
+
+  def test_unknown_pack_is_rejected
+    register_support_clerk
+    definition = RecordingStudioAgents.agents.fetch(:support_clerk, version: 1)
+    error = assert_raises(RecordingStudioAgents::ContractError) do
+      RecordingStudioAgents::SkillSelection.parse(definition: definition, pack: :missing_pack)
+    end
+    assert_match(/does not allow pack/, error.message)
+  end
+
+  def test_pack_skills_must_be_optional_on_the_agent
+    register_ai_tool(:lookup_invoice)
+    RecordingStudioAgents.skills.register(
+      key: :secret_help,
+      version: 1,
+      name: "Secret help",
+      description: "Not optional",
+      instructions: "Do not load this by default."
+    )
+    RecordingStudioAgents.skill_packs.register(
+      key: :secret_pack,
+      version: 1,
+      name: "Secret pack",
+      description: "Includes a skill the agent did not allow.",
+      skills: { secret_help: 1 }
+    )
+    RecordingStudioAgents.agents.register(
+      key: :broken_clerk,
+      version: 1,
+      name: "Broken clerk",
+      description: "Pack is not a subset.",
+      instructions: "Fail at compile.",
+      packs: { secret_pack: 1 }
+    )
+
+    error = assert_raises(RecordingStudioAgents::ConfigurationError) do
+      RecordingStudioAgents.finalize!
+    end
+    assert_match(/not optional on agent broken_clerk/, error.message)
+  end
+
+  def test_pack_hash_must_name_one_pack
+    register_support_clerk
+    definition = RecordingStudioAgents.agents.fetch(:support_clerk, version: 1)
+    error = assert_raises(RecordingStudioAgents::ContractError) do
+      RecordingStudioAgents::SkillSelection.parse(
+        definition: definition,
+        pack: { billing_tickets: 1, other: 1 }
+      )
+    end
+    assert_match(/one pack/, error.message)
+  end
+
+  def test_pack_and_extra_skills_combine
+    register_support_clerk
+    definition = RecordingStudioAgents.agents.fetch(:support_clerk, version: 1)
+    selection = RecordingStudioAgents::SkillSelection.parse(
+      definition: definition,
+      pack: :billing_tickets,
+      extra_skills: { login_help: 1 }
+    )
+    program = RecordingStudioAgents::Programs::Compiler.compile(definition: definition, selection: selection)
+    texts = program.instruction_blocks.map(&:text)
+
+    assert(texts.any? { |text| text.include?("refund window") })
+    assert(texts.any? { |text| text.include?("reset link") })
+  end
 end

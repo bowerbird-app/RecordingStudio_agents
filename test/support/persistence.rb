@@ -29,6 +29,9 @@ module PersistenceSupport
       t.string :agent_key, null: false
       t.integer :agent_version, null: false
       t.string :program_digest, null: false
+      t.json :selected_skills_json, null: false, default: []
+      t.string :skill_pack_key
+      t.integer :skill_pack_version
       t.string :idempotency_key, null: false
       t.string :status, null: false, default: "pending"
       t.integer :recording_studio_ai_run_id

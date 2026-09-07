@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "skill_selection"
+
 module RecordingStudioAgents
   module Execution
     class Request
@@ -7,7 +9,8 @@ module RecordingStudioAgents
       INITIATOR_KINDS = RecordingStudioAI::Contracts::Attribution::INITIATOR_KINDS
 
       attr_reader :task_input, :root_recording, :context_recording, :initiator,
-                  :initiator_kind, :executor, :execution_source, :idempotency_key
+                  :initiator_kind, :executor, :execution_source, :idempotency_key,
+                  :selection
 
       def self.parse(
         task:,
@@ -17,7 +20,8 @@ module RecordingStudioAgents
         idempotency_key:,
         context_recording: nil,
         initiator_kind: :user,
-        executor: nil
+        executor: nil,
+        selection: SkillSelection.none
       )
         raise ContractError, "task is required" if task.nil?
         raise ContractError, "root_recording is required" if root_recording.nil?
@@ -42,7 +46,8 @@ module RecordingStudioAgents
           initiator_kind: kind,
           executor: executor,
           execution_source: source,
-          idempotency_key: idempotency_key.to_s
+          idempotency_key: idempotency_key.to_s,
+          selection: selection || SkillSelection.none
         )
       end
 
@@ -54,7 +59,8 @@ module RecordingStudioAgents
         initiator_kind:,
         executor:,
         execution_source:,
-        idempotency_key:
+        idempotency_key:,
+        selection: SkillSelection.none
       )
         @task_input = task_input
         @root_recording = root_recording
@@ -64,6 +70,7 @@ module RecordingStudioAgents
         @executor = executor
         @execution_source = execution_source
         @idempotency_key = idempotency_key
+        @selection = selection || SkillSelection.none
       end
     end
 

@@ -30,7 +30,7 @@ module RecordingStudioAgents
     class RunLedger
       ACTIVITY_KEYS = {
         "run_created" => %w[task_id],
-        "program_composed" => %w[program_digest],
+        "program_composed" => %w[program_digest selected_skill_keys],
         "knowledge_loaded" => %w[entry_count],
         "ai_run_linked" => %w[recording_studio_ai_run_id],
         "handoff_requested" => %w[target_agent_key target_agent_version],
@@ -89,7 +89,10 @@ module RecordingStudioAgents
 
       def record_composed!(run:, lease_token:, program:, knowledge_entries:)
         with_valid_lease!(run, lease_token) do |locked|
-          append_activity!(locked, "program_composed", { "program_digest" => program.digest })
+          append_activity!(locked, "program_composed", {
+                             "program_digest" => program.digest,
+                             "selected_skill_keys" => locked.selected_skill_key_list
+                           })
           append_activity!(locked, "knowledge_loaded", { "entry_count" => knowledge_entries.length })
         end
       end
@@ -236,6 +239,7 @@ module RecordingStudioAgents
       end
 
       def find_or_insert_run!(task, program, request)
+        selection = request.selection || SkillSelection.none
         attributes = {
           task: task,
           root_recording_id: request.root_recording.id,
@@ -243,6 +247,9 @@ module RecordingStudioAgents
           agent_key: program.key,
           agent_version: program.version,
           program_digest: program.digest,
+          selected_skills_json: selection.as_json,
+          skill_pack_key: selection.pack&.key,
+          skill_pack_version: selection.pack&.version,
           idempotency_key: request.idempotency_key,
           status: "pending",
           initiator_type: request.initiator.class.name,
@@ -258,7 +265,10 @@ module RecordingStudioAgents
           agent_version: attributes[:agent_version],
           idempotency_key: attributes[:idempotency_key]
         )
-        return run if run
+        if run
+          assert_same_program!(run, program)
+          return run
+        end
 
         run = AgentRun.create!(attributes)
         append_activity!(run, "run_created", { "task_id" => task.id })
@@ -269,7 +279,14 @@ module RecordingStudioAgents
           agent_key: attributes[:agent_key],
           agent_version: attributes[:agent_version],
           idempotency_key: attributes[:idempotency_key]
-        )
+        ).tap { |found| assert_same_program!(found, program) }
+      end
+
+      def assert_same_program!(run, program)
+        return if run.program_digest == program.digest
+
+        raise IdempotencyConflict,
+              "idempotency_key #{run.idempotency_key} already exists with a different program"
       end
 
       def held_by_live_lease?(run)

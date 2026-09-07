@@ -10,6 +10,7 @@ class AdminRegistrationTest < Minitest::Test
     assert_equal "Agents", RecordingStudioAdmin.section_for("agents").title
     refute_nil RecordingStudioAdmin.screen_for("registered_agents")
     refute_nil RecordingStudioAdmin.screen_for("registered_skills")
+    refute_nil RecordingStudioAdmin.screen_for("registered_skill_packs")
     refute_nil RecordingStudioAdmin.screen_for("agent_tasks")
     refute_nil RecordingStudioAdmin.screen_for("agent_runs")
     refute_nil RecordingStudioAdmin.screen_for("agent_evaluations")
@@ -44,5 +45,6 @@ class AdminRegistrationTest < Minitest::Test
     assert_equal [], RecordingStudioAgents::Admin::Queries.visible_root_ids(context)
     assert_equal RecordingStudioAgents.agents.all, RecordingStudioAgents::Admin::Queries.agents
     assert_equal RecordingStudioAgents.skills.all, RecordingStudioAgents::Admin::Queries.skills
+    assert_equal RecordingStudioAgents.skill_packs.all, RecordingStudioAgents::Admin::Queries.skill_packs
   end
 end

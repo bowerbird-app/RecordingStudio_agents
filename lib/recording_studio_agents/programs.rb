@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "skill_selection"
+
 module RecordingStudioAgents
   module Programs
     class InstructionBlock
@@ -121,69 +123,24 @@ module RecordingStudioAgents
       end
     end
 
-    module Compiler
+    module Fetches
       module_function
 
-      def compile(definition:)
-        skills = definition.skills.map { |reference| fetch_skill!(reference) }
-        knowledge = definition.knowledge.map { |reference| fetch_knowledge!(reference) }
-        tools = definition.tools.map { |reference| fetch_tool!(reference) }
-        handoffs = definition.handoffs.map { |reference| fetch_agent!(reference) }
-        assert_required_tools!(definition, skills)
-
-        blocks = [
-          InstructionBlock.new(
-            kind: :agent,
-            key: definition.key,
-            version: definition.version,
-            text: definition.instructions
-          )
-        ]
-        skills.each do |skill|
-          blocks << InstructionBlock.new(
-            kind: :skill,
-            key: skill.key,
-            version: skill.version,
-            text: skill.instructions
-          )
-        end
-
-        digest = Digests.of(
-          "agent" => definition.reference.to_h,
-          "instructions" => definition.instructions,
-          "skills" => skills.map do |skill|
-            { "key" => skill.key, "version" => skill.version, "instructions" => skill.instructions }
-          end,
-          "tools" => tools.map(&:to_h),
-          "knowledge" => knowledge.map { |item| item.reference.to_h },
-          "handoffs" => handoffs.map { |item| item.reference.to_h }
-        )
-
-        Program.new(
-          definition: definition,
-          instruction_blocks: blocks,
-          tool_references: definition.tools,
-          knowledge_definitions: knowledge,
-          handoff_references: definition.handoffs,
-          digest: digest
-        )
-      end
-
-      def fetch_skill!(reference)
+      def skill(reference)
         RecordingStudioAgents.skills.fetch(reference.key, version: reference.version)
       end
 
-      def fetch_knowledge!(reference)
+      def knowledge(reference)
         RecordingStudioAgents.knowledge.fetch(reference.key, version: reference.version)
       end
 
-      def fetch_agent!(reference)
+      def agent(reference)
         RecordingStudioAgents.agents.fetch(reference.key, version: reference.version)
       end
 
-      def fetch_tool!(reference)
-        tool = RecordingStudioAI.tools.fetch(reference.key, version: reference.version)
-        return reference if tool
+      def tool(reference)
+        found = RecordingStudioAI.tools.fetch(reference.key, version: reference.version)
+        return reference if found
 
         raise ConfigurationError,
               "AI tool #{reference.key} version #{reference.version} is not registered"
@@ -202,6 +159,105 @@ module RecordingStudioAgents
                   "which is not on agent #{definition.key} version #{definition.version}"
           end
         end
+      end
+    end
+
+    module Optional
+      module_function
+
+      def validate!(definition)
+        definition.optional_skills.each do |reference|
+          skill = Fetches.skill(reference)
+          skill.required_tools.each { |tool| Fetches.tool(tool) }
+          Fetches.assert_required_tools!(definition, [skill])
+        end
+        definition.packs.each do |reference|
+          pack = RecordingStudioAgents.skill_packs.fetch(reference.key, version: reference.version)
+          pack.skills.each do |skill_reference|
+            next if definition.optional_skills.include?(skill_reference)
+
+            raise ConfigurationError,
+                  "pack #{pack.key} version #{pack.version} includes #{skill_reference.key} " \
+                  "version #{skill_reference.version}, which is not optional on agent " \
+                  "#{definition.key} version #{definition.version}"
+          end
+        end
+      end
+
+      def tools_for(definition, compiled_skills:, selection:)
+        selected = {}
+        selection.skill_references.each { |reference| selected[reference] = true }
+        unselected = definition.optional_skills.filter_map do |reference|
+          next if selected[reference]
+
+          Fetches.skill(reference)
+        end
+        drop = unselected.flat_map(&:required_tools) - compiled_skills.flat_map(&:required_tools)
+        definition.tools.reject { |reference| drop.include?(reference) }
+      end
+
+      def uniq_skills(skills)
+        seen = {}
+        skills.each_with_object([]) do |skill, list|
+          key = [skill.key, skill.version]
+          next if seen[key]
+
+          seen[key] = true
+          list << skill
+        end
+      end
+    end
+
+    module Compiler
+      module_function
+
+      def compile(definition:, selection: SkillSelection.none)
+        Optional.validate!(definition)
+        required_skills = definition.skills.map { |reference| Fetches.skill(reference) }
+        selected_skills = selection.skill_references.map { |reference| Fetches.skill(reference) }
+        skills = Optional.uniq_skills(required_skills + selected_skills)
+        knowledge = definition.knowledge.map { |reference| Fetches.knowledge(reference) }
+        definition.tools.each { |reference| Fetches.tool(reference) }
+        handoffs = definition.handoffs.map { |reference| Fetches.agent(reference) }
+        Fetches.assert_required_tools!(definition, skills)
+
+        blocks = [
+          InstructionBlock.new(
+            kind: :agent,
+            key: definition.key,
+            version: definition.version,
+            text: definition.instructions
+          )
+        ]
+        skills.each do |skill|
+          blocks << InstructionBlock.new(
+            kind: :skill,
+            key: skill.key,
+            version: skill.version,
+            text: skill.instructions
+          )
+        end
+
+        tool_references = Optional.tools_for(definition, compiled_skills: skills, selection: selection)
+        digest = Digests.of(
+          "agent" => definition.reference.to_h,
+          "instructions" => definition.instructions,
+          "skills" => skills.map do |skill|
+            { "key" => skill.key, "version" => skill.version, "instructions" => skill.instructions }
+          end,
+          "tools" => tool_references.map(&:to_h),
+          "knowledge" => knowledge.map { |item| item.reference.to_h },
+          "handoffs" => handoffs.map { |item| item.reference.to_h }
+        )
+
+        Program.new(
+          definition: definition,
+          instruction_blocks: blocks,
+          tool_references: tool_references,
+          knowledge_definitions: knowledge,
+          handoff_references: definition.handoffs,
+          digest: digest
+        )
       end
     end
   end

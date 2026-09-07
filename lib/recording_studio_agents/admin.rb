@@ -4,6 +4,7 @@ require_relative "admin/queries"
 require_relative "admin/section"
 require_relative "admin/agents_screen"
 require_relative "admin/skills_screen"
+require_relative "admin/skill_packs_screen"
 require_relative "admin/tasks_screen"
 require_relative "admin/runs_screen"
 require_relative "admin/evaluations_screen"
@@ -19,6 +20,7 @@ module RecordingStudioAgents
       RecordingStudioAdmin.register_section(Section)
       RecordingStudioAdmin.register_screen(AgentsScreen)
       RecordingStudioAdmin.register_screen(SkillsScreen)
+      RecordingStudioAdmin.register_screen(SkillPacksScreen)
       RecordingStudioAdmin.register_screen(TasksScreen)
       RecordingStudioAdmin.register_screen(RunsScreen)
       RecordingStudioAdmin.register_screen(EvaluationsScreen)

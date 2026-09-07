@@ -341,4 +341,102 @@ class ExecutionTest < PersistenceTestCase
     end
     assert_match(/execution_source/, error.message)
   end
+
+  def test_default_support_run_omits_optional_skill_text
+    register_support_clerk
+    captured = nil
+    result = nil
+    RecordingStudioAI.stub(:generate, lambda { |**kwargs|
+      captured = kwargs
+      generation_response
+    }) do
+      result = RecordingStudioAgents.agent(:support_clerk, version: 1).run(
+        task: task_input(key: "ticket-1", goal: "Help with this ticket."),
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "support-default"
+      )
+    end
+
+    assert_instance_of RecordingStudioAgents::Results::Completed, result
+    assert_match(/Keep a steady voice/, captured[:system_instruction])
+    refute_match(/refund window/, captured[:system_instruction])
+    refute_match(/reset link/, captured[:system_instruction])
+    refute_includes captured[:custom_tools], { key: :lookup_invoice, version: 1 }
+    assert_equal [], result.run.selected_skills_json
+    assert_nil result.run.skill_pack_key
+  end
+
+  def test_pack_run_loads_pack_skills_and_tools
+    register_support_clerk
+    captured = nil
+    result = nil
+    RecordingStudioAI.stub(:generate, lambda { |**kwargs|
+      captured = kwargs
+      generation_response
+    }) do
+      result = RecordingStudioAgents.agent(:support_clerk, version: 1).run(
+        task: task_input(key: "ticket-1", goal: "Help with this ticket."),
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "support-billing",
+        pack: :billing_tickets
+      )
+    end
+
+    assert_instance_of RecordingStudioAgents::Results::Completed, result
+    assert_match(/refund window/, captured[:system_instruction])
+    refute_match(/reset link/, captured[:system_instruction])
+    assert_includes captured[:custom_tools], { key: :lookup_invoice, version: 1 }
+    assert_equal [{ "key" => "billing_help", "version" => 1 }], result.run.selected_skills_json
+    assert_equal "billing_tickets", result.run.skill_pack_key
+    assert_equal 1, result.run.skill_pack_version
+    composed = result.run.activities.find { |activity| activity.kind == "program_composed" }
+    assert_equal "billing_help:1", composed.data["selected_skill_keys"]
+  end
+
+  def test_same_key_with_different_pack_is_an_idempotency_conflict
+    register_support_clerk
+    RecordingStudioAI.stub(:generate, generation_response) do
+      RecordingStudioAgents.agent(:support_clerk, version: 1).run(
+        task: task_input(key: "ticket-1", goal: "Help with this ticket."),
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "support-same-key"
+      )
+    end
+
+    error = assert_raises(RecordingStudioAgents::IdempotencyConflict) do
+      RecordingStudioAgents.agent(:support_clerk, version: 1).run(
+        task: task_input(key: "ticket-1", goal: "Help with this ticket."),
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "support-same-key",
+        pack: :billing_tickets
+      )
+    end
+    assert_match(/different program/, error.message)
+  end
+
+  def test_hash_pack_selects_the_listed_version
+    register_support_clerk
+    result = nil
+    RecordingStudioAI.stub(:generate, generation_response) do
+      result = RecordingStudioAgents.agent(:support_clerk, version: 1).run(
+        task: task_input(key: "ticket-2", goal: "Help with this ticket."),
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "support-hash-pack",
+        pack: { billing_tickets: 1 }
+      )
+    end
+
+    assert_instance_of RecordingStudioAgents::Results::Completed, result
+    assert_equal "billing_tickets", result.run.skill_pack_key
+  end
 end
