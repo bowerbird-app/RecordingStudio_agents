@@ -53,6 +53,7 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "By agent"
     assert_includes response.body, "12k tokens"
     assert_includes response.body, "Last 4 weeks"
+    refute_includes response.body, "Last 30 days"
     refute_includes response.body, "widgets.agents.run_count"
 
     get "/admin/screens/registered_agents"
