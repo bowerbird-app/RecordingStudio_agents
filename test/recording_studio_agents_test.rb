@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.4.4", ::RecordingStudioAgents::VERSION
+    assert_equal "0.4.5", ::RecordingStudioAgents::VERSION
   end
 
   def test_engine_exists
@@ -173,6 +173,18 @@ class RecordingStudioAgentsTest < Minitest::Test
   def test_dummy_does_not_ship_template_docs_pages
     refute File.exist?(File.expand_path("dummy/app/controllers/docs_controller.rb", __dir__))
     refute File.exist?(File.expand_path("dummy/app/views/docs/install.html.erb", __dir__))
+  end
+
+  def test_dummy_uses_accessible_roots_and_a_request_scoped_generate_hook
+    switchable = File.read(File.expand_path("dummy/config/initializers/recording_studio_root_switchable.rb", __dir__))
+    controller = File.read(File.expand_path("dummy/app/controllers/agents_controller.rb", __dir__))
+    stub = File.read(File.expand_path("dummy/config/initializers/dummy_generate_stub.rb", __dir__))
+
+    assert_includes switchable, "root_recordings_for"
+    refute_includes switchable, "access_check = ->(**) { true }"
+    assert_includes controller, "DummyGenerateStub.with_hook"
+    refute_includes controller, "define_method(:generate)"
+    assert_includes stub, "Thread.current"
   end
 
   def test_engine_does_not_ship_a_home_view

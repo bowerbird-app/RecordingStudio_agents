@@ -109,6 +109,23 @@ class LedgerTest < PersistenceTestCase
     assert_match(/different goal/, error.message)
   end
 
+  def test_task_keeps_goal_and_drops_context_json
+    register_librarian
+    RecordingStudioAI.stub(:generate, generation_response) do
+      RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "job-task-columns"
+      )
+    end
+
+    task = RecordingStudioAgents::Task.find_by!(task_key: "find_page")
+    assert_equal "Find Getting Started.", task.goal
+    refute_includes RecordingStudioAgents::Task.column_names, "context_json"
+  end
+
   def test_evaluation_is_idempotent_per_evaluator
     register_librarian
     result = nil

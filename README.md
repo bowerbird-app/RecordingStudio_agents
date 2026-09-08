@@ -222,7 +222,9 @@ class FindPageJob < ApplicationJob
 end
 ```
 
-`Results::Completed` carries in-memory output for the call that ran. Replay of a succeeded attempt returns `Results::Existing`. Replay of a recorded handoff returns `Results::HandoffRequested` again so the host can route; `Agent#run` still does not start the target. `Results::Blocked` means a tool is waiting on Recording Studio AI confirmation. Call `run` again with the same idempotency key after the host confirms.
+`Results::Completed` carries in-memory output for the call that ran. Replay of a succeeded attempt returns `Results::Existing`. Adopting a completed Recording Studio AI run without retained text also returns `Results::Existing`, not a blank `Completed`. Replay of a recorded handoff returns `Results::HandoffRequested` again so the host can route; `Agent#run` still does not start the target. `Results::Blocked` means a tool is waiting on Recording Studio AI confirmation. Call `run` again with the same idempotency key after the host confirms.
+
+A failed run is retryable for timeouts and connection resets, and when Recording Studio AI marks the provider error retryable. Programmer errors such as `RuntimeError` are not retryable.
 
 ## Progress
 
@@ -232,7 +234,7 @@ Each step has a label and a badge: Done, Working, Waiting, or Failed. Tool label
 
 ## Admin
 
-The `agents` section lists code-defined agents, skills, and skill packs as read-only catalogs. Hub widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents. Runs filters by agent, status, and date (Last 4 weeks by default), charts attempts over time, and links the AI run into Recording Studio AI. By agent uses the same Last 4 weeks date filter and averages attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Catalogs stay identity-only. Admin never displays chain-of-thought.
+The `agents` section lists code-defined agents, skills, and skill packs as read-only catalogs. Hub widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents, using Last 4 weeks (today through 27 days back) so they match Runs and By agent. Runs filters by agent, status, and date (Last 4 weeks by default), charts attempts over time, and links the AI run into Recording Studio AI. Agent keys in that filter come from workspaces the actor can view. By agent uses the same Last 4 weeks date filter and averages attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Catalogs stay identity-only. Admin never displays chain-of-thought.
 
 Hosts that use importmap must pin Recording Studio Admin controllers so screen tables load:
 

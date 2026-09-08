@@ -53,6 +53,27 @@ module RecordingStudioAgents
       nil
     end
 
+    def retained_output(ai_run:, initiator:)
+      return if ai_run.nil? || initiator.nil?
+      return unless ai_run.respond_to?(:attempts)
+      return unless defined?(RecordingStudioAI) && RecordingStudioAI.respond_to?(:read_retained_response)
+
+      attempt = Array(ai_run.attempts).max_by { |item| item.try(:sequence) || item.try(:id).to_i }
+      retained = attempt.respond_to?(:response) ? attempt.response : nil
+      return unless retained
+
+      payload = RecordingStudioAI.read_retained_response(response: retained, initiator: initiator)
+      return unless payload.is_a?(Hash)
+
+      text = payload[:content_text]
+      data = payload[:normalized_response]
+      return if text.blank? && data.blank?
+
+      { text: text, data: data }
+    rescue StandardError
+      nil
+    end
+
     def attribution_for(request)
       RecordingStudioAI::Contracts::Attribution.new(
         root_recording: request.root_recording,

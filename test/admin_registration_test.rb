@@ -96,4 +96,8 @@ class AdminRegistrationTest < Minitest::Test
     assert_equal :last_4_weeks, runs_filter.options[:default]
     assert_equal :last_4_weeks, usage_filter.options[:default]
   end
+
+  def test_last_four_weeks_lookback_matches_flatpack
+    assert_equal 27, RecordingStudioAgents::Admin::LastFourWeeks::LOOKBACK_DAYS
+  end
 end

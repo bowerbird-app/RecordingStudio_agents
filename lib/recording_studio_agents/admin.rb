@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "admin/queries"
 require_relative "admin/last_four_weeks_period"
+require_relative "admin/queries"
 require_relative "admin/section"
 require_relative "admin/agents_screen"
 require_relative "admin/skills_screen"

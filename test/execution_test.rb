@@ -213,7 +213,7 @@ class ExecutionTest < PersistenceTestCase
     assert_equal "awaiting_confirmation", result.run.status
   end
 
-  def test_adopt_completed_ai_run_skips_generate
+  def test_adopt_completed_ai_run_without_retained_output_returns_existing
     register_librarian
     RecordingStudioAI.stub(:generate, generation_response) do
       RecordingStudioAgents.agent(:librarian, version: 1).run(
@@ -256,7 +256,58 @@ class ExecutionTest < PersistenceTestCase
     end
 
     refute generate_called
+    assert_instance_of RecordingStudioAgents::Results::Existing, result
+    assert_equal "succeeded", result.run.status
+    assert result.run.output_digest.present?
+  end
+
+  def test_adopt_completed_ai_run_with_retained_text_returns_completed
+    register_librarian
+    RecordingStudioAI.stub(:generate, generation_response) do
+      RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "adopt-retained"
+      )
+    end
+    run = RecordingStudioAgents::AgentRun.find_by!(idempotency_key: "adopt-retained")
+    run.update!(
+      status: "running",
+      lease_token: nil,
+      lease_expires_at: 1.hour.ago,
+      completed_at: nil,
+      output_digest: nil
+    )
+
+    generate_called = false
+    result = nil
+    calls = 0
+    finder = lambda { |**|
+      calls += 1
+      calls == 1 ? nil : Struct.new(:id, :status).new(41, "completed")
+    }
+    RecordingStudioAgents::Ai.stub(:find_run, finder) do
+      RecordingStudioAgents::Ai.stub(:retained_output, { text: "Found from retained.", data: nil }) do
+        RecordingStudioAI.stub(:generate, lambda { |**|
+          generate_called = true
+          generation_response
+        }) do
+          result = RecordingStudioAgents.agent(:librarian, version: 1).run(
+            task: task_input,
+            root_recording: root,
+            initiator: actor,
+            execution_source: :job,
+            idempotency_key: "adopt-retained"
+          )
+        end
+      end
+    end
+
+    refute generate_called
     assert_instance_of RecordingStudioAgents::Results::Completed, result
+    assert_equal "Found from retained.", result.output.text
     assert_equal "succeeded", result.run.status
   end
 
@@ -312,6 +363,24 @@ class ExecutionTest < PersistenceTestCase
     assert_instance_of RecordingStudioAgents::Results::Failed, result
     assert_equal "failed", result.run.status
     assert_equal "RuntimeError", result.run.failure_code
+    refute result.failure.retryable?
+  end
+
+  def test_timeout_marks_run_retryable
+    register_librarian
+    result = nil
+    RecordingStudioAI.stub(:generate, ->(**) { raise Timeout::Error, "timed out" }) do
+      result = RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "timeout-1"
+      )
+    end
+
+    assert_instance_of RecordingStudioAgents::Results::Failed, result
+    assert_equal "Timeout::Error", result.run.failure_code
     assert result.failure.retryable?
   end
 

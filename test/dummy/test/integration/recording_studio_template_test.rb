@@ -24,6 +24,7 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     assert connection.table_exists?(:recording_studio_accesses)
     assert connection.table_exists?(:recording_studio_agents_agent_runs)
     assert connection.table_exists?(:admin_roots)
+    refute connection.column_exists?(:recording_studio_agents_tasks, :context_json)
     refute connection.table_exists?(:recording_studio_access_boundaries)
   end
 

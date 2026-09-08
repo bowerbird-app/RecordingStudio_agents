@@ -12,7 +12,6 @@ module PersistenceSupport
       t.string :context_recording_id
       t.string :task_key, null: false
       t.text :goal, null: false
-      t.json :context_json, null: false, default: {}
       t.string :input_digest, null: false
       t.timestamps
     end

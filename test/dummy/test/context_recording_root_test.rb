@@ -69,20 +69,17 @@ class ContextRecordingRootTest < ActiveSupport::TestCase
   end
 
   def stub_generate(on_call: nil)
-    singleton = RecordingStudioAI.singleton_class
-    original = singleton.instance_method(:generate)
     response = RecordingStudioAI::Contracts::GenerationResponse.new(
       operation: "generation",
       purpose: "agent_page_librarian",
       text: "Found it."
     )
-    singleton.define_method(:generate) do |**|
+    RecordingStudioAI.stub(:generate, lambda { |**|
       on_call&.call
       response
+    }) do
+      yield
     end
-    yield
-  ensure
-    singleton.define_method(:generate, original) if original
   end
 
   def task_input

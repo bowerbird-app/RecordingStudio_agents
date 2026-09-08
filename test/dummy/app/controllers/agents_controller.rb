@@ -37,13 +37,7 @@ class AgentsController < ApplicationController
   def with_generate_stub
     return yield if RecordingStudioAI.configuration.openai_api_key.present?
 
-    singleton = RecordingStudioAI.singleton_class
-    original = singleton.instance_method(:generate)
-    controller = self
-    singleton.define_method(:generate) { |**kwargs| controller.send(:stubbed_response, **kwargs) }
-    yield
-  ensure
-    singleton&.define_method(:generate, original) if original
+    DummyGenerateStub.with_hook(method(:stubbed_response)) { yield }
   end
 
   def stubbed_response(**kwargs)

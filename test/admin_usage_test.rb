@@ -207,7 +207,8 @@ class AdminUsageTest < PersistenceTestCase
       assert_equal 2, queries.tasks(context: context).count
       assert_equal 1, queries.evaluations(context: context).count
       assert_equal [failed.id], queries.recent_failed_runs(context: context).map(&:id)
-      assert_equal %w[page_librarian page_reviewer], queries.distinct_agent_keys
+      assert_equal %w[page_librarian page_reviewer], queries.distinct_agent_keys(context: context)
+      assert_equal [], queries.distinct_agent_keys
 
       window = Struct.new(:start_date, :end_date).new(Date.current - 7, Date.current)
       selected = queries.selected_time_range(
@@ -234,8 +235,12 @@ class AdminUsageTest < PersistenceTestCase
       failed_widget = RecordingStudioAdmin.widget_for("widgets.agents.failed_runs").resolve(context)
 
       assert_equal "2", attempts.value
+      assert_equal "Last 4 weeks", attempts.metadata[:period_label]
+      assert_match(/last 4 weeks/, attempts.info)
       assert_equal "1,200", tokens.value
+      assert_equal "Last 4 weeks", tokens.metadata[:period_label]
       assert_equal "page_librarian · 1.2k tokens", hungry.items.first[:text]
+      assert_equal "Last 4 weeks", hungry.metadata[:period_label]
       assert_equal "page_reviewer · failed", failed_widget.items.first[:text]
 
       runs_query = RecordingStudioAgents::Admin::RunsScreen.query_value.call(context)
@@ -253,6 +258,48 @@ class AdminUsageTest < PersistenceTestCase
 
     queries.reset_ai_run_class!
     assert_nil queries.ai_run_class
+  end
+
+  def test_distinct_agent_keys_hide_runs_outside_visible_roots
+    create_agent_run!(agent_key: "page_librarian", status: "succeeded", ai_run_id: nil)
+    other_root = FakeRoot.new("root-hidden")
+    hidden_task = RecordingStudioAgents::Task.create!(
+      root_recording_id: other_root.id,
+      task_key: "usage:hidden",
+      goal: "Hidden goal.",
+      input_digest: "hidden"
+    )
+    RecordingStudioAgents::AgentRun.create!(
+      task: hidden_task,
+      root_recording_id: other_root.id,
+      agent_key: "secret_agent",
+      agent_version: 1,
+      program_digest: "hidden",
+      idempotency_key: "usage:hidden",
+      status: "succeeded",
+      initiator_type: "User",
+      initiator_id: "1",
+      initiator_kind: "user",
+      execution_source: "web"
+    )
+    context = FakeContext.new(current_actor: actor, params: {})
+
+    RecordingStudioAccessible.stub(:root_recording_ids_for, [root.id]) do
+      keys = RecordingStudioAgents::Admin::Queries.distinct_agent_keys(context: context)
+      assert_includes keys, "page_librarian"
+      refute_includes keys, "secret_agent"
+    end
+  end
+
+  def test_hub_period_matches_last_four_weeks
+    now = Time.utc(2026, 9, 8, 15, 0, 0)
+    current = RecordingStudioAgents::Admin::Queries.current_period(now: now)
+    previous = RecordingStudioAgents::Admin::Queries.previous_period(now: now)
+
+    assert_equal Date.new(2026, 8, 12), current.begin.to_date
+    assert_equal now, current.end
+    assert_equal Date.new(2026, 7, 15), previous.begin.to_date
+    assert_equal Date.new(2026, 8, 11), previous.end.to_date
   end
 
   private
@@ -293,7 +340,6 @@ class AdminUsageTest < PersistenceTestCase
       root_recording_id: root.id,
       task_key: "usage:#{SecureRandom.hex(4)}",
       goal: "Find Getting Started.",
-      context_json: {},
       input_digest: "usage"
     )
     run = RecordingStudioAgents::AgentRun.create!(
