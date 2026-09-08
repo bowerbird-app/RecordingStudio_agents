@@ -110,7 +110,8 @@ class ExecutionTest < PersistenceTestCase
 
     assert_instance_of RecordingStudioAgents::Results::Completed, result
     assert_equal "recording-studio-agents:#{result.run.id}", captured[:request_id]
-    assert_equal({ "agent_run_id" => result.run.id }, captured[:metadata])
+    assert_equal result.run.id, captured[:metadata]["agent_run_id"]
+    assert captured[:metadata]["lease_token"].present?
     assert_match(/Find the named page/, captured[:system_instruction])
     assert_equal "Find Getting Started.", captured[:prompt]
     assert_equal "agent_librarian", captured[:purpose]

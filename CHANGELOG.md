@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-09-08
+
+Handoff recovery no longer drops a recorded request or crashes on replay.
+
+### Fixed
+- An expired lease with a recorded handoff target finishes as `handoff_requested`, not `succeeded`
+- Replaying the same attempt key after a handoff returns `Results::HandoffRequested` instead of raising `InvalidTransition`
+- The handoff tool requires the live lease from the generate call, so a stale worker cannot stamp a target onto a run another worker owns
+
+### Upgrade notes
+- Hosts that retry `Agent#run` after a handoff now get `Results::HandoffRequested` again. Keep the router idempotent; Agents still does not start the target.
+- No migration.
+
 ## [0.4.1] - 2026-09-08
 
 Admin date filters show Flatpack's Last 4 weeks preset instead of raw ISO dates.
@@ -71,6 +84,7 @@ Recording Studio Agents V1. This is a product release, not a template bump.
 
 Template Cloud Agent environment. See git history for the template notes that shipped under this version.
 
+[0.4.2]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.2
 [0.4.1]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.1
 [0.4.0]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.0
 [0.3.0]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.3.0

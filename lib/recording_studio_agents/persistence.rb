@@ -51,12 +51,12 @@ module RecordingStudioAgents
 
         run.with_lock do
           run.reload
-          return Opening.new(kind: :existing, task: task, run: run) if run.status == "succeeded"
+          return Opening.new(kind: :existing, task: task, run: run) if Lifecycle.terminal?(run.status)
           return Opening.new(kind: :in_progress, task: task, run: run) if held_by_live_lease?(run)
 
           reconcile_ai_run!(run)
           run.reload
-          return Opening.new(kind: :existing, task: task, run: run) if run.status == "succeeded"
+          return Opening.new(kind: :existing, task: task, run: run) if Lifecycle.terminal?(run.status)
           return Opening.new(kind: :in_progress, task: task, run: run) if held_by_live_lease?(run)
 
           token = acquire_lease!(run, request)
@@ -73,18 +73,25 @@ module RecordingStudioAgents
         end
       end
 
-      def note_handoff!(agent_run_id:, ai_run_id:, target:)
-        run = AgentRun.lock.find(agent_run_id)
-        run.update!(
-          handoff_agent_key: target.key,
-          handoff_agent_version: target.version,
-          recording_studio_ai_run_id: run.recording_studio_ai_run_id || ai_run_id
-        )
-        append_activity!(run, "handoff_requested", {
-                           "target_agent_key" => target.key,
-                           "target_agent_version" => target.version
-                         })
-        run
+      def note_handoff!(agent_run_id:, ai_run_id:, target:, lease_token:)
+        if lease_token.to_s.strip.empty?
+          raise IdempotencyConflict, "lease is required to record a handoff for agent run #{agent_run_id}"
+        end
+
+        run = AgentRun.find(agent_run_id)
+        with_valid_lease!(run, lease_token) do |locked|
+          locked.update!(
+            handoff_agent_key: target.key,
+            handoff_agent_version: target.version,
+            recording_studio_ai_run_id: locked.recording_studio_ai_run_id || ai_run_id
+          )
+          unless locked.run_activities.exists?(kind: "handoff_requested")
+            append_activity!(locked, "handoff_requested", {
+                               "target_agent_key" => target.key,
+                               "target_agent_version" => target.version
+                             })
+          end
+        end
       end
 
       def record_composed!(run:, lease_token:, program:, knowledge_entries:)
@@ -321,6 +328,11 @@ module RecordingStudioAgents
         return unless %w[running awaiting_confirmation failed].include?(run.status)
         return unless run.lease_expired? || run.lease_token.blank?
 
+        if run.status == "running" && run.handoff_agent_key.present?
+          finish_recorded_handoff!(run)
+          return
+        end
+
         ai_run = Ai.find_run(request_id: Ai.request_id_for(run))
         return unless ai_run
 
@@ -341,6 +353,22 @@ module RecordingStudioAgents
         when "failed", "cancelled"
           nil
         end
+      end
+
+      def finish_recorded_handoff!(run)
+        Lifecycle.transition!(from: run.status, to: "handoff_requested") unless run.status == "handoff_requested"
+        run.update!(
+          status: "handoff_requested",
+          lease_token: nil,
+          lease_expires_at: nil,
+          completed_at: Time.current
+        )
+        return if run.run_activities.exists?(kind: "handoff_requested")
+
+        append_activity!(run, "handoff_requested", {
+                           "target_agent_key" => run.handoff_agent_key,
+                           "target_agent_version" => run.handoff_agent_version
+                         })
       end
 
       def with_valid_lease!(run, lease_token)

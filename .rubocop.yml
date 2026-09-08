@@ -26,6 +26,7 @@ Metrics/ClassLength:
     - "lib/recording_studio_agents/persistence.rb"
     - "lib/recording_studio_agents/execution.rb"
     - "lib/recording_studio_agents/admin/**/*"
+    - "lib/recording_studio_agents/handoffs.rb"
 
 Metrics/ModuleLength:
   Exclude:
