@@ -21,7 +21,7 @@ A **skill pack** is a named bundle of optional skills. Pack skills must already 
 
 A **tool** is an executable capability registered with Recording Studio AI. Agents never grows a parallel tool system.
 
-**Knowledge** is application data loaded at run time. Loaders return typed entries. Agents authorizes the run before it invokes a loader. Gathered entries are capped at 5 seconds, 40 entries, and 32KB. When an entry cites a source recording, it must stay inside the task root.
+**Knowledge** is application data loaded at run time. Loaders return typed entries. Each entry must cite a source recording inside the task root. Agents authorizes the run before it invokes a loader. Gathered entries are capped at 5 seconds, 40 entries, and 32KB.
 
 A **task** is a durable goal inside a workspace, identified by a stable key.
 

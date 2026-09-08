@@ -11,13 +11,14 @@ module RecordingStudioAgents
     class Entry
       attr_reader :key, :title, :content, :source_recording
 
-      def initialize(key:, title:, content:, source_recording: nil)
+      def initialize(key:, title:, content:, source_recording:)
         @key = key.to_s
         @title = title.to_s
         @content = content.to_s
         @source_recording = source_recording
         raise ContractError, "knowledge entry key must be present" if @key.strip.empty?
         raise ContractError, "knowledge entry title must be present" if @title.strip.empty?
+        raise ContractError, "knowledge entry source_recording must be present" if @source_recording.nil?
 
         freeze
       end
@@ -104,7 +105,7 @@ module RecordingStudioAgents
 
       def assert_contained!(entry, root_recording)
         source = entry.source_recording
-        return if source.nil?
+        raise ConfigurationError, "knowledge entry #{entry.key} is missing a source recording" if source.nil?
 
         root_id = identifier(root_recording)
         source_id = identifier(source)
