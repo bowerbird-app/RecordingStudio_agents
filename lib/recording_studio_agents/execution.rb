@@ -207,9 +207,7 @@ module RecordingStudioAgents
         return unless ai_run.status.to_s == "completed"
 
         retained = Ai.retained_output(ai_run: ai_run, initiator: request.initiator)
-        if retained
-          return AdoptedAi.new(run: ai_run, text: retained[:text], structured_data: retained[:data])
-        end
+        return AdoptedAi.new(run: ai_run, text: retained[:text], structured_data: retained[:data]) if retained
 
         attach_response_run(run, lease_token, AdoptedAi.new(run: ai_run))
         digest = run.output_digest.presence || Digests.of("ai_run" => ai_run.id)
