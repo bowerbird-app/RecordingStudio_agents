@@ -23,7 +23,7 @@ A **tool** is an executable capability registered with Recording Studio AI. Agen
 
 **Knowledge** is application data loaded at run time. Loaders return typed entries. Each entry must cite a source recording inside the task root. Agents authorizes the run before it invokes a loader. Gathered entries are capped at 5 seconds, 40 entries, and 32KB.
 
-A **task** is a durable goal inside a workspace, identified by a stable key.
+A **task** is a durable goal inside a workspace, identified by a stable key. When `Agent#run` is given a `context_recording`, that recording must be the task root or a child inside that root.
 
 An **agent run** is one attempt. It stores status, an optional output digest, and the Recording Studio AI run id. It does not copy prompts, model output, or chain-of-thought. Duplicate delivery of the same `idempotency_key` reuses that attempt.
 

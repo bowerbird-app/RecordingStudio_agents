@@ -343,6 +343,69 @@ class ExecutionTest < PersistenceTestCase
     assert_match(/execution_source/, error.message)
   end
 
+  def test_context_recording_outside_root_is_rejected_before_ledger
+    register_librarian
+    outsider = Struct.new(:id, :root_recording_id).new("other-page", "other-root")
+    generate_called = false
+
+    error = assert_raises(RecordingStudioAgents::ContractError) do
+      RecordingStudioAI.stub(:generate, lambda { |**|
+        generate_called = true
+        generation_response
+      }) do
+        RecordingStudioAgents.agent(:librarian, version: 1).run(
+          task: task_input,
+          root_recording: root,
+          context_recording: outsider,
+          initiator: actor,
+          execution_source: :job,
+          idempotency_key: "context-outsider"
+        )
+      end
+    end
+
+    refute generate_called
+    assert_match(/task root/, error.message)
+    assert_equal 0, RecordingStudioAgents::AgentRun.count
+  end
+
+  def test_context_recording_inside_root_is_accepted
+    register_librarian
+    child = Struct.new(:id, :root_recording_id).new("page-1", root.id)
+    result = nil
+    RecordingStudioAI.stub(:generate, generation_response) do
+      result = RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        context_recording: child,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "context-child"
+      )
+    end
+
+    assert_instance_of RecordingStudioAgents::Results::Completed, result
+    assert_equal "page-1", result.run.context_recording_id
+  end
+
+  def test_context_recording_may_be_the_task_root
+    register_librarian
+    result = nil
+    RecordingStudioAI.stub(:generate, generation_response) do
+      result = RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        context_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "context-root"
+      )
+    end
+
+    assert_instance_of RecordingStudioAgents::Results::Completed, result
+    assert_equal root.id, result.run.context_recording_id
+  end
+
   def test_default_support_run_omits_optional_skill_text
     register_support_clerk
     captured = nil

@@ -143,6 +143,7 @@ class InstallGeneratorTest < Minitest::Test
     assert_includes install_guide, "AccessibleAuthorization"
     assert_includes install_guide, "Agent#run"
     assert_includes install_guide, "source recording"
+    assert_includes install_guide, "context_recording"
     assert_includes install_guide, "Progress.for"
     assert_includes install_guide, "config/importmap.rb"
     refute_includes install_guide, "RecordingStudio v3"

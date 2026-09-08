@@ -11,6 +11,7 @@ require "recording_studio_accessible"
 
 require "recording_studio_agents/version"
 require "recording_studio_agents/errors"
+require "recording_studio_agents/root_boundary"
 require "recording_studio_agents/digests"
 require "recording_studio_agents/configuration"
 require "recording_studio_agents/reference"
