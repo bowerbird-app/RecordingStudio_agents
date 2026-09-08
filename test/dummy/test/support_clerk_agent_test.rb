@@ -58,7 +58,7 @@ class SupportClerkAgentTest < ActiveSupport::TestCase
     captured = {}
     response = generation_response
     result = nil
-    RecordingStudioAI.stub(:generate, lambda { |**kwargs|
+    DummyGenerateStub.with_hook(lambda { |**kwargs|
       captured.clear
       kwargs.each { |key, value| captured[key] = value }
       response

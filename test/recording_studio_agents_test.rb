@@ -185,6 +185,8 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes controller, "DummyGenerateStub.with_hook"
     refute_includes controller, "define_method(:generate)"
     assert_includes stub, "Thread.current"
+    assert_includes File.read(File.expand_path("dummy/test/support_clerk_agent_test.rb", __dir__)),
+                    "DummyGenerateStub.with_hook"
   end
 
   def test_engine_does_not_ship_a_home_view
