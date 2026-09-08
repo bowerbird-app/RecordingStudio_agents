@@ -98,12 +98,13 @@ class CompilerTest < Minitest::Test
       version: 1,
       name: "Outline",
       description: "Pages",
-      loader: lambda { |_context|
+      loader: lambda { |context|
         [
           RecordingStudioAgents::Knowledge::Entry.new(
             key: "outline",
             title: "Outline",
-            content: "Getting Started"
+            content: "Getting Started",
+            source_recording: context.root_recording
           )
         ]
       }

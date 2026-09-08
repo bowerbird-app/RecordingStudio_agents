@@ -40,33 +40,26 @@ class KnowledgeTest < Minitest::Test
     assert_match(/outside the task root/, error.message)
   end
 
-  def test_allows_entries_without_source_recording
-    root = FakeRecording.new(1, 1)
-    context = RecordingStudioAgents::Knowledge::Context.new(
-      task: RecordingStudioAgents::TaskInput.new(key: "t", goal: "g"),
-      root_recording: root,
-      context_recording: nil,
-      initiator: nil,
-      executor: nil
-    )
-    definition = RecordingStudioAgents::Knowledge::Definition.new(
-      key: :catalog,
-      version: 1,
-      name: "Catalog",
-      description: "Host catalog",
-      loader: lambda { |_context|
-        [
-          RecordingStudioAgents::Knowledge::Entry.new(
-            key: "catalog",
-            title: "Catalog",
-            content: "a,b,c"
-          )
-        ]
-      }
-    )
+  def test_rejects_entries_without_source_recording
+    error = assert_raises(RecordingStudioAgents::ContractError) do
+      RecordingStudioAgents::Knowledge::Entry.new(
+        key: "catalog",
+        title: "Catalog",
+        content: "a,b,c",
+        source_recording: nil
+      )
+    end
+    assert_match(/source_recording/, error.message)
+  end
 
-    entries = RecordingStudioAgents::Knowledge::Gatherer.load(definitions: [definition], context: context)
-    assert_equal 1, entries.length
+  def test_gatherer_rejects_missing_source_recording
+    root = FakeRecording.new(1, 1)
+    entry = Struct.new(:key, :source_recording).new("catalog", nil)
+
+    error = assert_raises(RecordingStudioAgents::ConfigurationError) do
+      RecordingStudioAgents::Knowledge::Gatherer.assert_contained!(entry, root)
+    end
+    assert_match(/missing a source recording/, error.message)
   end
 
   def test_enforces_byte_cap
@@ -88,7 +81,8 @@ class KnowledgeTest < Minitest::Test
           RecordingStudioAgents::Knowledge::Entry.new(
             key: "huge",
             title: "Huge",
-            content: "x" * (RecordingStudioAgents::Knowledge::MAXIMUM_BYTES + 1)
+            content: "x" * (RecordingStudioAgents::Knowledge::MAXIMUM_BYTES + 1),
+            source_recording: root
           )
         ]
       }
@@ -118,7 +112,8 @@ class KnowledgeTest < Minitest::Test
           RecordingStudioAgents::Knowledge::Entry.new(
             key: "item_#{index}",
             title: "Item #{index}",
-            content: "x"
+            content: "x",
+            source_recording: root
           )
         end
       }
@@ -184,6 +179,37 @@ class KnowledgeTest < Minitest::Test
 
     entries = RecordingStudioAgents::Knowledge::Gatherer.load(definitions: [definition], context: context)
     assert_equal 1, entries.length
+  end
+
+  def test_allows_source_that_is_the_root
+    root = FakeRecording.new(1, 1)
+    context = RecordingStudioAgents::Knowledge::Context.new(
+      task: RecordingStudioAgents::TaskInput.new(key: "t", goal: "g"),
+      root_recording: root,
+      context_recording: nil,
+      initiator: nil,
+      executor: nil
+    )
+    definition = RecordingStudioAgents::Knowledge::Definition.new(
+      key: :outline,
+      version: 1,
+      name: "Outline",
+      description: "Root summary",
+      loader: lambda { |_context|
+        [
+          RecordingStudioAgents::Knowledge::Entry.new(
+            key: "outline",
+            title: "Outline",
+            content: "hello",
+            source_recording: root
+          )
+        ]
+      }
+    )
+
+    entries = RecordingStudioAgents::Knowledge::Gatherer.load(definitions: [definition], context: context)
+    assert_equal 1, entries.length
+    assert_equal root, entries.first.source_recording
   end
 
   def test_loader_must_return_entries
