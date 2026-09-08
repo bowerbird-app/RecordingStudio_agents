@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.4] - 2026-09-08
+
+`Agent#run` rejects a `context_recording` from outside the task root.
+
+### Fixed
+- Passing a context recording from another tree raises `ContractError` before a task or run is written
+
+### Upgrade notes
+- `context_recording` is still optional. When you pass one, it must be the task root or a child inside that root.
+- No migration.
+
 ## [0.4.3] - 2026-09-08
 
 Knowledge entries must cite the recording they came from, so a loader cannot skip the task-root check.
@@ -95,6 +106,7 @@ Recording Studio Agents V1. This is a product release, not a template bump.
 
 Template Cloud Agent environment. See git history for the template notes that shipped under this version.
 
+[0.4.4]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.4
 [0.4.3]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.3
 [0.4.2]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.2
 [0.4.1]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.1

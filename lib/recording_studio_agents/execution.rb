@@ -38,6 +38,10 @@ module RecordingStudioAgents
           raise ContractError, "initiator_kind must be one of: #{INITIATOR_KINDS.join(', ')}"
         end
 
+        unless context_recording.nil? || RootBoundary.contained?(context_recording, root_recording)
+          raise ContractError, "context_recording must stay inside the task root"
+        end
+
         new(
           task_input: task,
           root_recording: root_recording,

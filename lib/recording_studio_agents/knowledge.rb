@@ -106,13 +106,7 @@ module RecordingStudioAgents
       def assert_contained!(entry, root_recording)
         source = entry.source_recording
         raise ConfigurationError, "knowledge entry #{entry.key} is missing a source recording" if source.nil?
-
-        root_id = identifier(root_recording)
-        source_id = identifier(source)
-        return if source_id == root_id
-
-        source_root_id = source.respond_to?(:root_recording_id) ? source.root_recording_id : nil
-        return if source_root_id == root_id
+        return if RootBoundary.contained?(source, root_recording)
 
         raise ConfigurationError, "knowledge entry #{entry.key} is outside the task root"
       end
@@ -126,10 +120,6 @@ module RecordingStudioAgents
         return if total <= MAXIMUM_BYTES
 
         raise ConfigurationError, "knowledge produced #{total} bytes; maximum is #{MAXIMUM_BYTES}"
-      end
-
-      def identifier(value)
-        value.respond_to?(:id) ? value.id : value
       end
     end
   end
