@@ -80,7 +80,6 @@ begin
       context_recording_id: nil,
       task_key: "seed:find_page",
       goal: "Find the Getting Started page.",
-      context_json: {},
       input_digest: "seed"
     )
     RecordingStudioAgents::AgentRun.create!(
@@ -109,7 +108,6 @@ begin
       task_key: "seed:find_page"
     ) do |record|
       record.goal = "Find the Getting Started page."
-      record.context_json = {}
       record.input_digest = "seed"
     end
     now = Time.current

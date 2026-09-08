@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_07_010001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_08_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -139,7 +139,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_010001) do
   end
 
   create_table "recording_studio_agents_tasks", force: :cascade do |t|
-    t.json "context_json", default: {}, null: false
     t.uuid "context_recording_id"
     t.datetime "created_at", null: false
     t.text "goal", null: false

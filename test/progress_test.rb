@@ -175,7 +175,6 @@ class ProgressTest < PersistenceTestCase
       root_recording_id: root.id,
       task_key: "progress:#{SecureRandom.hex(4)}",
       goal: "Find Getting Started.",
-      context_json: {},
       input_digest: "progress"
     )
     RecordingStudioAgents::AgentRun.create!(

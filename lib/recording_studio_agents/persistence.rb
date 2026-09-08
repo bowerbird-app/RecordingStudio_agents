@@ -223,7 +223,6 @@ module RecordingStudioAgents
           context_recording_id: request.context_recording&.id,
           task_key: request.task_input.key,
           goal: request.task_input.goal,
-          context_json: request.task_input.context,
           input_digest: request.task_input.digest
         }
         task = Task.find_or_initialize_by(

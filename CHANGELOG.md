@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.5] - 2026-09-08
+
+Review follow-ups: stop storing unused task context, scope admin filters, tighten retries, and align hub widgets with Last 4 weeks.
+
+### Changed
+- Tasks keep `goal` for Admin. They no longer persist `context_json`. `TaskInput#context` still feeds the input digest.
+- Admin Runs agent-key filter lists keys from workspaces the actor can view. With no actor it returns none.
+- Failed runs are retryable for timeouts and connection resets, and when Recording Studio AI marks the provider error retryable. Programmer errors such as `RuntimeError` are not retryable.
+- Adopting a completed Recording Studio AI run uses retained text when it is still readable. Without retained output the attempt finishes as `Results::Existing`, not `Completed` with empty text.
+- Hub widgets use Last 4 weeks (today through 27 days back), matching Runs and By agent.
+
+### Fixed
+- Dummy workspace switcher uses Accessible instead of an always-true access check.
+- Dummy demo generate stub is request-scoped. Tests stub `RecordingStudioAI.generate` instead of replacing the method on the singleton.
+
+### Upgrade notes
+- Install and run the engine migration that removes `recording_studio_agents_tasks.context_json`. Goal stays. `TaskInput` is unchanged.
+- Hosts that retry `Results::Failed` should treat `failure.retryable?` as false for programmer errors. Timeouts and connection resets still retry.
+- Hosts that treated an adopted completed AI run as `Results::Completed` with blank output now get `Results::Existing` unless retained text is still available.
+- Hub widget copy and windows are Last 4 weeks. Date pickers still default to `last_4_weeks`.
+- The Admin Period prepend that aligns Last 4 weeks with Flatpack stays in this gem until Admin ships the 27-day window. Do not copy that prepend in a host.
+- Agents stay code-defined. This release does not add a JSON API, an enable-on-root mixin, or a separate evaluations pipeline. Evaluations still persist on an attempt and list in Admin.
+
 ## [0.4.4] - 2026-09-08
 
 `Agent#run` rejects a `context_recording` from outside the task root.
@@ -106,6 +129,7 @@ Recording Studio Agents V1. This is a product release, not a template bump.
 
 Template Cloud Agent environment. See git history for the template notes that shipped under this version.
 
+[0.4.5]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.5
 [0.4.4]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.4
 [0.4.3]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.3
 [0.4.2]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.2

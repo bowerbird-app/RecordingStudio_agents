@@ -56,18 +56,16 @@ class SupportClerkAgentTest < ActiveSupport::TestCase
 
   def stub_generate
     captured = {}
-    singleton = RecordingStudioAI.singleton_class
-    original = singleton.instance_method(:generate)
     response = generation_response
-    singleton.define_method(:generate) do |**kwargs|
+    result = nil
+    DummyGenerateStub.with_hook(lambda { |**kwargs|
       captured.clear
       kwargs.each { |key, value| captured[key] = value }
       response
+    }) do
+      result = yield
     end
-    result = yield
     [result, captured]
-  ensure
-    singleton.define_method(:generate, original) if original
   end
 
   def task_input

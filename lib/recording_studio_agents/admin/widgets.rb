@@ -22,8 +22,8 @@ module RecordingStudioAgents
       ATTEMPTS_THIS_PERIOD = RecordingStudioAdmin::Widget.new("widgets.agents.attempts_this_period") do
         type :number
         title "Attempts this period"
-        info "How many times an agent started in the last 30 days, versus the 30 before that."
-        metadata { { period_label: "Last 30 days" } }
+        info "How many times an agent started in the last 4 weeks, versus the 4 weeks before that."
+        metadata { { period_label: "Last 4 weeks" } }
         value do |context|
           root_ids = Queries.visible_root_ids(context)
           Queries.delimited_number(
@@ -45,7 +45,7 @@ module RecordingStudioAgents
         type :number
         title "Tokens this period"
         info "Model-call tokens for those attempts. Shows blank if AI history was cleaned."
-        metadata { { period_label: "Last 30 days" } }
+        metadata { { period_label: "Last 4 weeks" } }
         value do |context|
           root_ids = Queries.visible_root_ids(context)
           Queries.delimited_number(
@@ -66,9 +66,9 @@ module RecordingStudioAgents
       HUNGRY_AGENTS = RecordingStudioAdmin::Widget.new("widgets.agents.hungry_agents") do
         type :list
         title "Hungry agents"
-        info "Who used the most model-call tokens in the last 30 days."
+        info "Who used the most model-call tokens in the last 4 weeks."
         hide_change
-        metadata { { period_label: "Last 30 days" } }
+        metadata { { period_label: "Last 4 weeks" } }
         items do |context|
           root_ids = Queries.visible_root_ids(context)
           Queries.hungry_agents(root_ids: root_ids, range: Queries.current_period).map do |row|

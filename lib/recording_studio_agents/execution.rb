@@ -115,38 +115,14 @@ module RecordingStudioAgents
     end
 
     class Engine
-      def initialize(program:, ledger: Persistence::RunLedger.new)
-        @program = program
-        @ledger = ledger
-      end
+      TRANSIENT_ERRORS = [
+        Timeout::Error,
+        Errno::ECONNRESET,
+        Errno::ECONNREFUSED,
+        Errno::ETIMEDOUT
+      ].freeze
 
-      def call(request:)
-        Ai.authorize!(request: request, program: @program)
-        Handoffs::Tool.register! if @program.handoff_references.any?
-
-        opening = @ledger.open!(program: @program, request: request)
-        return terminal_result(opening.run) if opening.existing?
-
-        if opening.in_progress?
-          return Results::Blocked.new(run: opening.run) if opening.run.status == "awaiting_confirmation"
-
-          return Results::InProgress.new(run: opening.run)
-        end
-
-        run = opening.run
-        lease_token = opening.lease_token
-        execute_acquired(request, run, lease_token)
-      end
-
-      AdoptedAi = Struct.new(:run) do
-        def text
-          nil
-        end
-
-        def structured_data
-          nil
-        end
-
+      AdoptedAi = Struct.new(:run, :text, :structured_data, keyword_init: true) do
         def citations
           []
         end
@@ -172,6 +148,29 @@ module RecordingStudioAgents
         end
       end
 
+      def initialize(program:, ledger: Persistence::RunLedger.new)
+        @program = program
+        @ledger = ledger
+      end
+
+      def call(request:)
+        Ai.authorize!(request: request, program: @program)
+        Handoffs::Tool.register! if @program.handoff_references.any?
+
+        opening = @ledger.open!(program: @program, request: request)
+        return terminal_result(opening.run) if opening.existing?
+
+        if opening.in_progress?
+          return Results::Blocked.new(run: opening.run) if opening.run.status == "awaiting_confirmation"
+
+          return Results::InProgress.new(run: opening.run)
+        end
+
+        run = opening.run
+        lease_token = opening.lease_token
+        execute_acquired(request, run, lease_token)
+      end
+
       private
 
       def execute_acquired(request, run, lease_token)
@@ -183,7 +182,7 @@ module RecordingStudioAgents
           knowledge_entries: invocation.knowledge_entries
         )
 
-        adopted = adopt_existing_ai_run(run, lease_token)
+        adopted = adopt_existing_ai_run(request, run, lease_token)
         return adopted if adopted.is_a?(Results::InProgress) || adopted.is_a?(Results::Existing)
 
         response = adopted || Ai.generate(invocation: invocation, run: run, lease_token: lease_token)
@@ -196,18 +195,30 @@ module RecordingStudioAgents
           category: "internal",
           code: e.class.name,
           message: e.message,
-          retryable: true
+          retryable: retryable_exception?(e)
         )
         @ledger.commit_failed!(run: run, lease_token: lease_token, failure: failure)
         Results::Failed.new(run: run.reload, failure: failure)
       end
 
-      def adopt_existing_ai_run(run, _lease_token)
+      def adopt_existing_ai_run(request, run, lease_token)
         ai_run = Ai.find_run(request_id: Ai.request_id_for(run))
         return unless ai_run
         return unless ai_run.status.to_s == "completed"
 
-        AdoptedAi.new(ai_run)
+        retained = Ai.retained_output(ai_run: ai_run, initiator: request.initiator)
+        return AdoptedAi.new(run: ai_run, text: retained[:text], structured_data: retained[:data]) if retained
+
+        attach_response_run(run, lease_token, AdoptedAi.new(run: ai_run))
+        digest = run.output_digest.presence || Digests.of("ai_run" => ai_run.id)
+        @ledger.commit_succeeded!(run: run, lease_token: lease_token, digest: digest)
+        Results::Existing.new(run: run.reload)
+      end
+
+      def retryable_exception?(error)
+        return error.retryable? if error.respond_to?(:retryable?)
+
+        TRANSIENT_ERRORS.any? { |klass| error.is_a?(klass) }
       end
 
       def terminal_result(run)
@@ -296,7 +307,7 @@ module RecordingStudioAgents
           category: error&.category || "provider_error",
           code: error&.code || "generation_failed",
           message: error&.message || "Generation failed",
-          retryable: error.respond_to?(:retryable?) ? error.retryable? : true
+          retryable: error.respond_to?(:retryable?) ? error.retryable? : false
         )
       end
 

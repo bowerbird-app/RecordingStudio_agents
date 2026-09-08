@@ -3,7 +3,6 @@
 module RecordingStudioAgents
   module Admin
     module Queries
-      PERIOD = 30.days
       HUNGRY_LIMIT = 5
       BLANK = "-"
       WAITING_STATUSES = %w[pending running awaiting_confirmation].freeze
@@ -65,11 +64,11 @@ module RecordingStudioAgents
       end
 
       def current_period(now: Time.current)
-        (now - PERIOD)..now
+        LastFourWeeks.current_range(now: now)
       end
 
       def previous_period(now: Time.current)
-        (now - (PERIOD * 2))...(now - PERIOD)
+        LastFourWeeks.previous_range(now: now)
       end
 
       def attempts_in_period(root_ids:, range:)
@@ -126,10 +125,13 @@ module RecordingStudioAgents
         value.start_date.beginning_of_day..value.end_date.end_of_day
       end
 
-      def distinct_agent_keys
+      def distinct_agent_keys(context: nil)
         return [] unless AgentRun.table_exists?
 
-        AgentRun.distinct.order(:agent_key).pluck(:agent_key)
+        root_ids = visible_root_ids(context || filter_actor_context)
+        return [] if root_ids.empty?
+
+        AgentRun.where(root_recording_id: root_ids).distinct.order(:agent_key).pluck(:agent_key)
       rescue StandardError
         []
       end
@@ -300,6 +302,20 @@ module RecordingStudioAgents
         filter.normalize(params || {})
       end
       private_class_method :date_range_from_params
+
+      def filter_actor_context
+        Struct.new(:current_actor).new(current_filter_actor)
+      end
+      private_class_method :filter_actor_context
+
+      def current_filter_actor
+        return unless defined?(::Current) && Current.respond_to?(:actor)
+
+        Current.actor
+      rescue StandardError
+        nil
+      end
+      private_class_method :current_filter_actor
 
       def compact_thousands(count)
         "#{trimmed_units(count / 1000.0)}k"
