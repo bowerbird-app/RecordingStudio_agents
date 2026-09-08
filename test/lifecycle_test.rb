@@ -24,6 +24,7 @@ class LifecycleTest < Minitest::Test
   def test_terminal_states
     assert RecordingStudioAgents::Lifecycle.terminal?("succeeded")
     assert RecordingStudioAgents::Lifecycle.terminal?("handoff_requested")
+    assert RecordingStudioAgents::Lifecycle.terminal?("cancelled")
     refute RecordingStudioAgents::Lifecycle.terminal?("failed")
     refute RecordingStudioAgents::Lifecycle.terminal?("awaiting_confirmation")
   end

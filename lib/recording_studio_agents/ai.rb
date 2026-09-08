@@ -22,7 +22,7 @@ module RecordingStudioAgents
       )
     end
 
-    def generate(invocation:, run:)
+    def generate(invocation:, run:, lease_token:)
       RecordingStudioAI.generate(
         prompt: invocation.goal,
         system_instruction: invocation.system_instruction,
@@ -38,7 +38,10 @@ module RecordingStudioAgents
         executor: invocation.executor,
         execution_source: invocation.execution_source,
         request_id: request_id_for(run),
-        metadata: { "agent_run_id" => run.id }
+        metadata: {
+          "agent_run_id" => run.id,
+          "lease_token" => lease_token
+        }
       )
     end
 

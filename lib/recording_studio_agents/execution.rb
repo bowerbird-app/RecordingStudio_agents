@@ -121,7 +121,7 @@ module RecordingStudioAgents
         Handoffs::Tool.register! if @program.handoff_references.any?
 
         opening = @ledger.open!(program: @program, request: request)
-        return Results::Existing.new(run: opening.run) if opening.existing?
+        return terminal_result(opening.run) if opening.existing?
 
         if opening.in_progress?
           return Results::Blocked.new(run: opening.run) if opening.run.status == "awaiting_confirmation"
@@ -182,7 +182,7 @@ module RecordingStudioAgents
         adopted = adopt_existing_ai_run(run, lease_token)
         return adopted if adopted.is_a?(Results::InProgress) || adopted.is_a?(Results::Existing)
 
-        response = adopted || Ai.generate(invocation: invocation, run: run)
+        response = adopted || Ai.generate(invocation: invocation, run: run, lease_token: lease_token)
         attach_response_run(run, lease_token, response)
         commit_response(run, lease_token, response)
       rescue RecordingStudioAI::Errors::ContractValidationError => e
@@ -206,6 +206,17 @@ module RecordingStudioAgents
         AdoptedAi.new(ai_run)
       end
 
+      def terminal_result(run)
+        return handoff_result(run) if run.status == "handoff_requested"
+
+        Results::Existing.new(run: run)
+      end
+
+      def handoff_result(run)
+        target = Reference.new(key: run.handoff_agent_key, version: run.handoff_agent_version)
+        Results::HandoffRequested.new(run: run, request: HandoffRequest.new(target: target))
+      end
+
       def attach_response_run(run, lease_token, response)
         ai_run = response.respond_to?(:run) ? response.run : nil
         @ledger.attach_ai_run!(run: run, lease_token: lease_token, ai_run: ai_run) if ai_run
@@ -216,7 +227,7 @@ module RecordingStudioAgents
         if run.handoff_agent_key.present?
           target = Reference.new(key: run.handoff_agent_key, version: run.handoff_agent_version)
           @ledger.commit_handoff!(run: run, lease_token: lease_token, target: target)
-          return Results::HandoffRequested.new(run: run.reload, request: HandoffRequest.new(target: target))
+          return handoff_result(run.reload)
         end
 
         if blocked?(response)

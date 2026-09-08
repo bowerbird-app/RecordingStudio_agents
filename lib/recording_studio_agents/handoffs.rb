@@ -57,11 +57,19 @@ module RecordingStudioAgents
           )
         end
 
-        Persistence::RunLedger.new.note_handoff!(
-          agent_run_id: run.id,
-          ai_run_id: ai_run_id(ai_context),
-          target: Reference.new(key: target_key, version: target_version)
-        )
+        begin
+          Persistence::RunLedger.new.note_handoff!(
+            agent_run_id: run.id,
+            ai_run_id: ai_run_id(ai_context),
+            target: Reference.new(key: target_key, version: target_version),
+            lease_token: lease_token_for(ai_context)
+          )
+        rescue IdempotencyConflict
+          raise RecordingStudioAI::Errors::ContractValidationError.new(
+            "handoff tool could not record the request",
+            code: "custom_tool_validation"
+          )
+        end
         {
           "recorded" => true,
           "target_agent_key" => target_key.to_s,
@@ -98,6 +106,19 @@ module RecordingStudioAgents
         ai_run.respond_to?(:id) ? ai_run.id : nil
       end
       private_class_method :ai_run_id
+
+      def self.lease_token_for(ai_context)
+        ai_run = ai_context.respond_to?(:run) ? ai_context.run : nil
+        metadata = ai_run.respond_to?(:metadata) ? ai_run.metadata : nil
+        token = metadata&.[]("lease_token") || metadata&.[](:lease_token)
+        return token.to_s if token.to_s.strip.present?
+
+        raise RecordingStudioAI::Errors::ContractValidationError.new(
+          "handoff tool could not prove a live lease",
+          code: "custom_tool_validation"
+        )
+      end
+      private_class_method :lease_token_for
     end
   end
 end

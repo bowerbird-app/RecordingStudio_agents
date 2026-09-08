@@ -204,4 +204,38 @@ class LedgerTest < PersistenceTestCase
     assert_instance_of RecordingStudioAgents::Results::Existing, result
     assert_equal "succeeded", result.run.status
   end
+
+  def test_cancelled_run_replays_as_existing
+    register_librarian
+    RecordingStudioAI.stub(:generate, generation_response) do
+      RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "job-cancelled"
+      )
+    end
+    run = RecordingStudioAgents::AgentRun.find_by!(idempotency_key: "job-cancelled")
+    run.update!(status: "cancelled", lease_token: nil, lease_expires_at: nil)
+
+    generate_called = false
+    result = nil
+    RecordingStudioAI.stub(:generate, lambda { |**|
+      generate_called = true
+      generation_response
+    }) do
+      result = RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "job-cancelled"
+      )
+    end
+
+    refute generate_called
+    assert_instance_of RecordingStudioAgents::Results::Existing, result
+    assert_equal "cancelled", result.run.status
+  end
 end

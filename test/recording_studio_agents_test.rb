@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.4.1", ::RecordingStudioAgents::VERSION
+    assert_equal "0.4.2", ::RecordingStudioAgents::VERSION
   end
 
   def test_engine_exists
@@ -137,7 +137,7 @@ class RecordingStudioAgentsTest < Minitest::Test
 
     assert_includes readme, "Recording Studio Agents"
     assert_includes readme, "Agent#run"
-    assert_includes readme, "idempotency_key"
+    assert_includes readme, "HandoffRequested"
     assert_includes readme, "job_id"
     refute_includes readme, "job_id:\#{executions}"
     assert_includes readme, "optional_skills"

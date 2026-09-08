@@ -27,7 +27,7 @@ A **task** is a durable goal inside a workspace, identified by a stable key.
 
 An **agent run** is one attempt. It stores status, an optional output digest, and the Recording Studio AI run id. It does not copy prompts, model output, or chain-of-thought. Duplicate delivery of the same `idempotency_key` reuses that attempt.
 
-A **handoff** is an allowlisted request recorded by an internal AI tool. `Agent#run` never starts the target. The host routes the next call.
+A **handoff** is an allowlisted request recorded by an internal AI tool. The tool needs the live lease from that generate call, so a stale worker cannot stamp a target onto a run another worker owns. `Agent#run` never starts the target. The host routes the next call. If a worker dies after recording the target, a retry with the same idempotency key finishes as `handoff_requested` instead of succeeding.
 
 `enabled` is a registry boolean. Lookup for a disabled agent raises `AgentDisabled`. Admin still lists disabled agents.
 
@@ -222,7 +222,7 @@ class FindPageJob < ApplicationJob
 end
 ```
 
-`Results::Completed` carries in-memory output for the call that ran. Replay returns `Results::Existing`. `Results::Blocked` means a tool is waiting on Recording Studio AI confirmation. Call `run` again with the same idempotency key after the host confirms.
+`Results::Completed` carries in-memory output for the call that ran. Replay of a succeeded attempt returns `Results::Existing`. Replay of a recorded handoff returns `Results::HandoffRequested` again so the host can route; `Agent#run` still does not start the target. `Results::Blocked` means a tool is waiting on Recording Studio AI confirmation. Call `run` again with the same idempotency key after the host confirms.
 
 ## Progress
 
