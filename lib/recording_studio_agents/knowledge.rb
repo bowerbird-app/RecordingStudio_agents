@@ -105,9 +105,7 @@ module RecordingStudioAgents
 
       def assert_contained!(entry, root_recording)
         source = entry.source_recording
-        if source.nil?
-          raise ConfigurationError, "knowledge entry #{entry.key} is missing a source recording"
-        end
+        raise ConfigurationError, "knowledge entry #{entry.key} is missing a source recording" if source.nil?
 
         root_id = identifier(root_recording)
         source_id = identifier(source)
