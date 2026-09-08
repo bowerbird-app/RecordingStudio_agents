@@ -232,7 +232,7 @@ Each step has a label and a badge: Done, Working, Waiting, or Failed. Tool label
 
 ## Admin
 
-The `agents` section lists code-defined agents, skills, and skill packs as read-only catalogs. Hub widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents. Runs filters by agent, status, and date, charts attempts over time, and links the AI run into Recording Studio AI. By agent averages attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Catalogs stay identity-only. Admin never displays chain-of-thought.
+The `agents` section lists code-defined agents, skills, and skill packs as read-only catalogs. Hub widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents. Runs filters by agent, status, and date (Last 4 weeks by default), charts attempts over time, and links the AI run into Recording Studio AI. By agent uses the same Last 4 weeks date filter and averages attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Catalogs stay identity-only. Admin never displays chain-of-thought.
 
 Hosts that use importmap must pin Recording Studio Admin controllers so screen tables load:
 

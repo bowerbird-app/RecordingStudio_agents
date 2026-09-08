@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.4.0", ::RecordingStudioAgents::VERSION
+    assert_equal "0.4.1", ::RecordingStudioAgents::VERSION
   end
 
   def test_engine_exists
@@ -126,6 +126,7 @@ class RecordingStudioAgentsTest < Minitest::Test
 
     assert_includes readme_source, "page librarian"
     assert_includes readme_source, "/admin"
+    assert_includes readme_source, "Last 4 weeks"
     assert_includes readme_source, "/recording_studio"
     refute_includes readme_source, "flat_pack_sidebar"
     refute_includes readme_source, "/docs/install"
@@ -142,7 +143,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes readme, "optional_skills"
     assert_includes readme, "pack:"
     assert_includes readme, "Progress.for"
-    assert_includes readme, "By agent"
+    assert_includes readme, "Last 4 weeks"
     assert_includes readme, "Hungry agents"
     refute_includes readme, "ExampleService"
     refute_includes readme, "recordable"
