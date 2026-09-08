@@ -51,4 +51,49 @@ class AdminRegistrationTest < Minitest::Test
     assert_equal RecordingStudioAgents.skills.all, RecordingStudioAgents::Admin::Queries.skills
     assert_equal RecordingStudioAgents.skill_packs.all, RecordingStudioAgents::Admin::Queries.skill_packs
   end
+
+  def test_register_aligns_last_4_weeks_with_flatpack
+    RecordingStudioAgents::Admin.register!
+
+    today = Date.new(2026, 9, 8)
+    period = RecordingStudioAdmin::Period.from_preset_key(:last_4_weeks, reference_date: today)
+
+    assert_equal today - 27, period.start_date
+    assert_equal today, period.end_date
+    assert_equal :last_4_weeks, period.preset_key
+  end
+
+  def test_last_4_weeks_alignment_leaves_other_presets_alone
+    RecordingStudioAgents::Admin.register!
+
+    today = Date.new(2026, 9, 8)
+    period = RecordingStudioAdmin::Period.from_preset_key(:last_3_days, reference_date: today)
+
+    assert_equal today - 2, period.start_date
+    assert_equal today, period.end_date
+    assert_equal :last_3_days, period.preset_key
+  end
+
+  def test_last_4_weeks_alignment_is_idempotent
+    RecordingStudioAgents::Admin.register!
+    RecordingStudioAgents::Admin.register!
+
+    count = RecordingStudioAdmin::Period.singleton_class.ancestors.count do |mod|
+      mod == RecordingStudioAgents::Admin::LastFourWeeksPeriod
+    end
+
+    assert_equal 1, count
+  end
+
+  def test_runs_and_usage_screens_default_to_last_4_weeks
+    RecordingStudioAgents::Admin.register!
+
+    runs = RecordingStudioAdmin.screen_for("agent_runs")
+    usage = RecordingStudioAdmin.screen_for("agent_usage")
+    runs_filter = runs.filters.find { |filter| filter.key == :date_range }
+    usage_filter = usage.filters.find { |filter| filter.key == :date_range }
+
+    assert_equal :last_4_weeks, runs_filter.options[:default]
+    assert_equal :last_4_weeks, usage_filter.options[:default]
+  end
 end

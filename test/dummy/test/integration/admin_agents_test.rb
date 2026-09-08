@@ -83,6 +83,8 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Runs"
     assert_includes response.body, 'id="screen-table"'
     assert_includes response.body, "/admin/screens/agent_runs/table"
+    assert_includes response.body, 'value="Last 4 weeks"'
+    refute_match(/value="\d{4}-\d{2}-\d{2} to \d{4}-\d{2}-\d{2}"/, response.body)
 
     get "/admin/screens/agent_runs/table"
     assert_response :success
@@ -101,6 +103,8 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "By agent"
     assert_includes response.body, 'id="screen-table"'
     assert_includes response.body, "/admin/screens/agent_usage/table"
+    assert_includes response.body, 'value="Last 4 weeks"'
+    refute_match(/value="\d{4}-\d{2}-\d{2} to \d{4}-\d{2}-\d{2}"/, response.body)
 
     get "/admin/screens/agent_usage/table"
     assert_response :success
