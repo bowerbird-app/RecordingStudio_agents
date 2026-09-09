@@ -14,7 +14,6 @@ module RecordingStudioAgents
 
       table do
         title " "
-        column :task_key, title: "Key"
         column :goal, title: "Goal"
         column :created_at, title: "Created"
         paginate per_page: 25

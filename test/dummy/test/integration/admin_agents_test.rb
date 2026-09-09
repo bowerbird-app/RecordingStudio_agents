@@ -46,11 +46,25 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
 
     get "/admin"
     assert_response :success
-    assert_includes response.body, "Agents"
+    assert_includes response.body, "Agents admin"
     assert_includes response.body, "Attempts this period"
     assert_includes response.body, "Tokens this period"
     assert_includes response.body, "Hungry agents"
-    assert_includes response.body, "By agent"
+    assert_select "a", text: "Agents"
+    assert_select "a", text: "Runs"
+    assert_select "a", text: "Tasks"
+    assert_select "a", text: "Usage by agent"
+    refute_includes response.body, "Agent list"
+    assert_includes response.body, "/admin/screens/registered_agents"
+    assert_includes response.body, "/admin/screens/agent_runs"
+    assert_includes response.body, "/admin/screens/agent_tasks"
+    assert_includes response.body, "/admin/screens/agent_usage"
+    refute_includes response.body, "/admin/screens/registered_skills"
+    refute_includes response.body, "/admin/screens/registered_skill_packs"
+    refute_includes response.body, "Skill packs"
+    refute_includes response.body, "By agent"
+    assert_select "a", text: "Agent", count: 0
+    refute_includes response.body, "/admin/screens/registered_agent?"
     assert_includes response.body, "12k tokens"
     assert_includes response.body, "Last 4 weeks"
     refute_includes response.body, "Last 30 days"
@@ -58,27 +72,93 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
 
     get "/admin/screens/registered_agents"
     assert_response :success
+    assert_includes response.body, "Agents"
+    refute_includes response.body, "Agent list"
     assert_includes response.body, 'id="screen-table"'
     assert_includes response.body, "/admin/screens/registered_agents/table"
 
     get "/admin/screens/registered_agents/table"
     assert_response :success
+    assert_includes response.body, "Page librarian"
+    assert_includes response.body, "Page reviewer"
+    assert_includes response.body, "Support clerk"
+    assert_includes response.body, "badge-success-background-color"
+    assert_includes response.body, "On"
+    refute_match(/>\s*page_librarian\s*</, response.body)
+    assert_match(/registered_agent\?[^"]*agent_key=page_librarian/, response.body)
+
+    get "/admin/screens/registered_agent", params: { agent_key: "page_librarian", version: 1 }
+    assert_response :success
+    assert_includes response.body, "Page librarian"
+    assert_includes response.body, "Finds a page in the current workspace."
+    assert_includes response.body, 'id="screen-table"'
+    assert_select "a", text: "Runs"
+
+    get "/admin/screens/registered_agent/table", params: { agent_key: "page_librarian", version: 1 }
+    assert_response :success
     assert_includes response.body, "page_librarian"
-    assert_includes response.body, "page_reviewer"
-    assert_includes response.body, "support_clerk"
+    assert_includes response.body, "Find the named page with the allowed tool."
+    assert_includes response.body, "Page lookup"
+    assert_includes response.body, "Find page"
+    assert_includes response.body, "Retitle page"
+    assert_match(/registered_skill\?[^"]*skill_key=page_lookup/, response.body)
+    assert_match(/registered_tool\?[^"]*tool_key=find_page/, response.body)
+    assert_match(/registered_tool\?[^"]*tool_key=retitle_page/, response.body)
+    assert_includes response.body, "Workspace outline"
+    assert_includes response.body, "Page reviewer"
 
-    get "/admin/screens/registered_skills/table"
+    get "/admin/screens/registered_skill", params: { skill_key: "page_lookup", version: 1 }
     assert_response :success
-    assert_includes response.body, "page_lookup"
-    assert_includes response.body, "billing_help"
+    assert_includes response.body, "Page lookup"
+    assert_includes response.body, "Find a named page and stop."
 
-    get "/admin/screens/registered_skill_packs/table"
+    get "/admin/screens/registered_skill/table", params: { skill_key: "page_lookup", version: 1 }
     assert_response :success
-    assert_includes response.body, "billing_tickets"
+    assert_includes response.body, "Use the find page tool when the task names a page."
+    assert_match(/registered_tool\?[^"]*tool_key=find_page/, response.body)
+
+    get "/admin/screens/registered_tool", params: { tool_key: "find_page", version: 1 }
+    assert_response :success
+    assert_includes response.body, "Find page"
+    assert_includes response.body, "Find a page by title inside the current workspace."
+    assert_select "a", text: "Calls"
+
+    get "/admin/screens/registered_tool/table", params: { tool_key: "find_page", version: 1 }
+    assert_response :success
+    assert_includes response.body, "find_page"
+    assert_includes response.body, "Looks only"
+    assert_includes response.body, "title"
+
+    get "/admin/screens/registered_skill"
+    assert_response :not_found
+    get "/admin/screens/registered_tool"
+    assert_response :not_found
+
+    get "/admin/screens/registered_agent/table", params: { agent_key: "support_clerk", version: 1 }
+    assert_response :success
+    assert_includes response.body, "Support voice"
+    assert_includes response.body, "Billing help"
+    assert_includes response.body, "Login help"
+    assert_includes response.body, "Billing tickets"
+    assert_match(/registered_skill\?[^"]*skill_key=support_voice/, response.body)
+    assert_match(/registered_skill\?[^"]*skill_key=billing_help/, response.body)
+
+    get "/admin/screens/registered_agent"
+    assert_response :not_found
+
+    get "/admin/screens/registered_agent", params: { agent_key: "missing_agent" }
+    assert_response :success
+    assert_includes response.body, "That agent is not on the list."
+
+    get "/admin/screens/agent_tasks"
+    assert_response :success
+    assert_includes response.body, "Tasks"
+    refute_includes response.body, "seed:find_page"
 
     get "/admin/screens/agent_tasks/table"
     assert_response :success
     assert_includes response.body, "Find the Getting Started page."
+    refute_includes response.body, "seed:find_page"
 
     get "/admin/screens/agent_runs"
     assert_response :success
@@ -90,8 +170,10 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
 
     get "/admin/screens/agent_runs/table"
     assert_response :success
-    assert_includes response.body, "page_librarian"
-    assert_includes response.body, "failed"
+    assert_includes response.body, "Page librarian"
+    assert_match(/registered_agent\?[^"]*agent_key=page_librarian/, response.body)
+    assert_includes response.body, "Failed"
+    assert_includes response.body, "badge-danger-background-color"
     assert_includes response.body, "Steps"
     assert_includes response.body, "Tokens"
     assert_includes response.body, "Tools"
@@ -102,7 +184,9 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
 
     get "/admin/screens/agent_usage"
     assert_response :success
-    assert_includes response.body, "By agent"
+    assert_includes response.body, "Usage by agent"
+    assert_includes response.body, "Attempts, outcomes, and average tokens."
+    refute_includes response.body, "By agent"
     assert_includes response.body, 'id="screen-table"'
     assert_includes response.body, "/admin/screens/agent_usage/table"
     assert_includes response.body, 'value="Last 4 weeks"'

@@ -59,9 +59,14 @@ module RecordingStudioAgents
       table do
         title " "
         show_columns_button
-        column :agent_key, title: "Agent"
+        column :agent_key,
+               title: "Agent",
+               value: ->(row, context) { Queries.agent_name_cell(row, context) }
         column :agent_version, title: "Version"
-        column :status, title: "Status"
+        column :status,
+               title: "Status",
+               display: :badge,
+               display_options: ->(_row, _context, value) { Queries.status_badge_options(value) }
         column :extra_skills, title: "Extra skills",
                               value: ->(row, _context) { row.selected_skill_labels.presence || "None" }
         column :steps, title: "Steps", sortable: false,

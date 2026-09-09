@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
 require_relative "admin/last_four_weeks_period"
+require_relative "admin/flatpack_button_url"
 require_relative "admin/queries"
 require_relative "admin/section"
 require_relative "admin/agents_screen"
-require_relative "admin/skills_screen"
-require_relative "admin/skill_packs_screen"
+require_relative "admin/agent_show_screen"
+require_relative "admin/skill_show_screen"
+require_relative "admin/tool_show_screen"
 require_relative "admin/tasks_screen"
 require_relative "admin/runs_screen"
 require_relative "admin/usage_screen"
@@ -20,6 +22,7 @@ module RecordingStudioAgents
       return unless defined?(::RecordingStudioAdmin)
 
       align_last_four_weeks_period!
+      align_flatpack_button_url!
       RecordingStudioAdmin.register_section(Section)
       register_screens!
       register_widgets!
@@ -41,11 +44,22 @@ module RecordingStudioAgents
     end
     private_class_method :align_last_four_weeks_period!
 
+    def align_flatpack_button_url!
+      return unless defined?(::FlatPack::Button::Component)
+
+      target = ::FlatPack::Button::Component
+      return if target.ancestors.include?(FlatpackButtonUrl)
+
+      target.prepend(FlatpackButtonUrl)
+    end
+    private_class_method :align_flatpack_button_url!
+
     def register_screens!
       [
         AgentsScreen,
-        SkillsScreen,
-        SkillPacksScreen,
+        AgentShowScreen,
+        SkillShowScreen,
+        ToolShowScreen,
         TasksScreen,
         RunsScreen,
         UsageScreen,

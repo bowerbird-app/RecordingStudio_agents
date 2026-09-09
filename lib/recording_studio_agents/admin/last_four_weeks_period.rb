@@ -4,7 +4,7 @@ module RecordingStudioAgents
   module Admin
     # Flatpack labels Last 4 weeks when the window is today minus 27 through today.
     # Admin Period still treats last_4_weeks as four 7-day jumps (today minus 28).
-    # This gem keeps a Period prepend so Runs and By agent show Last 4 weeks.
+    # This gem keeps a Period prepend so Runs and Usage by agent show Last 4 weeks.
     # Do not copy this prepend in a host. It belongs in Admin or Flatpack when
     # those gems ship the 27-day window.
     module LastFourWeeks

@@ -6,7 +6,7 @@ This Rails app exists to prove Recording Studio Agents in a real host.
 
 - Devise authentication with a seeded admin user (`admin@admin.com` / `Password`)
 - Workspace, Folder, and Page with Accessible grants
-- An Admin root for Recording Studio Admin. The Agents hub shows attempts, tokens, and hungry agents for Last 4 weeks. Runs and By agent join Recording Studio AI for token and tool counts, and default the date filter to Last 4 weeks.
+- An Admin root for Recording Studio Admin. The Agents hub shows attempts, tokens, and hungry agents for Last 4 weeks. Runs and Usage by agent join Recording Studio AI for token and tool counts, and default the date filter to Last 4 weeks.
 - The workspace switcher lists workspaces the signed-in user can access.
 - Page librarian demo on `/` (`POST /agents/demo`). After a run, home lists what it did. Workspace outline knowledge cites the workspace root. The demo passes the Getting Started page as context inside that workspace.
 - Support clerk registered for optional skill and pack tests (no second home button)
@@ -27,7 +27,7 @@ Run those commands from the dummy app directory.
 
 - `/` - page librarian demo, with steps after a run
 - `/users/sign_in` - Devise sign-in
-- `/admin` - Agents admin, including Runs and By agent
+- `/admin` - Agents admin, including Agents, Runs, and Usage by agent. Agent names open a details page. Skills and tools on that page open their own details.
 - `/recording_studio` - redirects to `/`
 - `/up` - health check
 

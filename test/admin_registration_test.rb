@@ -3,14 +3,19 @@
 require "test_helper"
 
 class AdminRegistrationTest < Minitest::Test
+  include RegistryHelpers
+
   def test_register_adds_agents_section_screens_and_widgets
     RecordingStudioAgents::Admin.register!
 
     refute_nil RecordingStudioAdmin.section_for("agents")
-    assert_equal "Agents", RecordingStudioAdmin.section_for("agents").title
+    assert_equal "Agents admin", RecordingStudioAdmin.section_for("agents").title
     refute_nil RecordingStudioAdmin.screen_for("registered_agents")
-    refute_nil RecordingStudioAdmin.screen_for("registered_skills")
-    refute_nil RecordingStudioAdmin.screen_for("registered_skill_packs")
+    refute_nil RecordingStudioAdmin.screen_for("registered_agent")
+    refute_nil RecordingStudioAdmin.screen_for("registered_skill")
+    refute_nil RecordingStudioAdmin.screen_for("registered_tool")
+    assert_nil RecordingStudioAdmin.screen_for("registered_skills")
+    assert_nil RecordingStudioAdmin.screen_for("registered_skill_packs")
     refute_nil RecordingStudioAdmin.screen_for("agent_tasks")
     refute_nil RecordingStudioAdmin.screen_for("agent_runs")
     refute_nil RecordingStudioAdmin.screen_for("agent_evaluations")
@@ -99,5 +104,111 @@ class AdminRegistrationTest < Minitest::Test
 
   def test_last_four_weeks_lookback_matches_flatpack
     assert_equal 27, RecordingStudioAgents::Admin::LastFourWeeks::LOOKBACK_DAYS
+  end
+
+  def test_hub_links_name_operational_screens
+    RecordingStudioAgents::Admin.register!
+
+    texts = RecordingStudioAgents::Admin::Section.links_value.filter_map do |link|
+      link.text if link.visible_if.nil?
+    end
+
+    assert_equal ["Agents", "Runs", "Tasks", "Usage by agent", "Evaluations"], texts
+    refute_includes texts, "Skills"
+    refute_includes texts, "Skill packs"
+    refute_includes texts, "By agent"
+    refute_includes texts, "Agent list"
+    assert(RecordingStudioAgents::Admin::Section.links_value.all? { |link| link.style == :secondary })
+  end
+
+  def test_usage_screen_title_names_the_job
+    RecordingStudioAgents::Admin.register!
+
+    screen = RecordingStudioAdmin.screen_for("agent_usage")
+
+    assert_equal "Usage by agent", screen.title
+    assert_equal "Attempts, outcomes, and average tokens.", screen.subtitle
+    assert_equal "agent_usage", screen.key
+  end
+
+  def test_agent_list_screen_title_names_the_job
+    RecordingStudioAgents::Admin.register!
+
+    screen = RecordingStudioAdmin.screen_for("registered_agents")
+    columns = screen.table_value.columns
+    titles = columns.map(&:title)
+
+    assert_equal "Agents", screen.title
+    assert_equal "Including agents that have not run yet.", screen.subtitle
+    assert_equal "Name", titles.first
+    assert_equal %i[name version enabled], screen.table_value.default_column_keys
+    assert_includes titles, "Key"
+    assert_equal :badge, columns.find { |column| column.key == :enabled }.display
+  end
+
+  def test_tasks_table_omits_the_key_column
+    titles = RecordingStudioAgents::Admin::TasksScreen.table_value.columns.map(&:title)
+
+    refute_includes titles, "Key"
+    assert_equal %w[Goal Created], titles
+  end
+
+  def test_flatpack_button_url_maps_to_href
+    klass = Class.new do
+      attr_reader :href, :kwargs
+
+      def initialize(href: nil, **kwargs)
+        @href = href
+        @kwargs = kwargs
+      end
+    end
+    klass.prepend(RecordingStudioAgents::Admin::FlatpackButtonUrl)
+
+    from_url = klass.new(url: "/admin/screens/agent_runs", text: "Runs")
+    assert_equal "/admin/screens/agent_runs", from_url.href
+    assert_equal({ text: "Runs" }, from_url.kwargs)
+
+    prefers_href = klass.new(href: "/direct", url: "/ignored")
+    assert_equal "/direct", prefers_href.href
+  end
+
+  def test_flatpack_button_url_alignment_is_idempotent
+    skip unless defined?(::FlatPack::Button::Component)
+
+    RecordingStudioAgents::Admin.register!
+    RecordingStudioAgents::Admin.register!
+
+    count = FlatPack::Button::Component.ancestors.count do |mod|
+      mod == RecordingStudioAgents::Admin::FlatpackButtonUrl
+    end
+
+    assert_equal 1, count
+  end
+
+  def test_runs_table_shows_agent_name_and_status_badges
+    RecordingStudioAgents::Admin.register!
+
+    columns = RecordingStudioAgents::Admin::RunsScreen.table_value.columns
+    agent = columns.find { |column| column.key == :agent_key }
+    status = columns.find { |column| column.key == :status }
+
+    assert_equal "Agent", agent.title
+    assert_equal :badge, status.display
+    assert_equal %i[agent_key status steps tokens tools recording_studio_ai_run_id created_at],
+                 RecordingStudioAgents::Admin::RunsScreen.table_value.default_column_keys
+  end
+
+  def test_agent_name_uses_the_registered_name
+    register_librarian
+    queries = RecordingStudioAgents::Admin::Queries
+
+    assert_equal "Librarian", queries.agent_name("librarian", version: 1)
+    assert_equal "Librarian", queries.agent_name("librarian", version: 99)
+    assert_equal "missing_agent", queries.agent_name("missing_agent")
+    assert_equal({ text: "On", style: :success, size: :sm }, queries.enabled_badge_options(true))
+    assert_equal({ text: "Off", style: :default, size: :sm }, queries.enabled_badge_options(false))
+    assert_equal({ text: "Failed", style: :danger, size: :sm }, queries.status_badge_options("failed"))
+    assert_equal({ text: "Succeeded", style: :success, size: :sm }, queries.status_badge_options("succeeded"))
+    assert_equal({ text: "Weird", style: :default, size: :sm }, queries.status_badge_options("weird"))
   end
 end
