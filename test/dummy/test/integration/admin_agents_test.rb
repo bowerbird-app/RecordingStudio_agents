@@ -50,7 +50,17 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Attempts this period"
     assert_includes response.body, "Tokens this period"
     assert_includes response.body, "Hungry agents"
-    assert_includes response.body, "By agent"
+    assert_select "a", text: "Runs"
+    assert_select "a", text: "Tasks"
+    assert_select "a", text: "Usage by agent"
+    assert_includes response.body, "/admin/screens/agent_runs"
+    assert_includes response.body, "/admin/screens/agent_tasks"
+    assert_includes response.body, "/admin/screens/agent_usage"
+    refute_includes response.body, "/admin/screens/registered_agents"
+    refute_includes response.body, "/admin/screens/registered_skills"
+    refute_includes response.body, "/admin/screens/registered_skill_packs"
+    refute_includes response.body, "Skill packs"
+    refute_includes response.body, "By agent"
     assert_includes response.body, "12k tokens"
     assert_includes response.body, "Last 4 weeks"
     refute_includes response.body, "Last 30 days"
@@ -76,9 +86,15 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "billing_tickets"
 
+    get "/admin/screens/agent_tasks"
+    assert_response :success
+    assert_includes response.body, "Tasks"
+    refute_includes response.body, "seed:find_page"
+
     get "/admin/screens/agent_tasks/table"
     assert_response :success
     assert_includes response.body, "Find the Getting Started page."
+    refute_includes response.body, "seed:find_page"
 
     get "/admin/screens/agent_runs"
     assert_response :success
@@ -102,7 +118,9 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
 
     get "/admin/screens/agent_usage"
     assert_response :success
-    assert_includes response.body, "By agent"
+    assert_includes response.body, "Usage by agent"
+    assert_includes response.body, "Attempts, outcomes, and average tokens."
+    refute_includes response.body, "By agent"
     assert_includes response.body, 'id="screen-table"'
     assert_includes response.body, "/admin/screens/agent_usage/table"
     assert_includes response.body, 'value="Last 4 weeks"'

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "admin/last_four_weeks_period"
+require_relative "admin/flatpack_button_url"
 require_relative "admin/queries"
 require_relative "admin/section"
 require_relative "admin/agents_screen"
@@ -20,6 +21,7 @@ module RecordingStudioAgents
       return unless defined?(::RecordingStudioAdmin)
 
       align_last_four_weeks_period!
+      align_flatpack_button_url!
       RecordingStudioAdmin.register_section(Section)
       register_screens!
       register_widgets!
@@ -40,6 +42,16 @@ module RecordingStudioAgents
       singleton.prepend(LastFourWeeksPeriod)
     end
     private_class_method :align_last_four_weeks_period!
+
+    def align_flatpack_button_url!
+      return unless defined?(::FlatPack::Button::Component)
+
+      target = ::FlatPack::Button::Component
+      return if target.ancestors.include?(FlatpackButtonUrl)
+
+      target.prepend(FlatpackButtonUrl)
+    end
+    private_class_method :align_flatpack_button_url!
 
     def register_screens!
       [

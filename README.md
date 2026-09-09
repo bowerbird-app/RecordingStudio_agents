@@ -234,7 +234,11 @@ Each step has a label and a badge: Done, Working, Waiting, or Failed. Tool label
 
 ## Admin
 
-The `agents` section lists code-defined agents, skills, and skill packs as read-only catalogs. Hub widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents, using Last 4 weeks (today through 27 days back) so they match Runs and By agent. Runs filters by agent, status, and date (Last 4 weeks by default), charts attempts over time, and links the AI run into Recording Studio AI. Agent keys in that filter come from workspaces the actor can view. By agent uses the same Last 4 weeks date filter and averages attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Catalogs stay identity-only. Admin never displays chain-of-thought.
+The `agents` section is staff operations for this gem. Hub widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents, using Last 4 weeks (today through 27 days back). Links open Runs, Tasks, Usage by agent, and Evaluations.
+
+Runs filters by agent, status, and date (Last 4 weeks by default), charts attempts over time, and links the AI run into Recording Studio AI. Agent keys in that filter come from workspaces the actor can view. Usage by agent uses the same date window and shows attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Tasks show the goal and when it was created.
+
+Registered agents, skills, and skill packs remain as read-only catalog screens. Skills are instructions other gems contribute. Skill packs are optional bundles loaded at run. They are not hub buttons. Admin never displays chain-of-thought.
 
 Hosts that use importmap must pin Recording Studio Admin controllers so screen tables load:
 

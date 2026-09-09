@@ -100,4 +100,65 @@ class AdminRegistrationTest < Minitest::Test
   def test_last_four_weeks_lookback_matches_flatpack
     assert_equal 27, RecordingStudioAgents::Admin::LastFourWeeks::LOOKBACK_DAYS
   end
+
+  def test_hub_links_name_operational_screens
+    RecordingStudioAgents::Admin.register!
+
+    texts = RecordingStudioAgents::Admin::Section.links_value.map(&:text)
+
+    assert_equal ["Runs", "Tasks", "Usage by agent", "Evaluations"], texts
+    refute_includes texts, "Skills"
+    refute_includes texts, "Skill packs"
+    refute_includes texts, "By agent"
+    refute_includes texts, "Agents"
+  end
+
+  def test_usage_screen_title_names_the_job
+    RecordingStudioAgents::Admin.register!
+
+    screen = RecordingStudioAdmin.screen_for("agent_usage")
+
+    assert_equal "Usage by agent", screen.title
+    assert_equal "Attempts, outcomes, and average tokens.", screen.subtitle
+    assert_equal "agent_usage", screen.key
+  end
+
+  def test_tasks_table_omits_the_key_column
+    titles = RecordingStudioAgents::Admin::TasksScreen.table_value.columns.map(&:title)
+
+    refute_includes titles, "Key"
+    assert_equal ["Goal", "Created"], titles
+  end
+
+  def test_flatpack_button_url_maps_to_href
+    klass = Class.new do
+      attr_reader :href, :kwargs
+
+      def initialize(href: nil, **kwargs)
+        @href = href
+        @kwargs = kwargs
+      end
+    end
+    klass.prepend(RecordingStudioAgents::Admin::FlatpackButtonUrl)
+
+    from_url = klass.new(url: "/admin/screens/agent_runs", text: "Runs")
+    assert_equal "/admin/screens/agent_runs", from_url.href
+    assert_equal({ text: "Runs" }, from_url.kwargs)
+
+    prefers_href = klass.new(href: "/direct", url: "/ignored")
+    assert_equal "/direct", prefers_href.href
+  end
+
+  def test_flatpack_button_url_alignment_is_idempotent
+    skip unless defined?(::FlatPack::Button::Component)
+
+    RecordingStudioAgents::Admin.register!
+    RecordingStudioAgents::Admin.register!
+
+    count = FlatPack::Button::Component.ancestors.count do |mod|
+      mod == RecordingStudioAgents::Admin::FlatpackButtonUrl
+    end
+
+    assert_equal 1, count
+  end
 end

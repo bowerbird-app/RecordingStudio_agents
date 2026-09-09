@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.6] - 2026-09-09
+
+Agents admin hub links to the jobs staff actually open, and those buttons navigate.
+
+### Changed
+- Hub buttons are Runs, Tasks, Usage by agent, and Evaluations. Registered agents, skills, and skill packs stay as catalog screens and are not hub buttons.
+- Tasks lists the goal and when it was created. It no longer shows the task key.
+- The usage screen title is **Usage by agent**, with a subtitle that names attempts, outcomes, and average tokens. The screen key stays `agent_usage`.
+
+### Fixed
+- Hub title buttons navigate. Admin still passes `url:` into Flatpack Button, which only reads `href:`. This gem maps `url` to `href` until Admin ships that one-line template change.
+
+### Upgrade notes
+- No migration. Screen keys are unchanged.
+- Bookmarks and widget links to `/admin/screens/agent_usage` still work. The visible title is Usage by agent, not By agent.
+- Catalog screens remain at `registered_agents`, `registered_skills`, and `registered_skill_packs`. They are no longer linked from the hub.
+- Do not copy the Flatpack Button `url` prepend in a host. It belongs in Admin when that gem passes `href:` on section hub buttons.
+
 ## [0.4.5] - 2026-09-08
 
 Review follow-ups: stop storing unused task context, scope admin filters, tighten retries, and align hub widgets with Last 4 weeks.
@@ -129,6 +147,7 @@ Recording Studio Agents V1. This is a product release, not a template bump.
 
 Template Cloud Agent environment. See git history for the template notes that shipped under this version.
 
+[0.4.6]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.6
 [0.4.5]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.5
 [0.4.4]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.4
 [0.4.3]: https://github.com/bowerbird-app/RecordingStudio_agents/releases/tag/v0.4.3

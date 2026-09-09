@@ -8,24 +8,15 @@ module RecordingStudioAgents
       title "Agents"
       subtitle "Who ran, what they tried, and how heavy the model calls were."
 
-      link :agents,
-           text: "Agents",
-           url: ->(context) { context.admin_screen_path("registered_agents") },
+      link :runs,
+           text: "Runs",
+           url: ->(context) { context.admin_screen_path("agent_runs") },
            style: :primary
-      link :skills,
-           text: "Skills",
-           url: ->(context) { context.admin_screen_path("registered_skills") }
-      link :skill_packs,
-           text: "Skill packs",
-           url: ->(context) { context.admin_screen_path("registered_skill_packs") }
       link :tasks,
            text: "Tasks",
            url: ->(context) { context.admin_screen_path("agent_tasks") }
-      link :runs,
-           text: "Runs",
-           url: ->(context) { context.admin_screen_path("agent_runs") }
       link :usage,
-           text: "By agent",
+           text: "Usage by agent",
            url: ->(context) { context.admin_screen_path("agent_usage") }
       link :evaluations,
            text: "Evaluations",

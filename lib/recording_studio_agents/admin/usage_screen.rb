@@ -5,8 +5,8 @@ module RecordingStudioAgents
     class UsageScreen < RecordingStudioAdmin::Screen
       key "agent_usage"
       icon :chart_bar
-      title "By agent"
-      subtitle "Averages skip attempts whose model call is gone."
+      title "Usage by agent"
+      subtitle "Attempts, outcomes, and average tokens."
 
       query do |context|
         Queries.by_agent_rows(
