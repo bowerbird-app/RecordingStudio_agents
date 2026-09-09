@@ -27,7 +27,7 @@ Run those commands from the dummy app directory.
 
 - `/` - page librarian demo, with steps after a run
 - `/users/sign_in` - Devise sign-in
-- `/admin` - Agents admin, including Runs and Usage by agent
+- `/admin` - Agents admin, including Agents, Runs, and Usage by agent
 - `/recording_studio` - redirects to `/`
 - `/up` - health check
 

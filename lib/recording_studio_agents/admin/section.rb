@@ -5,13 +5,15 @@ module RecordingStudioAgents
     class Section < RecordingStudioAdmin::Section
       key "agents"
       icon :sparkles
-      title "Agents"
+      title "Agents admin"
       subtitle "Who ran, what they tried, and how heavy the model calls were."
 
+      link :agents,
+           text: "Agents",
+           url: ->(context) { context.admin_screen_path("registered_agents") }
       link :runs,
            text: "Runs",
-           url: ->(context) { context.admin_screen_path("agent_runs") },
-           style: :primary
+           url: ->(context) { context.admin_screen_path("agent_runs") }
       link :tasks,
            text: "Tasks",
            url: ->(context) { context.admin_screen_path("agent_tasks") }
@@ -21,9 +23,6 @@ module RecordingStudioAgents
       link :evaluations,
            text: "Evaluations",
            url: ->(context) { context.admin_screen_path("agent_evaluations") }
-      link :agents,
-           text: "Agent list",
-           url: ->(context) { context.admin_screen_path("registered_agents") }
 
       widget "widgets.agents.failed_runs"
       widget "widgets.agents.attempts_this_period"

@@ -10,7 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Agents admin hub links to the jobs staff actually open, and those buttons navigate.
 
 ### Changed
-- Hub buttons are Runs, Tasks, Usage by agent, Evaluations, and Agent list. Skills and skill packs stay in code and no longer have Admin screens.
+- Hub buttons are Agents, Runs, Tasks, Usage by agent, and Evaluations. None is primary. Skills and skill packs stay in code and no longer have Admin screens.
+- The section title is **Agents admin**. The Agents screen title is **Agents**.
+- Agents lists name, version, and an On/Off badge. The registry key is an optional column.
+- Runs shows the agent name in the first column and a status badge.
 - Tasks lists the goal and when it was created. It no longer shows the task key.
 - The usage screen title is **Usage by agent**, with a subtitle that names attempts, outcomes, and average tokens. The screen key stays `agent_usage`.
 
@@ -20,6 +23,7 @@ Agents admin hub links to the jobs staff actually open, and those buttons naviga
 ### Upgrade notes
 - No migration. `agent_usage`, `agent_runs`, `agent_tasks`, `agent_evaluations`, and `registered_agents` keys are unchanged.
 - Bookmarks and widget links to `/admin/screens/agent_usage` still work. The visible title is Usage by agent, not By agent.
+- Agents and Runs tables show the agent name. The registry key on Agents is optional in the columns picker.
 - `/admin/screens/registered_skills` and `/admin/screens/registered_skill_packs` are gone. Inspect skills and packs in code.
 - Do not copy the Flatpack Button `url` prepend in a host. It belongs in Admin when that gem passes `href:` on section hub buttons.
 

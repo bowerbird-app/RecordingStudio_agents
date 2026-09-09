@@ -46,18 +46,19 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
 
     get "/admin"
     assert_response :success
-    assert_includes response.body, "Agents"
+    assert_includes response.body, "Agents admin"
     assert_includes response.body, "Attempts this period"
     assert_includes response.body, "Tokens this period"
     assert_includes response.body, "Hungry agents"
+    assert_select "a", text: "Agents"
     assert_select "a", text: "Runs"
     assert_select "a", text: "Tasks"
     assert_select "a", text: "Usage by agent"
-    assert_select "a", text: "Agent list"
+    refute_includes response.body, "Agent list"
+    assert_includes response.body, "/admin/screens/registered_agents"
     assert_includes response.body, "/admin/screens/agent_runs"
     assert_includes response.body, "/admin/screens/agent_tasks"
     assert_includes response.body, "/admin/screens/agent_usage"
-    assert_includes response.body, "/admin/screens/registered_agents"
     refute_includes response.body, "/admin/screens/registered_skills"
     refute_includes response.body, "/admin/screens/registered_skill_packs"
     refute_includes response.body, "Skill packs"
@@ -69,15 +70,19 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
 
     get "/admin/screens/registered_agents"
     assert_response :success
-    assert_includes response.body, "Agent list"
+    assert_includes response.body, "Agents"
+    refute_includes response.body, "Agent list"
     assert_includes response.body, 'id="screen-table"'
     assert_includes response.body, "/admin/screens/registered_agents/table"
 
     get "/admin/screens/registered_agents/table"
     assert_response :success
-    assert_includes response.body, "page_librarian"
-    assert_includes response.body, "page_reviewer"
-    assert_includes response.body, "support_clerk"
+    assert_includes response.body, "Page librarian"
+    assert_includes response.body, "Page reviewer"
+    assert_includes response.body, "Support clerk"
+    assert_includes response.body, "badge-success-background-color"
+    assert_includes response.body, "On"
+    refute_match(/>\s*page_librarian\s*</, response.body)
 
     get "/admin/screens/agent_tasks"
     assert_response :success
@@ -99,8 +104,9 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
 
     get "/admin/screens/agent_runs/table"
     assert_response :success
-    assert_includes response.body, "page_librarian"
-    assert_includes response.body, "failed"
+    assert_includes response.body, "Page librarian"
+    assert_includes response.body, "Failed"
+    assert_includes response.body, "badge-danger-background-color"
     assert_includes response.body, "Steps"
     assert_includes response.body, "Tokens"
     assert_includes response.body, "Tools"

@@ -5,7 +5,7 @@ module RecordingStudioAgents
     class AgentsScreen < RecordingStudioAdmin::Screen
       key "registered_agents"
       icon :sparkles
-      title "Agent list"
+      title "Agents"
       subtitle "Including agents that have not run yet."
 
       query do |_context|
@@ -15,10 +15,14 @@ module RecordingStudioAgents
       table do
         title " "
         hide_count
-        column :key, title: "Key", value: ->(row, _context) { row.key }
-        column :version, title: "Version", value: ->(row, _context) { row.version }
         column :name, title: "Name", value: ->(row, _context) { row.name }
-        column :enabled, title: "Enabled", value: ->(row, _context) { row.enabled ? "Yes" : "No" }
+        column :version, title: "Version", value: ->(row, _context) { row.version }
+        column :enabled,
+               title: "Enabled",
+               display: :badge,
+               display_options: ->(_row, _context, value) { Queries.enabled_badge_options(value) }
+        column :key, title: "Key", value: ->(row, _context) { row.key }
+        default_columns :name, :version, :enabled
       end
     end
   end

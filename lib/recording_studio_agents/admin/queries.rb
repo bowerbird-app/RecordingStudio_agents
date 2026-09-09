@@ -6,6 +6,15 @@ module RecordingStudioAgents
       HUNGRY_LIMIT = 5
       BLANK = "-"
       WAITING_STATUSES = %w[pending running awaiting_confirmation].freeze
+      STATUS_BADGES = {
+        "pending" => { text: "Waiting", style: :default },
+        "running" => { text: "Running", style: :info },
+        "awaiting_confirmation" => { text: "Needs confirmation", style: :warning },
+        "succeeded" => { text: "Succeeded", style: :success },
+        "handoff_requested" => { text: "Passed on", style: :info },
+        "failed" => { text: "Failed", style: :danger },
+        "cancelled" => { text: "Cancelled", style: :default }
+      }.freeze
       AI_JOIN = <<~SQL.squish
         INNER JOIN recording_studio_ai_runs
           ON recording_studio_ai_runs.id = recording_studio_agents_agent_runs.recording_studio_ai_run_id
@@ -230,6 +239,22 @@ module RecordingStudioAgents
         "#{agent_key} · #{compact_tokens(tokens)} tokens"
       end
 
+      def agent_name(key, version: nil)
+        agent_definition(key, version: version)&.name.presence || key.to_s
+      end
+
+      def enabled_badge_options(enabled)
+        if enabled
+          { text: "On", style: :success, size: :sm }
+        else
+          { text: "Off", style: :default, size: :sm }
+        end
+      end
+
+      def status_badge_options(status)
+        STATUS_BADGES.fetch(status.to_s) { { text: status.to_s.humanize, style: :default } }.merge(size: :sm)
+      end
+
       def tools_cell(row, context)
         ai_run = ai_run_for(row.recording_studio_ai_run_id)
         return BLANK if ai_run.nil?
@@ -262,6 +287,18 @@ module RecordingStudioAgents
           data: { turbo_frame: "_top" }
         )
       end
+
+      def agent_definition(key, version: nil)
+        catalog = RecordingStudioAgents.agents.all
+        key = key.to_s
+        if version
+          match = catalog.find { |item| item.key == key && item.version == Integer(version) }
+          return match if match
+        end
+
+        catalog.select { |item| item.key == key }.max_by(&:version)
+      end
+      private_class_method :agent_definition
 
       def build_by_agent_row(key, version, group, ai_by_id)
         ai_rows = group.filter_map { |run| ai_by_id[run.recording_studio_ai_run_id] }

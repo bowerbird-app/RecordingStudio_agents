@@ -234,9 +234,9 @@ Each step has a label and a badge: Done, Working, Waiting, or Failed. Tool label
 
 ## Admin
 
-The `agents` section is staff operations for this gem. Hub widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents, using Last 4 weeks (today through 27 days back). Links open Runs, Tasks, Usage by agent, Evaluations, and Agent list.
+The `agents` section is staff operations for this gem. The hub title is **Agents admin**. Widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents, using Last 4 weeks (today through 27 days back). Links open Agents, Runs, Tasks, Usage by agent, and Evaluations.
 
-Runs filters by agent, status, and date (Last 4 weeks by default), charts attempts over time, and links the AI run into Recording Studio AI. Agent keys in that filter come from workspaces the actor can view. Usage by agent uses the same date window and shows attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Tasks show the goal and when it was created. Agent list includes agents that have not run.
+Runs filters by agent, status, and date (Last 4 weeks by default), charts attempts over time, and links the AI run into Recording Studio AI. Agent keys in that filter come from workspaces the actor can view. The Runs table shows the agent name and a status badge. Usage by agent uses the same date window and shows attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Tasks show the goal and when it was created. Agents lists names, versions, and whether each is on, including agents that have not run. The registry key stays as an optional column.
 
 Skills and skill packs stay in code. Skills are instructions other gems contribute. Skill packs are optional bundles loaded at run. They do not have Admin screens. Admin never displays chain-of-thought.
 

@@ -3,11 +3,12 @@
 require "test_helper"
 
 class AdminRegistrationTest < Minitest::Test
+  include RegistryHelpers
   def test_register_adds_agents_section_screens_and_widgets
     RecordingStudioAgents::Admin.register!
 
     refute_nil RecordingStudioAdmin.section_for("agents")
-    assert_equal "Agents", RecordingStudioAdmin.section_for("agents").title
+    assert_equal "Agents admin", RecordingStudioAdmin.section_for("agents").title
     refute_nil RecordingStudioAdmin.screen_for("registered_agents")
     assert_nil RecordingStudioAdmin.screen_for("registered_skills")
     assert_nil RecordingStudioAdmin.screen_for("registered_skill_packs")
@@ -106,11 +107,12 @@ class AdminRegistrationTest < Minitest::Test
 
     texts = RecordingStudioAgents::Admin::Section.links_value.map(&:text)
 
-    assert_equal ["Runs", "Tasks", "Usage by agent", "Evaluations", "Agent list"], texts
+    assert_equal ["Agents", "Runs", "Tasks", "Usage by agent", "Evaluations"], texts
     refute_includes texts, "Skills"
     refute_includes texts, "Skill packs"
     refute_includes texts, "By agent"
-    refute_includes texts, "Agents"
+    refute_includes texts, "Agent list"
+    assert(RecordingStudioAgents::Admin::Section.links_value.all? { |link| link.style == :secondary })
   end
 
   def test_usage_screen_title_names_the_job
@@ -127,9 +129,15 @@ class AdminRegistrationTest < Minitest::Test
     RecordingStudioAgents::Admin.register!
 
     screen = RecordingStudioAdmin.screen_for("registered_agents")
+    columns = screen.table_value.columns
+    titles = columns.map(&:title)
 
-    assert_equal "Agent list", screen.title
+    assert_equal "Agents", screen.title
     assert_equal "Including agents that have not run yet.", screen.subtitle
+    assert_equal "Name", titles.first
+    assert_equal %i[name version enabled], screen.table_value.default_column_keys
+    assert_includes titles, "Key"
+    assert_equal :badge, columns.find { |column| column.key == :enabled }.display
   end
 
   def test_tasks_table_omits_the_key_column
@@ -169,5 +177,32 @@ class AdminRegistrationTest < Minitest::Test
     end
 
     assert_equal 1, count
+  end
+
+  def test_runs_table_shows_agent_name_and_status_badges
+    RecordingStudioAgents::Admin.register!
+
+    columns = RecordingStudioAgents::Admin::RunsScreen.table_value.columns
+    agent = columns.find { |column| column.key == :agent_key }
+    status = columns.find { |column| column.key == :status }
+
+    assert_equal "Agent", agent.title
+    assert_equal :badge, status.display
+    assert_equal %i[agent_key status steps tokens tools recording_studio_ai_run_id created_at],
+                 RecordingStudioAgents::Admin::RunsScreen.table_value.default_column_keys
+  end
+
+  def test_agent_name_uses_the_registered_name
+    register_librarian
+    queries = RecordingStudioAgents::Admin::Queries
+
+    assert_equal "Librarian", queries.agent_name("librarian", version: 1)
+    assert_equal "Librarian", queries.agent_name("librarian", version: 99)
+    assert_equal "missing_agent", queries.agent_name("missing_agent")
+    assert_equal({ text: "On", style: :success, size: :sm }, queries.enabled_badge_options(true))
+    assert_equal({ text: "Off", style: :default, size: :sm }, queries.enabled_badge_options(false))
+    assert_equal({ text: "Failed", style: :danger, size: :sm }, queries.status_badge_options("failed"))
+    assert_equal({ text: "Succeeded", style: :success, size: :sm }, queries.status_badge_options("succeeded"))
+    assert_equal({ text: "Weird", style: :default, size: :sm }, queries.status_badge_options("weird"))
   end
 end
