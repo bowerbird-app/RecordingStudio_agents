@@ -9,8 +9,8 @@ class AdminRegistrationTest < Minitest::Test
     refute_nil RecordingStudioAdmin.section_for("agents")
     assert_equal "Agents", RecordingStudioAdmin.section_for("agents").title
     refute_nil RecordingStudioAdmin.screen_for("registered_agents")
-    refute_nil RecordingStudioAdmin.screen_for("registered_skills")
-    refute_nil RecordingStudioAdmin.screen_for("registered_skill_packs")
+    assert_nil RecordingStudioAdmin.screen_for("registered_skills")
+    assert_nil RecordingStudioAdmin.screen_for("registered_skill_packs")
     refute_nil RecordingStudioAdmin.screen_for("agent_tasks")
     refute_nil RecordingStudioAdmin.screen_for("agent_runs")
     refute_nil RecordingStudioAdmin.screen_for("agent_evaluations")
@@ -106,7 +106,7 @@ class AdminRegistrationTest < Minitest::Test
 
     texts = RecordingStudioAgents::Admin::Section.links_value.map(&:text)
 
-    assert_equal ["Runs", "Tasks", "Usage by agent", "Evaluations"], texts
+    assert_equal ["Runs", "Tasks", "Usage by agent", "Evaluations", "Agent list"], texts
     refute_includes texts, "Skills"
     refute_includes texts, "Skill packs"
     refute_includes texts, "By agent"
@@ -121,6 +121,15 @@ class AdminRegistrationTest < Minitest::Test
     assert_equal "Usage by agent", screen.title
     assert_equal "Attempts, outcomes, and average tokens.", screen.subtitle
     assert_equal "agent_usage", screen.key
+  end
+
+  def test_agent_list_screen_title_names_the_job
+    RecordingStudioAgents::Admin.register!
+
+    screen = RecordingStudioAdmin.screen_for("registered_agents")
+
+    assert_equal "Agent list", screen.title
+    assert_equal "Including agents that have not run yet.", screen.subtitle
   end
 
   def test_tasks_table_omits_the_key_column

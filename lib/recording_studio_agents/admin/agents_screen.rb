@@ -5,8 +5,8 @@ module RecordingStudioAgents
     class AgentsScreen < RecordingStudioAdmin::Screen
       key "registered_agents"
       icon :sparkles
-      title "Agents"
-      subtitle "Code definitions. A disabled agent stays listed."
+      title "Agent list"
+      subtitle "Including agents that have not run yet."
 
       query do |_context|
         Queries.agents

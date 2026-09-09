@@ -21,6 +21,9 @@ module RecordingStudioAgents
       link :evaluations,
            text: "Evaluations",
            url: ->(context) { context.admin_screen_path("agent_evaluations") }
+      link :agents,
+           text: "Agent list",
+           url: ->(context) { context.admin_screen_path("registered_agents") }
 
       widget "widgets.agents.failed_runs"
       widget "widgets.agents.attempts_this_period"

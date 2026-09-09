@@ -53,10 +53,11 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_select "a", text: "Runs"
     assert_select "a", text: "Tasks"
     assert_select "a", text: "Usage by agent"
+    assert_select "a", text: "Agent list"
     assert_includes response.body, "/admin/screens/agent_runs"
     assert_includes response.body, "/admin/screens/agent_tasks"
     assert_includes response.body, "/admin/screens/agent_usage"
-    refute_includes response.body, "/admin/screens/registered_agents"
+    assert_includes response.body, "/admin/screens/registered_agents"
     refute_includes response.body, "/admin/screens/registered_skills"
     refute_includes response.body, "/admin/screens/registered_skill_packs"
     refute_includes response.body, "Skill packs"
@@ -68,6 +69,7 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
 
     get "/admin/screens/registered_agents"
     assert_response :success
+    assert_includes response.body, "Agent list"
     assert_includes response.body, 'id="screen-table"'
     assert_includes response.body, "/admin/screens/registered_agents/table"
 
@@ -76,15 +78,6 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "page_librarian"
     assert_includes response.body, "page_reviewer"
     assert_includes response.body, "support_clerk"
-
-    get "/admin/screens/registered_skills/table"
-    assert_response :success
-    assert_includes response.body, "page_lookup"
-    assert_includes response.body, "billing_help"
-
-    get "/admin/screens/registered_skill_packs/table"
-    assert_response :success
-    assert_includes response.body, "billing_tickets"
 
     get "/admin/screens/agent_tasks"
     assert_response :success
