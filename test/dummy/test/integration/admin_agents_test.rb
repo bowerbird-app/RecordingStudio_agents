@@ -101,8 +101,38 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Page lookup"
     assert_includes response.body, "Find page"
     assert_includes response.body, "Retitle page"
+    assert_match(/registered_skill\?[^"]*skill_key=page_lookup/, response.body)
+    assert_match(/registered_tool\?[^"]*tool_key=find_page/, response.body)
+    assert_match(/registered_tool\?[^"]*tool_key=retitle_page/, response.body)
     assert_includes response.body, "Workspace outline"
     assert_includes response.body, "Page reviewer"
+
+    get "/admin/screens/registered_skill", params: { skill_key: "page_lookup", version: 1 }
+    assert_response :success
+    assert_includes response.body, "Page lookup"
+    assert_includes response.body, "Find a named page and stop."
+
+    get "/admin/screens/registered_skill/table", params: { skill_key: "page_lookup", version: 1 }
+    assert_response :success
+    assert_includes response.body, "Use the find page tool when the task names a page."
+    assert_match(/registered_tool\?[^"]*tool_key=find_page/, response.body)
+
+    get "/admin/screens/registered_tool", params: { tool_key: "find_page", version: 1 }
+    assert_response :success
+    assert_includes response.body, "Find page"
+    assert_includes response.body, "Find a page by title inside the current workspace."
+    assert_select "a", text: "Calls"
+
+    get "/admin/screens/registered_tool/table", params: { tool_key: "find_page", version: 1 }
+    assert_response :success
+    assert_includes response.body, "find_page"
+    assert_includes response.body, "Looks only"
+    assert_includes response.body, "title"
+
+    get "/admin/screens/registered_skill"
+    assert_response :not_found
+    get "/admin/screens/registered_tool"
+    assert_response :not_found
 
     get "/admin/screens/registered_agent/table", params: { agent_key: "support_clerk", version: 1 }
     assert_response :success
@@ -110,6 +140,8 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Billing help"
     assert_includes response.body, "Login help"
     assert_includes response.body, "Billing tickets"
+    assert_match(/registered_skill\?[^"]*skill_key=support_voice/, response.body)
+    assert_match(/registered_skill\?[^"]*skill_key=billing_help/, response.body)
 
     get "/admin/screens/registered_agent"
     assert_response :not_found

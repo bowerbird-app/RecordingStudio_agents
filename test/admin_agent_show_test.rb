@@ -31,6 +31,12 @@ class AdminAgentShowTest < Minitest::Test
     assert_equal "Agent", agent.text
     refute agent.visible?(FakeContext.new(params: {}))
     assert agent.visible?(FakeContext.new(params: { agent_key: "librarian" }))
+    skill = links.find { |link| link.name == :skill }
+    tool = links.find { |link| link.name == :tool }
+    refute skill.visible?(FakeContext.new(params: {}))
+    assert skill.visible?(FakeContext.new(params: { skill_key: "lookup" }))
+    refute tool.visible?(FakeContext.new(params: {}))
+    assert tool.visible?(FakeContext.new(params: { tool_key: "find_page" }))
   end
 
   def test_show_copy_uses_the_registered_agent
@@ -87,6 +93,57 @@ class AdminAgentShowTest < Minitest::Test
     assert_includes html, "/admin/screens/registered_agent?"
     assert_includes html, "agent_key=librarian"
     assert_includes html, "version=1"
+  end
+
+  def test_detail_rows_link_skills_and_tools
+    register_librarian
+    agent = RecordingStudioAgents::Admin::Queries.agent_definition("librarian", version: 1)
+    context = FakeContext.new(params: {})
+    rows = RecordingStudioAgents::Admin::Queries.agent_detail_rows(agent, context)
+    by_label = rows.to_h { |row| [row.label, row.value.to_s] }
+
+    assert_includes by_label.fetch("Skills"), "Lookup"
+    assert_includes by_label.fetch("Skills"), "/admin/screens/registered_skill?"
+    assert_includes by_label.fetch("Skills"), "skill_key=lookup"
+    assert_includes by_label.fetch("Tools"), "find page"
+    assert_includes by_label.fetch("Tools"), "/admin/screens/registered_tool?"
+    assert_includes by_label.fetch("Tools"), "tool_key=find_page"
+  end
+
+  def test_skill_show_lists_instructions_and_linked_tools
+    register_librarian
+    context = FakeContext.new(params: { skill_key: "lookup", version: 1 })
+    queries = RecordingStudioAgents::Admin::Queries
+    skill = queries.selected_skill(context)
+    rows = queries.skill_detail_rows(skill, context)
+    by_label = rows.to_h { |row| [row.label, row.value.to_s] }
+
+    assert_equal "Lookup", queries.skill_show_title(context)
+    assert_equal "Find pages", queries.skill_show_subtitle(context)
+    assert_equal "lookup", by_label.fetch("Key")
+    assert_equal "Use find_page.", by_label.fetch("Instructions")
+    assert_includes by_label.fetch("Tools"), "registered_tool?"
+    assert_includes by_label.fetch("Tools"), "tool_key=find_page"
+  end
+
+  def test_tool_show_lists_what_the_tool_does
+    register_librarian
+    context = FakeContext.new(params: { tool_key: "find_page", version: 1 })
+    queries = RecordingStudioAgents::Admin::Queries
+    tool = queries.selected_tool(context)
+    rows = queries.tool_detail_rows(tool)
+    by_label = rows.to_h { |row| [row.label, row.value] }
+
+    assert_equal "find page", queries.tool_show_title(context)
+    assert_equal "Test tool", queries.tool_show_subtitle(context)
+    assert_equal "find_page", by_label.fetch("Key")
+    assert_equal "Looks only", by_label.fetch("Effect")
+    assert_equal "Off", by_label.fetch("Needs a yes")
+  end
+
+  def test_register_adds_the_skill_and_tool_show_screens
+    refute_nil RecordingStudioAdmin.screen_for("registered_skill")
+    refute_nil RecordingStudioAdmin.screen_for("registered_tool")
   end
 
   def test_show_screen_query_is_empty_when_the_agent_is_missing

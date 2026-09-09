@@ -16,7 +16,7 @@ module RecordingStudioAgents
              visible_if: ->(context) { Queries.selected_agent_key(context).present? }
 
       query do |context|
-        Queries.agent_detail_rows(Queries.selected_agent(context))
+        Queries.agent_detail_rows(Queries.selected_agent(context), context)
       end
 
       table do

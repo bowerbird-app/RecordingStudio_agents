@@ -12,6 +12,8 @@ class AdminRegistrationTest < Minitest::Test
     assert_equal "Agents admin", RecordingStudioAdmin.section_for("agents").title
     refute_nil RecordingStudioAdmin.screen_for("registered_agents")
     refute_nil RecordingStudioAdmin.screen_for("registered_agent")
+    refute_nil RecordingStudioAdmin.screen_for("registered_skill")
+    refute_nil RecordingStudioAdmin.screen_for("registered_tool")
     assert_nil RecordingStudioAdmin.screen_for("registered_skills")
     assert_nil RecordingStudioAdmin.screen_for("registered_skill_packs")
     refute_nil RecordingStudioAdmin.screen_for("agent_tasks")

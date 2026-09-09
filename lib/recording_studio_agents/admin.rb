@@ -6,6 +6,8 @@ require_relative "admin/queries"
 require_relative "admin/section"
 require_relative "admin/agents_screen"
 require_relative "admin/agent_show_screen"
+require_relative "admin/skill_show_screen"
+require_relative "admin/tool_show_screen"
 require_relative "admin/tasks_screen"
 require_relative "admin/runs_screen"
 require_relative "admin/usage_screen"
@@ -56,6 +58,8 @@ module RecordingStudioAgents
       [
         AgentsScreen,
         AgentShowScreen,
+        SkillShowScreen,
+        ToolShowScreen,
         TasksScreen,
         RunsScreen,
         UsageScreen,

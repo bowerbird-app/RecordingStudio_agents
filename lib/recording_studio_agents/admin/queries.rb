@@ -260,7 +260,7 @@ module RecordingStudioAgents
         request_param(context, :agent_key).to_s.presence
       end
 
-      def selected_agent_version(context)
+      def selected_version(context)
         raw = request_param(context, :version)
         return if raw.blank?
 
@@ -273,7 +273,29 @@ module RecordingStudioAgents
         key = selected_agent_key(context)
         return if key.blank?
 
-        agent_definition(key, version: selected_agent_version(context))
+        agent_definition(key, version: selected_version(context))
+      end
+
+      def selected_skill_key(context)
+        request_param(context, :skill_key).to_s.presence
+      end
+
+      def selected_tool_key(context)
+        request_param(context, :tool_key).to_s.presence
+      end
+
+      def selected_skill(context)
+        key = selected_skill_key(context)
+        return if key.blank?
+
+        catalog_item(RecordingStudioAgents.skills.all, key: key, version: selected_version(context))
+      end
+
+      def selected_tool(context)
+        key = selected_tool_key(context)
+        return if key.blank? || !defined?(::RecordingStudioAI)
+
+        catalog_item(RecordingStudioAI.tools.all, key: key, version: selected_version(context))
       end
 
       def agent_show_title(context)
@@ -281,13 +303,29 @@ module RecordingStudioAgents
       end
 
       def agent_show_subtitle(context)
-        agent = selected_agent(context)
-        return "That agent is not on the list." unless agent
-
-        agent.description.presence || "What this agent is allowed to use."
+        show_subtitle(selected_agent(context), missing: "That agent is not on the list.",
+                                               fallback: "What this agent is allowed to use.")
       end
 
-      def agent_detail_rows(agent)
+      def skill_show_title(context)
+        selected_skill(context)&.name.presence || "Skill"
+      end
+
+      def skill_show_subtitle(context)
+        show_subtitle(selected_skill(context), missing: "That skill is not on the list.",
+                                               fallback: "How this skill tells the agent to work.")
+      end
+
+      def tool_show_title(context)
+        selected_tool(context)&.name.presence || "Tool"
+      end
+
+      def tool_show_subtitle(context)
+        show_subtitle(selected_tool(context), missing: "That tool is not on the list.",
+                                              fallback: "What this tool can do.")
+      end
+
+      def agent_detail_rows(agent, context = nil)
         return [] unless agent
 
         [
@@ -295,12 +333,42 @@ module RecordingStudioAgents
           ["Version", agent.version],
           ["Enabled", agent.enabled ? "On" : "Off"],
           ["Instructions", agent.instructions.to_s.strip],
-          ["Skills", labeled_references(agent.skills, RecordingStudioAgents.skills.all)],
-          ["Extra skills", labeled_references(agent.optional_skills, RecordingStudioAgents.skills.all)],
+          ["Skills", linked_skill_references(agent.skills, context)],
+          ["Extra skills", linked_skill_references(agent.optional_skills, context)],
           ["Skill packs", labeled_references(agent.packs, RecordingStudioAgents.skill_packs.all)],
-          ["Tools", labeled_tool_references(agent.tools)],
+          ["Tools", linked_tool_references(agent.tools, context)],
           ["Knowledge", labeled_references(agent.knowledge, RecordingStudioAgents.knowledge.all)],
           ["Can pass to", labeled_references(agent.handoffs, RecordingStudioAgents.agents.all)]
+        ].map { |label, value| DetailRow.new(label: label, value: value) }
+      end
+
+      def skill_detail_rows(skill, context = nil)
+        return [] unless skill
+
+        [
+          ["Key", skill.key],
+          ["Version", skill.version],
+          ["Instructions", skill.instructions.to_s.strip],
+          ["Tools", linked_tool_references(skill.required_tools, context)],
+          ["Use when", presence_or_none(skill.use_when)],
+          ["Don't use when", presence_or_none(skill.do_not_use_when)]
+        ].map { |label, value| DetailRow.new(label: label, value: value) }
+      end
+
+      def tool_detail_rows(tool)
+        return [] unless tool
+
+        [
+          ["Key", tool.key],
+          ["Version", tool.version],
+          ["Use when", presence_or_none(tool.use_when)],
+          ["Don't use when", presence_or_none(tool.do_not_use_when)],
+          ["Returns", presence_or_none(tool.returns)],
+          ["Cost", tool.cost.to_s],
+          ["Wait", tool.latency.to_s],
+          ["Effect", tool.read_only ? "Looks only" : "Can change things"],
+          ["Needs a yes", tool.requires_confirmation ? "On" : "Off"],
+          ["Inputs", tool_inputs_label(tool)]
         ].map { |label, value| DetailRow.new(label: label, value: value) }
       end
 
@@ -308,15 +376,7 @@ module RecordingStudioAgents
         key = row.try(:agent_key) || row.key
         version = row.try(:agent_version) || row.version
         label = row.try(:name).presence || agent_name(key, version: version)
-        href = screen_href(context, "registered_agent", agent_key: key, version: version)
-        return label if href.blank?
-
-        ActionController::Base.helpers.link_to(
-          label,
-          href,
-          class: "text-(--color-primary-background-color)",
-          data: { turbo_frame: "_top" }
-        )
+        admin_link(label, screen_href(context, "registered_agent", agent_key: key, version: version))
       end
 
       def enabled_badge_options(enabled)
@@ -371,19 +431,70 @@ module RecordingStudioAgents
       end
       private_class_method :labeled_references
 
-      def labeled_tool_references(refs)
-        return NONE if refs.blank?
-        return labeled_references(refs, []) unless defined?(::RecordingStudioAI)
-
-        labeled_references(refs, RecordingStudioAI.tools.all)
+      def linked_skill_references(refs, context)
+        linked_references(refs, RecordingStudioAgents.skills.all, context, "registered_skill", :skill_key)
       end
-      private_class_method :labeled_tool_references
+      private_class_method :linked_skill_references
+
+      def linked_tool_references(refs, context)
+        catalog = defined?(::RecordingStudioAI) ? RecordingStudioAI.tools.all : []
+        linked_references(refs, catalog, context, "registered_tool", :tool_key)
+      end
+      private_class_method :linked_tool_references
+
+      def linked_references(refs, catalog, context, screen_key, key_param)
+        return NONE if refs.blank?
+
+        ActionController::Base.helpers.safe_join(
+          refs.map { |ref| linked_reference(ref, catalog, context, screen_key, key_param) },
+          ", "
+        )
+      end
+      private_class_method :linked_references
+
+      def linked_reference(ref, catalog, context, screen_key, key_param)
+        label = labeled_reference(ref, catalog)
+        return label unless context
+
+        admin_link(label, screen_href(context, screen_key, key_param => ref.key, version: ref.version))
+      end
+      private_class_method :linked_reference
 
       def labeled_reference(ref, catalog)
         item = catalog_item(catalog, key: ref.key, version: ref.version)
         item&.name.presence || ref.key
       end
       private_class_method :labeled_reference
+
+      def admin_link(label, href)
+        return label if href.blank?
+
+        ActionController::Base.helpers.link_to(
+          label,
+          href,
+          class: "text-(--color-primary-background-color)",
+          data: { turbo_frame: "_top" }
+        )
+      end
+      private_class_method :admin_link
+
+      def show_subtitle(item, missing:, fallback:)
+        return missing unless item
+
+        item.description.presence || fallback
+      end
+      private_class_method :show_subtitle
+
+      def presence_or_none(value)
+        value.to_s.strip.presence || NONE
+      end
+      private_class_method :presence_or_none
+
+      def tool_inputs_label(tool)
+        names = Array(tool.parameters).filter_map { |parameter| parameter[:name] || parameter["name"] }
+        names.presence&.join(", ") || NONE
+      end
+      private_class_method :tool_inputs_label
 
       def catalog_item(catalog, key:, version:)
         key = key.to_s

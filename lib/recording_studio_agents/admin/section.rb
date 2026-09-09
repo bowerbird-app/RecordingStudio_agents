@@ -29,6 +29,14 @@ module RecordingStudioAgents
            text: "Agent",
            url: ->(context) { context.admin_screen_path("registered_agent") },
            visible_if: ->(context) { Queries.selected_agent_key(context).present? }
+      link :skill,
+           text: "Skill",
+           url: ->(context) { context.admin_screen_path("registered_skill") },
+           visible_if: ->(context) { Queries.selected_skill_key(context).present? }
+      link :tool,
+           text: "Tool",
+           url: ->(context) { context.admin_screen_path("registered_tool") },
+           visible_if: ->(context) { Queries.selected_tool_key(context).present? }
 
       widget "widgets.agents.failed_runs"
       widget "widgets.agents.attempts_this_period"
