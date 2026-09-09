@@ -61,7 +61,7 @@ module RecordingStudioAgents
         show_columns_button
         column :agent_key,
                title: "Agent",
-               value: ->(row, _context) { Queries.agent_name(row.agent_key, version: row.agent_version) }
+               value: ->(row, context) { Queries.agent_name_cell(row, context) }
         column :agent_version, title: "Version"
         column :status,
                title: "Status",

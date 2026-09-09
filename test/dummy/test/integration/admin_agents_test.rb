@@ -63,6 +63,8 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "/admin/screens/registered_skill_packs"
     refute_includes response.body, "Skill packs"
     refute_includes response.body, "By agent"
+    assert_select "a", text: "Agent", count: 0
+    refute_includes response.body, "/admin/screens/registered_agent?"
     assert_includes response.body, "12k tokens"
     assert_includes response.body, "Last 4 weeks"
     refute_includes response.body, "Last 30 days"
@@ -83,6 +85,38 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "badge-success-background-color"
     assert_includes response.body, "On"
     refute_match(/>\s*page_librarian\s*</, response.body)
+    assert_match(/registered_agent\?[^"]*agent_key=page_librarian/, response.body)
+
+    get "/admin/screens/registered_agent", params: { agent_key: "page_librarian", version: 1 }
+    assert_response :success
+    assert_includes response.body, "Page librarian"
+    assert_includes response.body, "Finds a page in the current workspace."
+    assert_includes response.body, 'id="screen-table"'
+    assert_select "a", text: "Runs"
+
+    get "/admin/screens/registered_agent/table", params: { agent_key: "page_librarian", version: 1 }
+    assert_response :success
+    assert_includes response.body, "page_librarian"
+    assert_includes response.body, "Find the named page with the allowed tool."
+    assert_includes response.body, "Page lookup"
+    assert_includes response.body, "Find page"
+    assert_includes response.body, "Retitle page"
+    assert_includes response.body, "Workspace outline"
+    assert_includes response.body, "Page reviewer"
+
+    get "/admin/screens/registered_agent/table", params: { agent_key: "support_clerk", version: 1 }
+    assert_response :success
+    assert_includes response.body, "Support voice"
+    assert_includes response.body, "Billing help"
+    assert_includes response.body, "Login help"
+    assert_includes response.body, "Billing tickets"
+
+    get "/admin/screens/registered_agent"
+    assert_response :not_found
+
+    get "/admin/screens/registered_agent", params: { agent_key: "missing_agent" }
+    assert_response :success
+    assert_includes response.body, "That agent is not on the list."
 
     get "/admin/screens/agent_tasks"
     assert_response :success
@@ -105,6 +139,7 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     get "/admin/screens/agent_runs/table"
     assert_response :success
     assert_includes response.body, "Page librarian"
+    assert_match(/registered_agent\?[^"]*agent_key=page_librarian/, response.body)
     assert_includes response.body, "Failed"
     assert_includes response.body, "badge-danger-background-color"
     assert_includes response.body, "Steps"

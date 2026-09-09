@@ -15,7 +15,7 @@ module RecordingStudioAgents
       table do
         title " "
         hide_count
-        column :name, title: "Name", value: ->(row, _context) { row.name }
+        column :name, title: "Name", value: ->(row, context) { Queries.agent_name_cell(row, context) }
         column :version, title: "Version", value: ->(row, _context) { row.version }
         column :enabled,
                title: "Enabled",

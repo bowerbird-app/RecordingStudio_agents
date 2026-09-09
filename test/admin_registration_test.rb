@@ -11,6 +11,7 @@ class AdminRegistrationTest < Minitest::Test
     refute_nil RecordingStudioAdmin.section_for("agents")
     assert_equal "Agents admin", RecordingStudioAdmin.section_for("agents").title
     refute_nil RecordingStudioAdmin.screen_for("registered_agents")
+    refute_nil RecordingStudioAdmin.screen_for("registered_agent")
     assert_nil RecordingStudioAdmin.screen_for("registered_skills")
     assert_nil RecordingStudioAdmin.screen_for("registered_skill_packs")
     refute_nil RecordingStudioAdmin.screen_for("agent_tasks")
@@ -106,7 +107,9 @@ class AdminRegistrationTest < Minitest::Test
   def test_hub_links_name_operational_screens
     RecordingStudioAgents::Admin.register!
 
-    texts = RecordingStudioAgents::Admin::Section.links_value.map(&:text)
+    texts = RecordingStudioAgents::Admin::Section.links_value.filter_map do |link|
+      link.text if link.visible_if.nil?
+    end
 
     assert_equal ["Agents", "Runs", "Tasks", "Usage by agent", "Evaluations"], texts
     refute_includes texts, "Skills"

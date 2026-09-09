@@ -5,6 +5,7 @@ require_relative "admin/flatpack_button_url"
 require_relative "admin/queries"
 require_relative "admin/section"
 require_relative "admin/agents_screen"
+require_relative "admin/agent_show_screen"
 require_relative "admin/tasks_screen"
 require_relative "admin/runs_screen"
 require_relative "admin/usage_screen"
@@ -54,6 +55,7 @@ module RecordingStudioAgents
     def register_screens!
       [
         AgentsScreen,
+        AgentShowScreen,
         TasksScreen,
         RunsScreen,
         UsageScreen,

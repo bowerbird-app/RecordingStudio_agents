@@ -12,10 +12,11 @@ Agents admin hub links to the jobs staff actually open, and those buttons naviga
 ### Changed
 - Hub buttons are Agents, Runs, Tasks, Usage by agent, and Evaluations. None is primary. Skills and skill packs stay in code and no longer have Admin screens.
 - The section title is **Agents admin**. The Agents screen title is **Agents**.
-- Agents lists name, version, and an On/Off badge. The registry key is an optional column.
-- Runs shows the agent name in the first column and a status badge.
+- Agents lists name, version, and an On/Off badge. The registry key is an optional column. The name opens that agent's details.
+- Runs shows the agent name in the first column and a status badge. The name opens the same details page.
 - Tasks lists the goal and when it was created. It no longer shows the task key.
 - The usage screen title is **Usage by agent**, with a subtitle that names attempts, outcomes, and average tokens. The screen key stays `agent_usage`.
+- Agent details (`registered_agent`) list key, version, enabled, instructions, skills, extra skills, skill packs, tools, knowledge, and who the agent can pass to. The page is not a hub button.
 
 ### Fixed
 - Hub title buttons navigate. Admin still passes `url:` into Flatpack Button, which only reads `href:`. This gem maps `url` to `href` until Admin ships that one-line template change.
@@ -23,8 +24,8 @@ Agents admin hub links to the jobs staff actually open, and those buttons naviga
 ### Upgrade notes
 - No migration. `agent_usage`, `agent_runs`, `agent_tasks`, `agent_evaluations`, and `registered_agents` keys are unchanged.
 - Bookmarks and widget links to `/admin/screens/agent_usage` still work. The visible title is Usage by agent, not By agent.
-- Agents and Runs tables show the agent name. The registry key on Agents is optional in the columns picker.
-- `/admin/screens/registered_skills` and `/admin/screens/registered_skill_packs` are gone. Inspect skills and packs in code.
+- Agents and Runs tables show the agent name. Clicking the name opens `/admin/screens/registered_agent?agent_key=&version=`. The registry key on Agents is optional in the columns picker.
+- `/admin/screens/registered_skills` and `/admin/screens/registered_skill_packs` are gone. Inspect skills and packs in code, or on the agent details page for the ones that agent uses.
 - Do not copy the Flatpack Button `url` prepend in a host. It belongs in Admin when that gem passes `href:` on section hub buttons.
 
 ## [0.4.5] - 2026-09-08

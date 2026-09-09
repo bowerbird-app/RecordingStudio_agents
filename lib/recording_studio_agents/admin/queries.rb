@@ -32,6 +32,8 @@ module RecordingStudioAgents
         :avg_tools,
         :ai_sample_count
       )
+      DetailRow = Data.define(:label, :value)
+      NONE = "None"
 
       module_function
 
@@ -243,6 +245,80 @@ module RecordingStudioAgents
         agent_definition(key, version: version)&.name.presence || key.to_s
       end
 
+      def agent_definition(key, version: nil)
+        catalog = RecordingStudioAgents.agents.all
+        key = key.to_s
+        if version
+          match = catalog.find { |item| item.key == key && item.version == Integer(version) }
+          return match if match
+        end
+
+        catalog.select { |item| item.key == key }.max_by(&:version)
+      end
+
+      def selected_agent_key(context)
+        request_param(context, :agent_key).to_s.presence
+      end
+
+      def selected_agent_version(context)
+        raw = request_param(context, :version)
+        return if raw.blank?
+
+        Integer(raw)
+      rescue ArgumentError, TypeError
+        nil
+      end
+
+      def selected_agent(context)
+        key = selected_agent_key(context)
+        return if key.blank?
+
+        agent_definition(key, version: selected_agent_version(context))
+      end
+
+      def agent_show_title(context)
+        selected_agent(context)&.name.presence || "Agent"
+      end
+
+      def agent_show_subtitle(context)
+        agent = selected_agent(context)
+        return "That agent is not on the list." unless agent
+
+        agent.description.presence || "What this agent is allowed to use."
+      end
+
+      def agent_detail_rows(agent)
+        return [] unless agent
+
+        [
+          ["Key", agent.key],
+          ["Version", agent.version],
+          ["Enabled", agent.enabled ? "On" : "Off"],
+          ["Instructions", agent.instructions.to_s.strip],
+          ["Skills", labeled_references(agent.skills, RecordingStudioAgents.skills.all)],
+          ["Extra skills", labeled_references(agent.optional_skills, RecordingStudioAgents.skills.all)],
+          ["Skill packs", labeled_references(agent.packs, RecordingStudioAgents.skill_packs.all)],
+          ["Tools", labeled_tool_references(agent.tools)],
+          ["Knowledge", labeled_references(agent.knowledge, RecordingStudioAgents.knowledge.all)],
+          ["Can pass to", labeled_references(agent.handoffs, RecordingStudioAgents.agents.all)]
+        ].map { |label, value| DetailRow.new(label: label, value: value) }
+      end
+
+      def agent_name_cell(row, context)
+        key = row.try(:agent_key) || row.key
+        version = row.try(:agent_version) || row.version
+        label = row.try(:name).presence || agent_name(key, version: version)
+        href = screen_href(context, "registered_agent", agent_key: key, version: version)
+        return label if href.blank?
+
+        ActionController::Base.helpers.link_to(
+          label,
+          href,
+          class: "text-(--color-primary-background-color)",
+          data: { turbo_frame: "_top" }
+        )
+      end
+
       def enabled_badge_options(enabled)
         if enabled
           { text: "On", style: :success, size: :sm }
@@ -288,17 +364,35 @@ module RecordingStudioAgents
         )
       end
 
-      def agent_definition(key, version: nil)
-        catalog = RecordingStudioAgents.agents.all
-        key = key.to_s
-        if version
-          match = catalog.find { |item| item.key == key && item.version == Integer(version) }
-          return match if match
-        end
+      def labeled_references(refs, catalog)
+        return NONE if refs.blank?
 
-        catalog.select { |item| item.key == key }.max_by(&:version)
+        refs.map { |ref| labeled_reference(ref, catalog) }.join(", ")
       end
-      private_class_method :agent_definition
+      private_class_method :labeled_references
+
+      def labeled_tool_references(refs)
+        return NONE if refs.blank?
+        return labeled_references(refs, []) unless defined?(::RecordingStudioAI)
+
+        labeled_references(refs, RecordingStudioAI.tools.all)
+      end
+      private_class_method :labeled_tool_references
+
+      def labeled_reference(ref, catalog)
+        match = catalog.find { |item| item.key.to_s == ref.key && item.version == ref.version }
+        match ||= catalog.select { |item| item.key.to_s == ref.key }.max_by(&:version)
+        match&.name.presence || ref.key
+      end
+      private_class_method :labeled_reference
+
+      def request_param(context, key)
+        params = context.respond_to?(:params) ? context.params : nil
+        return if params.blank?
+
+        params[key] || params[key.to_s] || params[key.to_sym]
+      end
+      private_class_method :request_param
 
       def build_by_agent_row(key, version, group, ai_by_id)
         ai_rows = group.filter_map { |run| ai_by_id[run.recording_studio_ai_run_id] }
