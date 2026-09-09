@@ -380,11 +380,19 @@ module RecordingStudioAgents
       private_class_method :labeled_tool_references
 
       def labeled_reference(ref, catalog)
-        match = catalog.find { |item| item.key.to_s == ref.key && item.version == ref.version }
-        match ||= catalog.select { |item| item.key.to_s == ref.key }.max_by(&:version)
-        match&.name.presence || ref.key
+        item = catalog_item(catalog, key: ref.key, version: ref.version)
+        item&.name.presence || ref.key
       end
       private_class_method :labeled_reference
+
+      def catalog_item(catalog, key:, version:)
+        key = key.to_s
+        exact = catalog.find { |item| item.key.to_s == key && item.version == version }
+        return exact if exact
+
+        catalog.select { |item| item.key.to_s == key }.max_by(&:version)
+      end
+      private_class_method :catalog_item
 
       def request_param(context, key)
         params = context.respond_to?(:params) ? context.params : nil
