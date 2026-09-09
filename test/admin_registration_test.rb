@@ -4,6 +4,7 @@ require "test_helper"
 
 class AdminRegistrationTest < Minitest::Test
   include RegistryHelpers
+
   def test_register_adds_agents_section_screens_and_widgets
     RecordingStudioAgents::Admin.register!
 
@@ -144,7 +145,7 @@ class AdminRegistrationTest < Minitest::Test
     titles = RecordingStudioAgents::Admin::TasksScreen.table_value.columns.map(&:title)
 
     refute_includes titles, "Key"
-    assert_equal ["Goal", "Created"], titles
+    assert_equal %w[Goal Created], titles
   end
 
   def test_flatpack_button_url_maps_to_href
