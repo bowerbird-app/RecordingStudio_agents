@@ -5,6 +5,7 @@ module RegistryHelpers
     super if defined?(super)
     RecordingStudioAgents.reset!
     RecordingStudioAI.instance_variable_set(:@tools, RecordingStudioAI::Tools::Registry.new)
+    clear_agent_enablements
   end
 
   def register_ai_tool(key, version: 1, **overrides)
@@ -27,6 +28,15 @@ module RegistryHelpers
       executor: ->(arguments, _context) { arguments }
     }.merge(overrides)
     RecordingStudioAI.tools.register(**attributes)
+  end
+
+  def clear_agent_enablements
+    return unless defined?(RecordingStudioAgents::Enablement)
+    return unless RecordingStudioAgents::Enablement.persistable?
+
+    RecordingStudioAgents::AgentEnablement.delete_all
+  rescue StandardError
+    nil
   end
 
   def register_librarian(handoffs: {}, tools: { find_page: 1 })

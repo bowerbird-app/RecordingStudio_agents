@@ -126,7 +126,17 @@ class PersistenceTestCase < Minitest::Test
   def teardown
     RecordingStudioAI.configuration.authorization_handler = @previous_authorization_handler
     RecordingStudioAI.configuration.attribution_validator = @previous_attribution_validator
+    disconnect_persistence!
     super if defined?(super)
+  end
+
+  def disconnect_persistence!
+    return unless defined?(ActiveRecord::Base)
+    return unless ActiveRecord::Base.connected?
+
+    ActiveRecord::Base.remove_connection
+  rescue StandardError
+    nil
   end
 
   def actor
