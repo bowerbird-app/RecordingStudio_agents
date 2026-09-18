@@ -390,7 +390,7 @@ module RecordingStudioAgents
       def agent_enablement_href(row, action, context = nil)
         helper_name = :"admin_#{action}_agent_path"
         proxy = enablement_route_proxy(context)
-        return unless proxy&.respond_to?(helper_name)
+        return unless proxy.respond_to?(helper_name)
 
         proxy.public_send(helper_name, row.key, version: row.version)
       end

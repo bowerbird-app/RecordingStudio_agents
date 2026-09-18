@@ -6,16 +6,16 @@ module RecordingStudioAgents
       include RecordingStudioAdmin::AdminActionAuditing
 
       def turn_on
-        toggle!(:turn_on, true)
+        change_enabled!(:turn_on, true)
       end
 
       def turn_off
-        toggle!(:turn_off, false)
+        change_enabled!(:turn_off, false)
       end
 
       private
 
-      def toggle!(action_key, enabled)
+      def change_enabled!(action_key, enabled)
         agent = load_agent!
         perform_recording_studio_admin_action!("registered_agents", action_key, agent) do
           Enablement.set!(agent: agent, enabled: enabled)
