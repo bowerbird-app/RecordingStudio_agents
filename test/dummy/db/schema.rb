@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_08_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_18_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -110,6 +110,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_08_000001) do
     t.index ["root_recording_id"], name: "index_rsa_runs_on_root"
     t.index ["status"], name: "index_rsa_runs_on_status"
     t.index ["task_id"], name: "index_rsa_runs_on_task_id"
+  end
+
+  create_table "recording_studio_agents_enablements", force: :cascade do |t|
+    t.string "agent_key", null: false
+    t.integer "agent_version", null: false
+    t.datetime "created_at", null: false
+    t.boolean "enabled", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_key", "agent_version"], name: "index_rsa_enablements_on_agent", unique: true
   end
 
   create_table "recording_studio_agents_evaluations", force: :cascade do |t|

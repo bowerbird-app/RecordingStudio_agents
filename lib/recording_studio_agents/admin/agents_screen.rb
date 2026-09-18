@@ -20,9 +20,12 @@ module RecordingStudioAgents
         column :enabled,
                title: "Enabled",
                display: :badge,
+               value: ->(row, _context) { Enablement.enabled?(row) },
                display_options: ->(_row, _context, value) { Queries.enabled_badge_options(value) }
         column :key, title: "Key", value: ->(row, _context) { row.key }
         default_columns :name, :version, :enabled
+        admin_action "registered_agents.turn_off"
+        admin_action "registered_agents.turn_on"
       end
     end
   end

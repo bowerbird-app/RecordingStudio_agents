@@ -92,11 +92,18 @@ module PersistenceSupport
       unique: true
     )
 
-    require File.expand_path("../../app/models/recording_studio_agents/application_record.rb", __dir__)
-    require File.expand_path("../../app/models/recording_studio_agents/task.rb", __dir__)
-    require File.expand_path("../../app/models/recording_studio_agents/agent_run.rb", __dir__)
-    require File.expand_path("../../app/models/recording_studio_agents/run_activity.rb", __dir__)
-    require File.expand_path("../../app/models/recording_studio_agents/evaluation.rb", __dir__)
+    ActiveRecord::Base.connection.create_table :recording_studio_agents_enablements do |t|
+      t.string :agent_key, null: false
+      t.integer :agent_version, null: false
+      t.boolean :enabled, null: false
+      t.timestamps
+    end
+    ActiveRecord::Base.connection.add_index(:recording_studio_agents_enablements, %i[agent_key agent_version],
+                                            unique: true)
+
+    %w[application_record task agent_run run_activity evaluation agent_enablement].each do |model|
+      require File.expand_path("../../app/models/recording_studio_agents/#{model}.rb", __dir__)
+    end
   end
 end
 
@@ -119,7 +126,17 @@ class PersistenceTestCase < Minitest::Test
   def teardown
     RecordingStudioAI.configuration.authorization_handler = @previous_authorization_handler
     RecordingStudioAI.configuration.attribution_validator = @previous_attribution_validator
+    disconnect_persistence!
     super if defined?(super)
+  end
+
+  def disconnect_persistence!
+    return unless defined?(ActiveRecord::Base)
+    return unless ActiveRecord::Base.connected?
+
+    ActiveRecord::Base.remove_connection
+  rescue StandardError
+    nil
   end
 
   def actor

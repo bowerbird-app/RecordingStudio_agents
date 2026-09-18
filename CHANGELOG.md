@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.7] - 2026-09-18
+
+Agents admin can turn an agent on or off from the list.
+
+### Added
+- The Agents table has an actions menu. **Turn off** and **Turn on** change whether that agent can run. The On/Off badge follows the change.
+- Admin stores that choice. It wins over the `enabled:` value in code until someone changes it again. `Agent#run` still raises `AgentDisabled` when the agent is off.
+
+### Fixed
+- Turn on and Turn off authorize against AdminRoot. A product workspace selected in the root switcher no longer returns 403.
+
+### Upgrade notes
+- Install and run the engine migration that creates `recording_studio_agents_enablements`.
+- Hosts that only set `enabled:` in code keep that default until Admin changes it.
+
 ## [0.4.6] - 2026-09-09
 
 Agents admin hub links to the jobs staff actually open, and those buttons navigate.

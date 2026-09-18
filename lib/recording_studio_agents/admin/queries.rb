@@ -331,7 +331,7 @@ module RecordingStudioAgents
         [
           ["Key", agent.key],
           ["Version", agent.version],
-          ["Enabled", agent.enabled ? "On" : "Off"],
+          ["Enabled", Enablement.enabled?(agent) ? "On" : "Off"],
           ["Instructions", agent.instructions.to_s.strip],
           ["Skills", linked_skill_references(agent.skills, context)],
           ["Extra skills", linked_skill_references(agent.optional_skills, context)],
@@ -385,6 +385,14 @@ module RecordingStudioAgents
         else
           { text: "Off", style: :default, size: :sm }
         end
+      end
+
+      def agent_enablement_href(row, action, context = nil)
+        helper_name = :"admin_#{action}_agent_path"
+        proxy = enablement_route_proxy(context)
+        return unless proxy.respond_to?(helper_name)
+
+        proxy.public_send(helper_name, row.key, version: row.version)
       end
 
       def status_badge_options(status)
@@ -566,6 +574,14 @@ module RecordingStudioAgents
         nil
       end
       private_class_method :current_filter_actor
+
+      def enablement_route_proxy(context)
+        controller = context&.controller
+        return controller.recording_studio_agents if controller.respond_to?(:recording_studio_agents)
+
+        RecordingStudioAgents::Engine.routes.url_helpers
+      end
+      private_class_method :enablement_route_proxy
 
       def compact_thousands(count)
         "#{trimmed_units(count / 1000.0)}k"
