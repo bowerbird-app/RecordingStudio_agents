@@ -29,7 +29,7 @@ An **agent run** is one attempt. It stores status, an optional output digest, an
 
 A **handoff** is an allowlisted request recorded by an internal AI tool. The tool needs the live lease from that generate call, so a stale worker cannot stamp a target onto a run another worker owns. `Agent#run` never starts the target. The host routes the next call. If a worker dies after recording the target, a retry with the same idempotency key finishes as `handoff_requested` instead of succeeding.
 
-`enabled` is a registry boolean. Lookup for a disabled agent raises `AgentDisabled`. Admin still lists disabled agents.
+`enabled` is a registry boolean. Lookup for a disabled agent raises `AgentDisabled`. Admin still lists disabled agents and can turn them on or off. An admin change is stored and wins over the registry default until it is changed again.
 
 ## Install
 
@@ -236,7 +236,7 @@ Each step has a label and a badge: Done, Working, Waiting, or Failed. Tool label
 
 The `agents` section is staff operations for this gem. The hub title is **Agents admin**. Widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents, using Last 4 weeks (today through 27 days back). Links open Agents, Runs, Tasks, Usage by agent, and Evaluations.
 
-Runs filters by agent, status, and date (Last 4 weeks by default), charts attempts over time, and links the AI run into Recording Studio AI. Agent keys in that filter come from workspaces the actor can view. The Runs table shows the agent name and a status badge. Names on Agents and Runs open that agent's details: key, instructions, skills, tools, knowledge, and who it can pass to. Skills and tools on that page open their own details. Usage by agent uses the same date window and shows attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Tasks show the goal and when it was created. Agents lists names, versions, and whether each is on, including agents that have not run. The registry key stays as an optional column.
+Runs filters by agent, status, and date (Last 4 weeks by default), charts attempts over time, and links the AI run into Recording Studio AI. Agent keys in that filter come from workspaces the actor can view. The Runs table shows the agent name and a status badge. Names on Agents and Runs open that agent's details: key, instructions, skills, tools, knowledge, and who it can pass to. Skills and tools on that page open their own details. Usage by agent uses the same date window and shows attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Tasks show the goal and when it was created. Agents lists names, versions, and whether each is on, including agents that have not run. The actions menu turns an agent on or off. The registry key stays as an optional column.
 
 Skills and skill packs stay in code. Skills are instructions other gems contribute. Skill packs are optional bundles loaded at run. They do not have hub catalog screens. Admin never displays chain-of-thought.
 

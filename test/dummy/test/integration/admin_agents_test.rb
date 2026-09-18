@@ -84,6 +84,9 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Support clerk"
     assert_includes response.body, "badge-success-background-color"
     assert_includes response.body, "On"
+    assert_includes response.body, "Turn off"
+    assert_includes response.body, "Actions"
+    assert_match(%r{/recording_studio_agents/admin/agents/page_librarian/turn_off}, response.body)
     refute_match(/>\s*page_librarian\s*</, response.body)
     assert_match(/registered_agent\?[^"]*agent_key=page_librarian/, response.body)
 
@@ -197,5 +200,61 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "page_librarian"
     assert_includes response.body, "Avg tokens"
     assert_includes response.body, "12,000"
+  end
+
+  test "admin can turn an agent off and back on" do
+    user = User.find_or_create_by!(email: "admin-enablement@example.com") do |record|
+      record.password = "Password123!"
+      record.password_confirmation = "Password123!"
+    end
+    admin_root = AdminRoot.find_or_create_by!(name: "Admin")
+    admin_root_recording = RecordingStudio.root_recording_for(admin_root)
+    grant_accessible!(recording: admin_root_recording, actor: user)
+    sign_in user
+    RecordingStudioAgents::AgentEnablement.delete_all
+
+    post "/recording_studio_agents/admin/agents/page_librarian/turn_off", params: { version: 1 }
+    assert_redirected_to "/admin/screens/registered_agents"
+
+    get "/admin/screens/registered_agents/table"
+    assert_response :success
+    assert_includes response.body, "Off"
+    assert_includes response.body, "Turn on"
+    assert_match(%r{/recording_studio_agents/admin/agents/page_librarian/turn_on}, response.body)
+
+    error = assert_raises(RecordingStudioAgents::AgentDisabled) do
+      RecordingStudioAgents.agent(:page_librarian, version: 1)
+    end
+    assert_equal "page_librarian", error.key
+
+    get "/admin/screens/registered_agent/table", params: { agent_key: "page_librarian", version: 1 }
+    assert_response :success
+    assert_includes response.body, "Off"
+
+    post "/recording_studio_agents/admin/agents/page_librarian/turn_on", params: { version: 1 }
+    assert_redirected_to "/admin/screens/registered_agents"
+
+    get "/admin/screens/registered_agents/table"
+    assert_response :success
+    assert_includes response.body, "On"
+    assert_includes response.body, "Turn off"
+
+    handle = RecordingStudioAgents.agent(:page_librarian, version: 1)
+    assert_equal "page_librarian", handle.key
+  ensure
+    RecordingStudioAgents::AgentEnablement.delete_all
+  end
+
+  test "turning an agent off requires admin access" do
+    user = User.find_or_create_by!(email: "admin-enablement-forbidden@example.com") do |record|
+      record.password = "Password123!"
+      record.password_confirmation = "Password123!"
+    end
+    sign_in user
+
+    post "/recording_studio_agents/admin/agents/page_librarian/turn_off", params: { version: 1 }
+
+    assert_response :forbidden
+    assert RecordingStudioAgents.agent(:page_librarian, version: 1)
   end
 end

@@ -4,6 +4,7 @@ require_relative "admin/last_four_weeks_period"
 require_relative "admin/flatpack_button_url"
 require_relative "admin/queries"
 require_relative "admin/section"
+require_relative "admin/agents_resource"
 require_relative "admin/agents_screen"
 require_relative "admin/agent_show_screen"
 require_relative "admin/skill_show_screen"
@@ -25,6 +26,7 @@ module RecordingStudioAgents
       align_flatpack_button_url!
       RecordingStudioAdmin.register_section(Section)
       register_screens!
+      register_resource!
       register_widgets!
     end
 
@@ -67,6 +69,11 @@ module RecordingStudioAgents
       ].each { |screen| RecordingStudioAdmin.register_screen(screen) }
     end
     private_class_method :register_screens!
+
+    def register_resource!
+      RecordingStudioAdmin.register_resource(AgentsResource)
+    end
+    private_class_method :register_resource!
 
     def register_widgets!
       [

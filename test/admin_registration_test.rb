@@ -20,6 +20,7 @@ class AdminRegistrationTest < Minitest::Test
     refute_nil RecordingStudioAdmin.screen_for("agent_runs")
     refute_nil RecordingStudioAdmin.screen_for("agent_evaluations")
     refute_nil RecordingStudioAdmin.screen_for("agent_usage")
+    refute_nil RecordingStudioAdmin.resource_for("registered_agents")
     refute_nil RecordingStudioAdmin.widget_for("widgets.agents.failed_runs")
     refute_nil RecordingStudioAdmin.widget_for("widgets.agents.attempts_this_period")
     refute_nil RecordingStudioAdmin.widget_for("widgets.agents.tokens_this_period")
@@ -144,6 +145,9 @@ class AdminRegistrationTest < Minitest::Test
     assert_equal %i[name version enabled], screen.table_value.default_column_keys
     assert_includes titles, "Key"
     assert_equal :badge, columns.find { |column| column.key == :enabled }.display
+    action_names = screen.table_value.actions.map(&:name)
+    assert_includes action_names, :registered_agents_turn_off
+    assert_includes action_names, :registered_agents_turn_on
   end
 
   def test_tasks_table_omits_the_key_column
@@ -210,5 +214,19 @@ class AdminRegistrationTest < Minitest::Test
     assert_equal({ text: "Failed", style: :danger, size: :sm }, queries.status_badge_options("failed"))
     assert_equal({ text: "Succeeded", style: :success, size: :sm }, queries.status_badge_options("succeeded"))
     assert_equal({ text: "Weird", style: :default, size: :sm }, queries.status_badge_options("weird"))
+  end
+
+  def test_agents_resource_turns_an_agent_on_or_off
+    RecordingStudioAgents::Admin.register!
+    register_librarian
+    resource = RecordingStudioAdmin.resource_for("registered_agents")
+    agent = RecordingStudioAgents.agents.fetch(:librarian, version: 1)
+    context = Struct.new(:params, :controller).new({}, nil)
+
+    assert_equal "Turn off", resource.action_for(:turn_off).text
+    assert_equal "Turn on", resource.action_for(:turn_on).text
+    assert_equal :post, resource.action_for(:turn_off).method
+    assert resource.action_for(:turn_off).visible?(agent, context)
+    refute resource.action_for(:turn_on).visible?(agent, context)
   end
 end

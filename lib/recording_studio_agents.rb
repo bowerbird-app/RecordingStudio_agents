@@ -19,6 +19,7 @@ require "recording_studio_agents/task_input"
 require "recording_studio_agents/skills"
 require "recording_studio_agents/knowledge"
 require "recording_studio_agents/agents"
+require "recording_studio_agents/enablement"
 require "recording_studio_agents/skill_packs"
 require "recording_studio_agents/skill_selection"
 require "recording_studio_agents/programs"
@@ -61,7 +62,7 @@ module RecordingStudioAgents
 
     def agent(key, version:)
       definition = agents.fetch(key, version: version)
-      raise AgentDisabled.new(key, version) unless definition.enabled
+      raise AgentDisabled.new(key, version) unless Enablement.enabled?(definition)
 
       Agent.new(definition: definition)
     end
