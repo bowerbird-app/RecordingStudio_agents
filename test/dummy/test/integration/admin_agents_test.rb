@@ -257,4 +257,38 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     assert RecordingStudioAgents.agent(:page_librarian, version: 1)
   end
+
+  test "admin can turn an agent off while a product workspace is selected" do
+    user = User.find_or_create_by!(email: "admin-enablement-workspace@example.com") do |record|
+      record.password = "Password123!"
+      record.password_confirmation = "Password123!"
+    end
+    admin_root = AdminRoot.find_or_create_by!(name: "Admin")
+    admin_root_recording = RecordingStudio.root_recording_for(admin_root)
+    workspace = Workspace.find_or_create_by!(name: "Enablement Workspace")
+    workspace_root = RecordingStudio.root_recording_for(workspace)
+    grant_accessible!(recording: admin_root_recording, actor: user)
+    grant_accessible!(recording: workspace_root, actor: user)
+    sign_in user
+    RecordingStudioAgents::AgentEnablement.delete_all
+
+    patch "/recording_studio_root_switchable/v1/root_switch", params: {
+      scope: "all_workspaces",
+      root_switch: {
+        root_recording_id: workspace_root.id,
+        return_to: "/"
+      }
+    }
+    assert_redirected_to "/"
+
+    post "/recording_studio_agents/admin/agents/page_librarian/turn_off", params: { version: 1 }
+    assert_redirected_to "/admin/screens/registered_agents"
+
+    get "/admin/screens/registered_agents/table"
+    assert_response :success
+    assert_includes response.body, "Off"
+    assert_includes response.body, "Turn on"
+  ensure
+    RecordingStudioAgents::AgentEnablement.delete_all
+  end
 end

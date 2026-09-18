@@ -13,6 +13,9 @@ Agents admin can turn an agent on or off from the list.
 - The Agents table has an actions menu. **Turn off** and **Turn on** change whether that agent can run. The On/Off badge follows the change.
 - Admin stores that choice. It wins over the `enabled:` value in code until someone changes it again. `Agent#run` still raises `AgentDisabled` when the agent is off.
 
+### Fixed
+- Turn on and Turn off authorize against AdminRoot. A product workspace selected in the root switcher no longer returns 403.
+
 ### Upgrade notes
 - Install and run the engine migration that creates `recording_studio_agents_enablements`.
 - Hosts that only set `enabled:` in code keep that default until Admin changes it.
