@@ -30,6 +30,7 @@ Metrics/ClassLength:
 
 Metrics/ModuleLength:
   Exclude:
+    - "test/**/*"
     - "lib/recording_studio_agents/admin/**/*"
 
 Metrics/MethodLength:
