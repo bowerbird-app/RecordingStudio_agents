@@ -76,7 +76,8 @@ class AIProvidersTest < ActiveSupport::TestCase
   private
 
   def with_env(updates)
-    previous = updates.keys.to_h { |name| [name, ENV[name]] }
+    previous = {}
+    updates.each_key { |name| previous[name] = ENV[name] }
     updates.each { |name, value| ENV[name] = value }
     yield
   ensure
