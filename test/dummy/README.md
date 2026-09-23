@@ -8,7 +8,8 @@ This Rails app exists to prove Recording Studio Agents in a real host.
 - Workspace, Folder, and Page with Accessible grants
 - An Admin root for Recording Studio Admin. The Agents hub shows attempts, tokens, and hungry agents for Last 4 weeks. Runs and Usage by agent join Recording Studio AI for token and tool counts, and default the date filter to Last 4 weeks.
 - The workspace switcher lists workspaces the signed-in user can access.
-- Page librarian demo on `/` (`POST /agents/demo`). After a run, home lists what it did. Workspace outline knowledge cites the workspace root. The demo passes the Getting Started page as context inside that workspace.
+- Page librarian demo on `/` (`POST /agents/demo`). After a run, home lists what it did. Workspace outline knowledge cites the workspace root. The demo passes the Getting Started page as context inside that workspace. With `GEMINI_API_KEY` or `google_ai_studio` set, that run calls Gemini. Without a generative key, it uses an offline stub.
+- Decisions use TypeSafe Jev through `RecordingStudioAI.decide`. Set `TYPESAFE_API_KEY` or `typesafe`. Profiles keep Gemini on generation and `jev-latest` on decisions.
 - Support clerk registered for optional skill and pack tests (no second home button)
 - Mounted Agents, AI, Accessible, and Admin (`/admin`)
 

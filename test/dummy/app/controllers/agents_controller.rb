@@ -35,9 +35,14 @@ class AgentsController < ApplicationController
   private
 
   def with_generate_stub
-    return yield if RecordingStudioAI.configuration.openai_api_key.present?
+    return yield if generative_provider_configured?
 
     DummyGenerateStub.with_hook(method(:stubbed_response)) { yield }
+  end
+
+  def generative_provider_configured?
+    configuration = RecordingStudioAI.configuration
+    configuration.gemini_api_key.present? || configuration.openai_api_key.present?
   end
 
   def stubbed_response(**kwargs)

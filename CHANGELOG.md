@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.8] - 2026-09-23
+
+The dummy host generates with Gemini and decides with TypeSafe Jev.
+
+### Changed
+- Development and dummy Gemfiles pin Recording Studio AI `v0.4.0`.
+- Dummy profiles list Gemini for generation and TypeSafe `jev-latest` for decisions. `generate` never selects Jev, and `decide` never selects Gemini.
+- The dummy reads `GEMINI_API_KEY` or `google_ai_studio` for Gemini, and `TYPESAFE_API_KEY` or `typesafe` for Jev. The test suite ignores those variables and keeps the offline librarian stub.
+- The dummy no longer sets the Recording Studio AI admin config keys removed in AI 0.3.2.
+
+### Upgrade notes
+- Copy the Recording Studio AI migration that allows `decision` on runs and retained responses, then migrate.
+- Remove `admin_layout`, `admin_authenticate`, `admin_actor_resolver`, and `admin_visible_roots_resolver` if the host copied the old dummy initializer. Staff lists stay on Recording Studio Admin.
+- Set the Gemini and TypeSafe keys in the host environment when you want live calls. Leave them unset for tests. The gem dependency stays `recording_studio_ai ~> 0.3`, which already allows `0.4.x`. Hosts that do not call `decide` can stay on AI `0.3.x`.
+
 ## [0.4.7] - 2026-09-18
 
 Agents admin can turn an agent on or off from the list.

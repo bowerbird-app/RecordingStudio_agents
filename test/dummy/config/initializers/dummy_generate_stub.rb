@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Request-scoped generate hook for the dummy demo when no provider key is set.
+# Request-scoped generate hook for the dummy demo when no generative provider key is set.
 # Tests should use RecordingStudioAI.stub(:generate, ...) instead of define_method.
 module DummyGenerateStub
   THREAD_KEY = :dummy_generate
