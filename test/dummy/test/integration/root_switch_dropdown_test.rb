@@ -14,6 +14,7 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Password"
     assert_includes response.body, 'data-theme="rounded"'
     refute_includes response.body, "data-recording-studio-default-layout"
+    refute_includes response.body, "flat-pack--sidebar-layout"
     refute_includes response.body, "mt-28"
     refute_includes response.body, "fixed inset-0"
   end
@@ -34,7 +35,9 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_includes response.body, workspace.name
-    assert_select "body[data-recording-studio-default-layout='true']", count: 1
+    assert_select "[data-controller='flat-pack--sidebar-layout']", count: 1
+    assert_select "body[data-recording-studio-default-layout='true']", count: 0
+    assert_includes response.body, "Sign out"
   end
 
   test "root switch page renders with the host default layout" do
@@ -53,6 +56,7 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "body[data-recording-studio-default-layout='true']", count: 1
+    refute_includes response.body, "flat-pack--sidebar-layout"
     refute_includes response.body, "flat-pack-sidebar-layout"
   end
 

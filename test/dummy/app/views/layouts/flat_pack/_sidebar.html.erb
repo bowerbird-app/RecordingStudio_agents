@@ -1,0 +1,45 @@
+<%= render FlatPack::Sidebar::Component.new(side: sidebar_side) do |sidebar| %>
+  <% sidebar.header do %>
+    <%= render FlatPack::Sidebar::Header::Component.new(
+      brand_abbr: "AG",
+      title: "Agents"
+    ) %>
+  <% end %>
+
+  <% sidebar.items do %>
+    <nav class="py-4 space-y-1" aria-label="Main">
+      <%= render FlatPack::Sidebar::Item::Component.new(
+        text: "Home",
+        href: root_path,
+        icon: :home,
+        active: current_page?(root_path)
+      ) %>
+
+      <%= render FlatPack::Sidebar::Item::Component.new(
+        text: "Staff",
+        href: recording_studio_admin_admin_path,
+        icon: :building_office,
+        active: current_page?(recording_studio_admin_admin_path)
+      ) %>
+
+      <%= render FlatPack::Sidebar::Item::Component.new(
+        text: "Agents",
+        href: "#{recording_studio_admin_admin_path}/sections/agents",
+        icon: :sparkles,
+        active: request.path.start_with?("#{recording_studio_admin_admin_path}/sections/agents")
+      ) %>
+    </nav>
+  <% end %>
+
+  <% sidebar.footer do %>
+    <%= render FlatPack::Sidebar::Footer::Component.new do %>
+      <%= render FlatPack::Button::Component.new(
+        text: "Sign out",
+        style: :ghost,
+        size: :md,
+        url: destroy_user_session_path,
+        data: { turbo_method: :delete }
+      ) %>
+    <% end %>
+  <% end %>
+<% end %>

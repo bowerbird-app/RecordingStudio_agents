@@ -24,7 +24,10 @@ class AgentsDemoTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "Page librarian"
     assert_includes response.body, "Find Getting Started"
-    assert_select "body[data-recording-studio-default-layout='true']", count: 1
+    assert_select "[data-controller='flat-pack--sidebar-layout']", count: 1
+    assert_select "a[href='/admin/sections/agents']"
+    assert_select "a[href='/admin']"
+    assert_select "body[data-recording-studio-default-layout='true']", count: 0
   end
 
   test "demo run creates a task and a succeeded run without a live provider" do

@@ -23,11 +23,11 @@ A **tool** is an executable capability registered with Recording Studio AI. Agen
 
 **Knowledge** is application data loaded at run time. Loaders return typed entries. Each entry must cite a source recording inside the task root. Agents authorizes the run before it invokes a loader. Gathered entries are capped at 5 seconds, 40 entries, and 32KB.
 
-A **task** is a durable goal inside a workspace, identified by a stable key. When `Agent#run` is given a `context_recording`, that recording must be the task root or a child inside that root.
+A **task** is a durable goal inside a workspace, identified by a stable key. `TaskInput#context` travels with the goal in the prompt, under a label that it is data. Empty context is omitted. It is not stored on the task, and it is not mixed into workspace knowledge. When `Agent#run` is given a `context_recording`, that recording must be the task root or a child inside that root.
 
-An **agent run** is one attempt. It stores status, an optional output digest, and the Recording Studio AI run id. It does not copy prompts, model output, or chain-of-thought. Duplicate delivery of the same `idempotency_key` reuses that attempt.
+An **agent run** is one attempt. It stores status, an optional output digest, the handoff allowlist from the program that started it, and the Recording Studio AI run id. It does not copy prompts, model output, or chain-of-thought. Duplicate delivery of the same `idempotency_key` reuses that attempt. A different task or a different context recording for that key raises `IdempotencyConflict`.
 
-A **handoff** is an allowlisted request recorded by an internal AI tool. The tool needs the live lease from that generate call, so a stale worker cannot stamp a target onto a run another worker owns. `Agent#run` never starts the target. The host routes the next call. If a worker dies after recording the target, a retry with the same idempotency key finishes as `handoff_requested` instead of succeeding.
+A **handoff** is an allowlisted request recorded by an internal AI tool. The allowlist is the one stored on that run, not a fresh compile of the agent. The tool needs the live lease from that generate call, so a stale worker cannot stamp a target onto a run another worker owns. `Agent#run` never starts the target. The host routes the next call. If a worker dies after recording the target, a retry with the same idempotency key finishes as `handoff_requested` instead of succeeding.
 
 `enabled` is a registry boolean. Lookup for a disabled agent raises `AgentDisabled`. Admin still lists disabled agents and can turn them on or off. An admin change is stored and wins over the registry default until it is changed again.
 
@@ -41,10 +41,15 @@ bin/rails generate recording_studio_agents:migrations
 bin/rails db:migrate
 ```
 
-Register the `agents` section on an admin root and mount Recording Studio Admin.
+Register a staff hub and the `agents` section on an admin root, then mount Recording Studio Admin. The hub is `/admin`. Agents opens at `/admin/sections/agents`.
 
 ```ruby
-recording_studio_admin_for :admin, at: "/admin", root_section: :agents
+recording_studio_admin_for :admin, at: "/admin", root_section: :root
+
+recording_studio_admin_sections do
+  section :root
+  section :agents
+end
 ```
 
 ## Register a skill and a tool
@@ -222,7 +227,7 @@ class FindPageJob < ApplicationJob
 end
 ```
 
-`Results::Completed` carries in-memory output for the call that ran. Replay of a succeeded attempt returns `Results::Existing`. Adopting a completed Recording Studio AI run without retained text also returns `Results::Existing`, not a blank `Completed`. Replay of a recorded handoff returns `Results::HandoffRequested` again so the host can route; `Agent#run` still does not start the target. `Results::Blocked` means a tool is waiting on Recording Studio AI confirmation. Call `run` again with the same idempotency key after the host confirms.
+`Results::Completed` carries in-memory output for the call that ran. Replay of a succeeded attempt returns `Results::Existing`. Adopting a completed Recording Studio AI run returns `Completed` when the reply is still readable, and `Existing` when it is not. Replay of a recorded handoff returns `Results::HandoffRequested` again so the host can route; `Agent#run` still does not start the target. `Results::Blocked` means a tool is waiting on confirmation. Calling `run` again with the same idempotency key stays `Blocked` and does not start another model call. If that model call has since finished and the reply is still readable, the same key returns `Completed`. A new idempotency key starts another attempt.
 
 A failed run is retryable for timeouts and connection resets, and when Recording Studio AI marks the provider error retryable. Programmer errors such as `RuntimeError` are not retryable.
 
@@ -251,4 +256,6 @@ pin_all_from RecordingStudioAdmin::Engine.root.join("app/javascript/recording_st
 
 ## Dummy app
 
-`test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page, then lists what it did. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is Recording Studio Admin with the agents section. Tests do not call a live model provider.
+`test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page, then lists what it did. That page uses a sidebar. Gem screens, including Admin and the workspace switcher, stay on Recording Studio's default layout. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is the staff hub. Agents is `/admin/sections/agents`.
+
+The dummy generates with Gemini and decides with TypeSafe Jev (`RecordingStudioAI.decide`). Set `GEMINI_API_KEY` or `google_ai_studio` for generation, and `TYPESAFE_API_KEY` or `typesafe` for decisions. Without a generative key, the librarian demo uses an offline stub. Tests ignore those variables and do not call a live model provider.
