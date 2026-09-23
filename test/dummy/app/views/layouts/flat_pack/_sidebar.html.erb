@@ -16,6 +16,13 @@
       ) %>
 
       <%= render FlatPack::Sidebar::Item::Component.new(
+        text: "Playground",
+        href: playground_path,
+        icon: :play,
+        active: request.path.start_with?("/playground")
+      ) %>
+
+      <%= render FlatPack::Sidebar::Item::Component.new(
         text: "Staff",
         href: recording_studio_admin_admin_path,
         icon: :building_office,

@@ -258,4 +258,6 @@ pin_all_from RecordingStudioAdmin::Engine.root.join("app/javascript/recording_st
 
 `test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page, then lists what it did. That page uses a sidebar. Gem screens, including Admin and the workspace switcher, stay on Recording Studio's default layout. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is the staff hub. Agents is `/admin/sections/agents`.
 
+The dummy has a Playground page at `/playground`, where you pick a registered agent, write an instruction, optionally add context and extra help the agent already allows, and watch the steps. Tools stay on the agent. Skill packs are chosen only when that agent declares them. The dummy keeps model replies so that page can show the text.
+
 The dummy generates with Gemini and decides with TypeSafe Jev (`RecordingStudioAI.decide`). Set `GEMINI_API_KEY` or `google_ai_studio` for generation, and `TYPESAFE_API_KEY` or `typesafe` for decisions. Without a generative key, the librarian demo uses an offline stub. Tests ignore those variables and do not call a live model provider.

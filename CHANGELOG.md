@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.11] - 2026-09-23
+
+The dummy playground starts a registered agent and watches the attempt.
+
+### Added
+- Dummy host page `/playground`. Pick a registered agent, write an instruction, optionally add context and extra help the agent already allows, and watch the steps. The dummy keeps the model reply so the page can show it.
+
+### Upgrade notes
+- No migration. The page is `/playground` on the dummy host.
+
 ## [0.4.9] - 2026-09-23
 
 Task context reaches the model with the goal. A replay rejects a changed task or context recording. An abandoned or waiting run reuses the existing model call, and a handoff is checked against the allowlist stored on that run.
