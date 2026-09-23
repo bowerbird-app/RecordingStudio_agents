@@ -46,6 +46,18 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
 
     get "/admin"
     assert_response :success
+    assert_includes response.body, "Staff"
+    assert_includes response.body, "Agents, runs, and model calls."
+    assert_includes response.body, "/admin/sections/agents"
+    assert_includes response.body, "/admin/sections/recording_studio_ai"
+    assert_select "a", text: "Agents"
+    assert_select "a", text: "Model calls"
+    assert_select "body[data-recording-studio-default-layout='true']", count: 1
+    refute_includes response.body, "flat-pack--sidebar-layout"
+    refute_includes response.body, "Attempts this period"
+
+    get "/admin/sections/agents"
+    assert_response :success
     assert_includes response.body, "Agents admin"
     assert_includes response.body, "Attempts this period"
     assert_includes response.body, "Tokens this period"

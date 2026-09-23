@@ -7,18 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.8] - 2026-09-23
 
-The dummy host generates with Gemini and decides with TypeSafe Jev.
+The dummy host generates with Gemini and decides with TypeSafe Jev. Its home page uses a sidebar. Gem screens stay on the shared default layout, and Admin opens on a staff hub.
 
 ### Changed
 - Development and dummy Gemfiles pin Recording Studio AI `v0.4.0`.
 - Dummy profiles list Gemini for generation and TypeSafe `jev-latest` for decisions. `generate` never selects Jev, and `decide` never selects Gemini.
 - The dummy reads `GEMINI_API_KEY` or `google_ai_studio` for Gemini, and `TYPESAFE_API_KEY` or `typesafe` for Jev. The test suite ignores those variables and keeps the offline librarian stub.
 - The dummy no longer sets the Recording Studio AI admin config keys removed in AI 0.3.2.
+- Dummy home uses a Flatpack sidebar. Admin, the workspace switcher, and access screens keep `recording_studio/default_layout`.
+- Dummy Admin mounts with `root_section: :root`. The staff hub is `/admin`. Agents is `/admin/sections/agents`.
 
 ### Upgrade notes
 - Copy the Recording Studio AI migration that allows `decision` on runs and retained responses, then migrate.
 - Remove `admin_layout`, `admin_authenticate`, `admin_actor_resolver`, and `admin_visible_roots_resolver` if the host copied the old dummy initializer. Staff lists stay on Recording Studio Admin.
 - Set the Gemini and TypeSafe keys in the host environment when you want live calls. Leave them unset for tests. The gem dependency stays `recording_studio_ai ~> 0.3`, which already allows `0.4.x`. Hosts that do not call `decide` can stay on AI `0.3.x`.
+- Hosts that open Admin directly on Agents can keep `root_section: :agents`. To put a hub above the gem sections, register a `root` section, enable it on the admin root, and set `root_section: :root`. Agents stays at `/admin/sections/agents`.
+- Gem screens keep the shared default layout. A host sidebar belongs on the host controllers, not on Admin or the workspace switcher.
 
 ## [0.4.7] - 2026-09-18
 

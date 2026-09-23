@@ -5,9 +5,12 @@ require "test_helper"
 class RecordingStudioTemplateTest < ActiveSupport::TestCase
   test "dummy app loads root switchable config and controller support" do
     assert_equal [ "all_workspaces" ], RecordingStudioRootSwitchable.configuration.scopes.keys
-    assert_equal :application_layout, RecordingStudioRootSwitchable.configuration.layout
+    assert_equal "recording_studio/default_layout", RecordingStudioRootSwitchable.configuration.layout
     assert_includes ApplicationController.ancestors, RecordingStudio::RootSwitchable::ControllerSupport
-    assert_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
+    refute_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
+    assert_includes ApplicationController._helpers.ancestors, RecordingStudio::LayoutHelper
+    assert_includes RecordingStudioAdmin::ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
+    assert_includes RecordingStudioAccessible::ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
   end
 
   test "dummy app validates declarations" do
@@ -78,6 +81,10 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     assert RecordingStudio.capability_enabled?(:accessible, for: AdminRoot)
     refute RecordingStudio.capability_enabled?(:accessible, for: Folder)
     refute RecordingStudio.capability_enabled?(:accessible, for: Page)
-    assert_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
+
+    admin_root = AdminRoot.new(name: "Admin")
+    section_keys = AdminRoot.recording_studio_admin_section_keys_for(admin_root, nil, nil)
+    assert_equal [ "root", "agents", "recording_studio_ai" ], section_keys
+    assert_equal AdminScreens::RootSection, RecordingStudioAdmin.section_for("root")
   end
 end

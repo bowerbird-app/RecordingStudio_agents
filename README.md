@@ -41,10 +41,15 @@ bin/rails generate recording_studio_agents:migrations
 bin/rails db:migrate
 ```
 
-Register the `agents` section on an admin root and mount Recording Studio Admin.
+Register a staff hub and the `agents` section on an admin root, then mount Recording Studio Admin. The hub is `/admin`. Agents opens at `/admin/sections/agents`.
 
 ```ruby
-recording_studio_admin_for :admin, at: "/admin", root_section: :agents
+recording_studio_admin_for :admin, at: "/admin", root_section: :root
+
+recording_studio_admin_sections do
+  section :root
+  section :agents
+end
 ```
 
 ## Register a skill and a tool
@@ -251,6 +256,6 @@ pin_all_from RecordingStudioAdmin::Engine.root.join("app/javascript/recording_st
 
 ## Dummy app
 
-`test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page, then lists what it did. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is Recording Studio Admin with the agents section.
+`test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page, then lists what it did. That page uses a sidebar. Gem screens, including Admin and the workspace switcher, stay on Recording Studio's default layout. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is the staff hub. Agents is `/admin/sections/agents`.
 
 The dummy generates with Gemini and decides with TypeSafe Jev (`RecordingStudioAI.decide`). Set `GEMINI_API_KEY` or `google_ai_studio` for generation, and `TYPESAFE_API_KEY` or `typesafe` for decisions. Without a generative key, the librarian demo uses an offline stub. Tests ignore those variables and do not call a live model provider.

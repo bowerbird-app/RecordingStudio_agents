@@ -74,15 +74,29 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes application_js, 'import "@hotwired/turbo-rails"'
   end
 
-  def test_dummy_app_uses_recording_studio_default_layout
-    application_controller_path = File.expand_path("dummy/app/controllers/application_controller.rb", __dir__)
-    controller_source = File.read(application_controller_path)
+  def test_dummy_host_uses_sidebar_and_gem_views_keep_the_default_layout
+    controller_source = File.read(File.expand_path("dummy/app/controllers/application_controller.rb", __dir__))
+    switchable = File.read(File.expand_path("dummy/config/initializers/recording_studio_root_switchable.rb", __dir__))
+    admin = File.read(File.expand_path("dummy/config/initializers/recording_studio_admin.rb", __dir__))
+    sidebar_layout = File.read(File.expand_path("dummy/app/views/layouts/sidebar.html.erb", __dir__))
 
-    assert_includes controller_source, "include RecordingStudio::UsesDefaultLayout"
-    assert_includes controller_source, '"recording_studio/default_layout"'
-    assert_includes controller_source, "devise_controller? ? \"application\""
+    refute_includes controller_source, "include RecordingStudio::UsesDefaultLayout"
+    assert_includes controller_source, "helper RecordingStudio::LayoutHelper"
+    assert_includes controller_source, 'devise_controller? ? "application" : "sidebar"'
     refute_includes controller_source, "flat_pack_sidebar"
     refute File.exist?(File.expand_path("dummy/app/views/layouts/flat_pack_sidebar.html.erb", __dir__))
+
+    assert_includes sidebar_layout, 'data-theme="rounded"'
+    assert_includes sidebar_layout, "FlatPack::SidebarLayout::Component"
+    assert_includes sidebar_layout, 'stylesheet_link_tag "flat_pack/variables"'
+    assert_includes sidebar_layout, "javascript_importmap_tags"
+    refute_includes sidebar_layout, "flat_pack_sidebar"
+    refute_includes sidebar_layout, "recording_studio/default_layout"
+
+    assert_includes switchable, 'config.layout = "recording_studio/default_layout"'
+    assert_includes admin, "RecordingStudioAdmin::ApplicationController"
+    assert_includes admin, "RecordingStudioAccessible::ApplicationController"
+    assert_includes admin, "RecordingStudio::UsesDefaultLayout"
   end
 
   def test_dummy_login_layout_keeps_flatpack_assets_without_tight_main_offset
@@ -130,6 +144,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes readme_source, "workspace root"
     assert_includes readme_source, "Getting Started page as context"
     assert_includes readme_source, "/admin"
+    assert_includes readme_source, "/admin/sections/agents"
     assert_includes readme_source, "Last 4 weeks"
     assert_includes readme_source, "Usage by agent"
     assert_includes readme_source, "/recording_studio"
@@ -153,6 +168,8 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes readme, "source_recording"
     assert_includes readme, "context_recording"
     assert_includes readme, "Each entry must cite a source recording"
+    assert_includes readme, "root_section: :root"
+    assert_includes readme, "/admin/sections/agents"
     refute_includes readme, "ExampleService"
     refute_includes readme, "recordable"
     refute_includes readme, "\u2014"
@@ -164,7 +181,8 @@ class RecordingStudioAgentsTest < Minitest::Test
 
     assert_includes view_source, 'title: "Page librarian"'
     assert_includes view_source, "Find Getting Started"
-    assert_includes view_source, "dummy_page_nav"
+    refute_includes view_source, "dummy_page_nav"
+    refute_includes view_source, "recording_studio_page_nav"
     assert_includes view_source, "FlatPack::List::Component"
     assert_includes view_source, "progress_heading"
     controller_source = File.read(File.expand_path("dummy/app/controllers/home_controller.rb", __dir__))

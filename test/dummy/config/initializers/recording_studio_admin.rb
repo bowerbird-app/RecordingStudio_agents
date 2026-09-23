@@ -22,13 +22,28 @@ module RecordingStudioAdminIgnoreProductRoot
 end
 
 Rails.application.config.to_prepare do
-  next unless defined?(RecordingStudioAdmin::ApplicationController)
-
-  unless RecordingStudioAdmin::ApplicationController.ancestors.include?(RecordingStudio::UsesDefaultLayout)
-    RecordingStudioAdmin::ApplicationController.include(RecordingStudio::UsesDefaultLayout)
+  gem_controllers = []
+  if defined?(RecordingStudioAdmin::ApplicationController)
+    gem_controllers << RecordingStudioAdmin::ApplicationController
+  end
+  if defined?(RecordingStudioAccessible::ApplicationController)
+    gem_controllers << RecordingStudioAccessible::ApplicationController
   end
 
-  unless RecordingStudioAdmin::ApplicationController.ancestors.include?(RecordingStudioAdminIgnoreProductRoot)
+  gem_controllers.each do |controller|
+    next if controller.ancestors.include?(RecordingStudio::UsesDefaultLayout)
+
+    controller.include(RecordingStudio::UsesDefaultLayout)
+  end
+
+  if defined?(RecordingStudioAdmin::ApplicationController) &&
+     !RecordingStudioAdmin::ApplicationController.ancestors.include?(RecordingStudioAdminIgnoreProductRoot)
     RecordingStudioAdmin::ApplicationController.prepend(RecordingStudioAdminIgnoreProductRoot)
   end
+
+  if defined?(AdminScreens::RootSection)
+    AdminScreens.send(:remove_const, :RootSection)
+  end
+  load Rails.root.join("app/admin/root/section.rb")
+  RecordingStudioAdmin.register_section(AdminScreens::RootSection)
 end
