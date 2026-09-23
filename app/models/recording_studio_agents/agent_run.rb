@@ -48,6 +48,15 @@ module RecordingStudioAgents
       lease_expires_at.present? && lease_expires_at < Time.current
     end
 
+    def allows_handoff?(key, version)
+      Array(handoff_allowlist_json).any? do |item|
+        hash = item.respond_to?(:stringify_keys) ? item.stringify_keys : {}
+        hash["key"].to_s == key.to_s && Integer(hash["version"]) == Integer(version)
+      end
+    rescue ArgumentError, TypeError
+      false
+    end
+
     def progress
       Progress.for(self)
     end

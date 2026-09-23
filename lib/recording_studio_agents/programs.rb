@@ -66,7 +66,7 @@ module RecordingStudioAgents
           context: knowledge_context
         )
         Execution::Invocation.new(
-          goal: task.goal,
+          goal: task.prompt,
           system_instruction: system_instruction(knowledge_entries),
           knowledge_entries: knowledge_entries,
           tool_references: effective_tool_references,

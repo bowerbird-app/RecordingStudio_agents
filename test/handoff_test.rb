@@ -57,6 +57,8 @@ class HandoffTest < PersistenceTestCase
     assert_equal 1, result.request.target.version
     assert_equal "handoff_requested", result.run.status
     assert_equal "reviewer", result.run.handoff_agent_key
+    assert result.run.allows_handoff?("reviewer", 1)
+    refute result.run.allows_handoff?("stranger", 1)
     refute_includes RecordingStudioAgents::AgentRun.column_names, "handoff_summary"
     assert_equal 0, RecordingStudioAgents::AgentRun.where(agent_key: "reviewer").count
     activity = result.run.activities.find_by(kind: "handoff_requested")
@@ -107,6 +109,44 @@ class HandoffTest < PersistenceTestCase
       )
     end
     assert_match(/could not resolve the agent run/, error.message)
+  end
+
+  def test_handoff_uses_the_allowlist_stored_on_the_run
+    RecordingStudioAI.stub(:generate, generation_response) do
+      RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "handoff-stored"
+      )
+    end
+    run = RecordingStudioAgents::AgentRun.find_by!(idempotency_key: "handoff-stored")
+    run.update!(
+      status: "running",
+      lease_token: "current-lease",
+      lease_expires_at: 5.minutes.from_now,
+      completed_at: nil,
+      handoff_allowlist_json: []
+    )
+    RecordingStudioAgents.agents.clear!
+
+    error = assert_raises(RecordingStudioAI::Errors::ContractValidationError) do
+      RecordingStudioAgents::Handoffs::Tool.call(
+        { "target_agent_key" => "reviewer", "target_agent_version" => 1 },
+        ai_context_for(run, lease_token: "current-lease")
+      )
+    end
+    assert_match(/not allowlisted/, error.message)
+
+    run.update!(handoff_allowlist_json: [{ "key" => "reviewer", "version" => 1 }])
+    RecordingStudioAgents::Handoffs::Tool.call(
+      { "target_agent_key" => "reviewer", "target_agent_version" => 1 },
+      ai_context_for(run, lease_token: "current-lease")
+    )
+
+    assert_equal "reviewer", run.reload.handoff_agent_key
+    assert_equal 1, run.handoff_agent_version
   end
 
   def test_replay_after_handoff_returns_the_same_request

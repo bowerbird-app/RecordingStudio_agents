@@ -45,12 +45,9 @@ module RecordingStudioAgents
 
       def self.call(arguments, ai_context)
         run = resolve_agent_run!(ai_context)
-        program = Programs::Compiler.compile(
-          definition: RecordingStudioAgents.agents.fetch(run.agent_key, version: run.agent_version)
-        )
         target_key = arguments.fetch("target_agent_key")
         target_version = arguments.fetch("target_agent_version")
-        unless program.allows_handoff?(target_key, target_version)
+        unless run.allows_handoff?(target_key, target_version)
           raise RecordingStudioAI::Errors::ContractValidationError.new(
             "handoff target #{target_key} version #{target_version} is not allowlisted",
             code: "custom_tool_validation"

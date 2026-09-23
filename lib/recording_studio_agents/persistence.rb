@@ -25,6 +25,10 @@ module RecordingStudioAgents
       def in_progress?
         kind == :in_progress
       end
+
+      def blocked?
+        kind == :blocked
+      end
     end
 
     class RunLedger
@@ -58,6 +62,9 @@ module RecordingStudioAgents
           run.reload
           return Opening.new(kind: :existing, task: task, run: run) if Lifecycle.terminal?(run.status)
           return Opening.new(kind: :in_progress, task: task, run: run) if held_by_live_lease?(run)
+          if run.status == "awaiting_confirmation" && !recoverable_ai_run?(run)
+            return Opening.new(kind: :blocked, task: task, run: run)
+          end
 
           token = acquire_lease!(run, request)
           Opening.new(kind: :acquired, task: task, run: run, lease_token: token)
@@ -80,6 +87,10 @@ module RecordingStudioAgents
 
         run = AgentRun.find(agent_run_id)
         with_valid_lease!(run, lease_token) do |locked|
+          unless locked.allows_handoff?(target.key, target.version)
+            raise IdempotencyConflict, "handoff target is not allowlisted on agent run #{locked.id}"
+          end
+
           locked.update!(
             handoff_agent_key: target.key,
             handoff_agent_version: target.version,
@@ -230,7 +241,7 @@ module RecordingStudioAgents
           task_key: attributes[:task_key]
         )
         if task.persisted? && task.input_digest != attributes[:input_digest]
-          raise IdempotencyConflict, "task #{task.task_key} already exists with a different goal"
+          raise IdempotencyConflict, "task #{task.task_key} already exists with a different input"
         end
 
         task.assign_attributes(attributes) unless task.persisted?
@@ -239,7 +250,7 @@ module RecordingStudioAgents
       rescue ActiveRecord::RecordNotUnique
         Task.find_by!(root_recording_id: attributes[:root_recording_id], task_key: attributes[:task_key]).tap do |found|
           if found.input_digest != attributes[:input_digest]
-            raise IdempotencyConflict, "task #{found.task_key} already exists with a different goal"
+            raise IdempotencyConflict, "task #{found.task_key} already exists with a different input"
           end
         end
       end
@@ -256,6 +267,7 @@ module RecordingStudioAgents
           selected_skills_json: selection.as_json,
           skill_pack_key: selection.pack&.key,
           skill_pack_version: selection.pack&.version,
+          handoff_allowlist_json: handoff_allowlist(program),
           idempotency_key: request.idempotency_key,
           status: "pending",
           initiator_type: request.initiator.class.name,
@@ -272,7 +284,7 @@ module RecordingStudioAgents
           idempotency_key: attributes[:idempotency_key]
         )
         if run
-          assert_same_program!(run, program)
+          assert_same_execution!(run, program, task, request)
           return run
         end
 
@@ -285,7 +297,7 @@ module RecordingStudioAgents
           agent_key: attributes[:agent_key],
           agent_version: attributes[:agent_version],
           idempotency_key: attributes[:idempotency_key]
-        ).tap { |found| assert_same_program!(found, program) }
+        ).tap { |found| assert_same_execution!(found, program, task, request) }
       end
 
       def assert_same_program!(run, program)
@@ -324,34 +336,36 @@ module RecordingStudioAgents
       end
 
       def reconcile_ai_run!(run)
-        return unless %w[running awaiting_confirmation failed].include?(run.status)
+        return unless run.status == "running"
         return unless run.lease_expired? || run.lease_token.blank?
+        return if run.handoff_agent_key.blank?
 
-        if run.status == "running" && run.handoff_agent_key.present?
-          finish_recorded_handoff!(run)
-          return
-        end
+        finish_recorded_handoff!(run)
+      end
 
+      def recoverable_ai_run?(run)
         ai_run = Ai.find_run(request_id: Ai.request_id_for(run))
-        return unless ai_run
+        return false unless ai_run.respond_to?(:status)
 
-        run.update!(recording_studio_ai_run_id: ai_run.id) if run.recording_studio_ai_run_id.blank? && ai_run.id
-        return unless ai_run.respond_to?(:status)
+        ai_run.status.to_s == "completed"
+      end
 
-        case ai_run.status.to_s
-        when "completed"
-          Lifecycle.transition!(from: run.status, to: "succeeded") unless run.status == "succeeded"
-          run.update!(
-            status: "succeeded",
-            lease_token: nil,
-            lease_expires_at: nil,
-            completed_at: Time.current,
-            output_digest: run.output_digest || Digests.of("ai_run" => ai_run.id)
-          )
-          append_activity!(run, "run_succeeded", {}) unless run.run_activities.exists?(kind: "run_succeeded")
-        when "failed", "cancelled"
-          nil
+      def handoff_allowlist(program)
+        program.handoff_references.map do |reference|
+          { "key" => reference.key.to_s, "version" => reference.version }
         end
+      end
+
+      def assert_same_execution!(run, program, task, request)
+        assert_same_program!(run, program)
+        if run.task_id != task.id
+          raise IdempotencyConflict,
+                "idempotency_key #{run.idempotency_key} already exists for a different task"
+        end
+        return if run.context_recording_id.to_s == request.context_recording&.id.to_s
+
+        raise IdempotencyConflict,
+              "idempotency_key #{run.idempotency_key} already exists with a different context recording"
       end
 
       def finish_recorded_handoff!(run)

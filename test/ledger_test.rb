@@ -106,7 +106,87 @@ class LedgerTest < PersistenceTestCase
         idempotency_key: "job-b"
       )
     end
-    assert_match(/different goal/, error.message)
+    assert_match(/different input/, error.message)
+  end
+
+  def test_same_task_key_rejects_a_different_context
+    register_librarian
+    RecordingStudioAI.stub(:generate, generation_response) do
+      RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "job-context-a"
+      )
+    end
+
+    error = assert_raises(RecordingStudioAgents::IdempotencyConflict) do
+      RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: RecordingStudioAgents::TaskInput.new(
+          key: "find_page",
+          goal: "Find Getting Started.",
+          context: { "title" => "Other page" }
+        ),
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "job-context-b"
+      )
+    end
+    assert_match(/different input/, error.message)
+  end
+
+  def test_same_idempotency_key_rejects_a_different_task
+    register_librarian
+    RecordingStudioAI.stub(:generate, generation_response) do
+      RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "job-same"
+      )
+    end
+
+    error = assert_raises(RecordingStudioAgents::IdempotencyConflict) do
+      RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input(key: "other_page"),
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "job-same"
+      )
+    end
+    assert_match(/different task/, error.message)
+  end
+
+  def test_same_idempotency_key_rejects_a_different_context_recording
+    register_librarian
+    child = Struct.new(:id, :root_recording_id).new("page-1", root.id)
+    other = Struct.new(:id, :root_recording_id).new("page-2", root.id)
+    RecordingStudioAI.stub(:generate, generation_response) do
+      RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        context_recording: child,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "job-context-recording"
+      )
+    end
+
+    error = assert_raises(RecordingStudioAgents::IdempotencyConflict) do
+      RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        context_recording: other,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "job-context-recording"
+      )
+    end
+    assert_match(/context recording/, error.message)
   end
 
   def test_task_keeps_goal_and_drops_context_json

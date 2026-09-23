@@ -42,6 +42,7 @@ module PersistenceSupport
       t.string :execution_source, null: false
       t.string :lease_token
       t.datetime :lease_expires_at
+      t.json :handoff_allowlist_json, null: false, default: []
       t.string :handoff_agent_key
       t.integer :handoff_agent_version
       t.string :failure_category

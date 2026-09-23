@@ -159,6 +159,7 @@ module RecordingStudioAgents
 
         opening = @ledger.open!(program: @program, request: request)
         return terminal_result(opening.run) if opening.existing?
+        return Results::Blocked.new(run: opening.run) if opening.blocked?
 
         if opening.in_progress?
           return Results::Blocked.new(run: opening.run) if opening.run.status == "awaiting_confirmation"
