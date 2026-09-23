@@ -239,11 +239,11 @@ Each step has a label and a badge: Done, Working, Waiting, or Failed. Tool label
 
 ## Admin
 
-The `agents` section is staff operations for this gem. The hub title is **Agents admin**. Widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents, using Last 4 weeks (today through 27 days back). Links open Agents, Runs, Tasks, Usage by agent, and Evaluations.
+The `agents` section is staff operations for this gem. The hub title is **Agents admin**. Widgets cover Failed runs, Attempts this period, Tokens this period, and Hungry agents, using Last 4 weeks (today through 27 days back). Links open Agents, Skills, Runs, Tasks, Usage by agent, and Evaluations.
 
 Runs filters by agent, status, and date (Last 4 weeks by default), charts attempts over time, and links the AI run into Recording Studio AI. Agent keys in that filter come from workspaces the actor can view. The Runs table shows the agent name and a status badge. Names on Agents and Runs open that agent's details: key, instructions, skills, tools, knowledge, and who it can pass to. Skills and tools on that page open their own details. Usage by agent uses the same date window and shows attempts, outcomes, tokens, wait, and tools per agent version. Averages skip attempts whose model call is gone. Tasks show the goal and when it was created. Agents lists names, versions, and whether each is on, including agents that have not run. The actions menu turns an agent on or off. The registry key stays as an optional column.
 
-Skills and skill packs stay in code. Skills are instructions other gems contribute. Skill packs are optional bundles loaded at run. They do not have hub catalog screens. Admin never displays chain-of-thought.
+Skills are instructions other gems contribute. The Skills screen lists every registered skill. The name opens that skill's instructions, tools, and when to use it. Skill packs stay in code and are loaded at run. Admin never displays chain-of-thought.
 
 Hosts that use importmap must pin Recording Studio Admin controllers so screen tables load:
 

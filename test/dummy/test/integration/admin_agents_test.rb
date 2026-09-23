@@ -63,15 +63,16 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Tokens this period"
     assert_includes response.body, "Hungry agents"
     assert_select "a", text: "Agents"
+    assert_select "a", text: "Skills"
     assert_select "a", text: "Runs"
     assert_select "a", text: "Tasks"
     assert_select "a", text: "Usage by agent"
     refute_includes response.body, "Agent list"
     assert_includes response.body, "/admin/screens/registered_agents"
+    assert_includes response.body, "/admin/screens/registered_skills"
     assert_includes response.body, "/admin/screens/agent_runs"
     assert_includes response.body, "/admin/screens/agent_tasks"
     assert_includes response.body, "/admin/screens/agent_usage"
-    refute_includes response.body, "/admin/screens/registered_skills"
     refute_includes response.body, "/admin/screens/registered_skill_packs"
     refute_includes response.body, "Skill packs"
     refute_includes response.body, "By agent"
@@ -101,6 +102,24 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_match(%r{/recording_studio_agents/admin/agents/page_librarian/turn_off}, response.body)
     refute_match(/>\s*page_librarian\s*</, response.body)
     assert_match(/registered_agent\?[^"]*agent_key=page_librarian/, response.body)
+
+    get "/admin/screens/registered_skills"
+    assert_response :success
+    assert_includes response.body, "Skills"
+    assert_includes response.body, "Procedures agents can follow."
+    assert_includes response.body, 'id="screen-table"'
+    assert_includes response.body, "/admin/screens/registered_skills/table"
+
+    get "/admin/screens/registered_skills/table"
+    assert_response :success
+    assert_includes response.body, "Page lookup"
+    assert_includes response.body, "Support voice"
+    assert_includes response.body, "Billing help"
+    assert_includes response.body, "Login help"
+    assert_match(/registered_skill\?[^"]*skill_key=page_lookup/, response.body)
+    assert_match(/registered_skill\?[^"]*version=1/, response.body)
+    refute_includes response.body, "Billing tickets"
+    refute_match(/>\s*page_lookup\s*</, response.body)
 
     get "/admin/screens/registered_agent", params: { agent_key: "page_librarian", version: 1 }
     assert_response :success

@@ -13,8 +13,8 @@ class AdminRegistrationTest < Minitest::Test
     refute_nil RecordingStudioAdmin.screen_for("registered_agents")
     refute_nil RecordingStudioAdmin.screen_for("registered_agent")
     refute_nil RecordingStudioAdmin.screen_for("registered_skill")
+    refute_nil RecordingStudioAdmin.screen_for("registered_skills")
     refute_nil RecordingStudioAdmin.screen_for("registered_tool")
-    assert_nil RecordingStudioAdmin.screen_for("registered_skills")
     assert_nil RecordingStudioAdmin.screen_for("registered_skill_packs")
     refute_nil RecordingStudioAdmin.screen_for("agent_tasks")
     refute_nil RecordingStudioAdmin.screen_for("agent_runs")
@@ -114,8 +114,7 @@ class AdminRegistrationTest < Minitest::Test
       link.text if link.visible_if.nil?
     end
 
-    assert_equal ["Agents", "Runs", "Tasks", "Usage by agent", "Evaluations"], texts
-    refute_includes texts, "Skills"
+    assert_equal ["Agents", "Skills", "Runs", "Tasks", "Usage by agent", "Evaluations"], texts
     refute_includes texts, "Skill packs"
     refute_includes texts, "By agent"
     refute_includes texts, "Agent list"
@@ -148,6 +147,19 @@ class AdminRegistrationTest < Minitest::Test
     action_names = screen.table_value.actions.map(&:name)
     assert_includes action_names, :registered_agents_turn_off
     assert_includes action_names, :registered_agents_turn_on
+  end
+
+  def test_skill_list_screen_lists_name_and_version
+    RecordingStudioAgents::Admin.register!
+
+    screen = RecordingStudioAdmin.screen_for("registered_skills")
+    titles = screen.table_value.columns.map(&:title)
+
+    assert_equal "Skills", screen.title
+    assert_equal "Procedures agents can follow.", screen.subtitle
+    assert_equal "Name", titles.first
+    assert_equal %i[name version], screen.table_value.default_column_keys
+    assert_includes titles, "Key"
   end
 
   def test_tasks_table_omits_the_key_column

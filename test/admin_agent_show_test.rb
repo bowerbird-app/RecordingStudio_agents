@@ -27,7 +27,7 @@ class AdminAgentShowTest < Minitest::Test
     catalog = links.select { |link| link.visible_if.nil? }.map(&:text)
     agent = links.find { |link| link.name == :agent }
 
-    assert_equal ["Agents", "Runs", "Tasks", "Usage by agent", "Evaluations"], catalog
+    assert_equal ["Agents", "Skills", "Runs", "Tasks", "Usage by agent", "Evaluations"], catalog
     assert_equal "Agent", agent.text
     refute agent.visible?(FakeContext.new(params: {}))
     assert agent.visible?(FakeContext.new(params: { agent_key: "librarian" }))
@@ -124,6 +124,17 @@ class AdminAgentShowTest < Minitest::Test
     assert_equal "Use find_page.", by_label.fetch("Instructions")
     assert_includes by_label.fetch("Tools"), "registered_tool?"
     assert_includes by_label.fetch("Tools"), "tool_key=find_page"
+  end
+
+  def test_skill_name_links_to_the_show_page
+    register_librarian
+    skill = RecordingStudioAgents.skills.fetch(:lookup, version: 1)
+    html = RecordingStudioAgents::Admin::Queries.skill_name_cell(skill, FakeContext.new(params: {})).to_s
+
+    assert_includes html, "Lookup"
+    assert_includes html, "/admin/screens/registered_skill?"
+    assert_includes html, "skill_key=lookup"
+    assert_includes html, "version=1"
   end
 
   def test_tool_show_lists_what_the_tool_does

@@ -372,6 +372,10 @@ module RecordingStudioAgents
         ].map { |label, value| DetailRow.new(label: label, value: value) }
       end
 
+      def skill_name_cell(row, context)
+        admin_link(row.name, screen_href(context, "registered_skill", skill_key: row.key, version: row.version))
+      end
+
       def agent_name_cell(row, context)
         key = row.try(:agent_key) || row.key
         version = row.try(:agent_version) || row.version

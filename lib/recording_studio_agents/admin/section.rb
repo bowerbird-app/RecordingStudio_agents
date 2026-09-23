@@ -11,6 +11,9 @@ module RecordingStudioAgents
       link :agents,
            text: "Agents",
            url: ->(context) { context.admin_screen_path("registered_agents") }
+      link :skills,
+           text: "Skills",
+           url: ->(context) { context.admin_screen_path("registered_skills") }
       link :runs,
            text: "Runs",
            url: ->(context) { context.admin_screen_path("agent_runs") }

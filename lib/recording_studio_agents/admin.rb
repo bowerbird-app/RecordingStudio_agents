@@ -7,6 +7,7 @@ require_relative "admin/section"
 require_relative "admin/agents_resource"
 require_relative "admin/agents_screen"
 require_relative "admin/agent_show_screen"
+require_relative "admin/skills_screen"
 require_relative "admin/skill_show_screen"
 require_relative "admin/tool_show_screen"
 require_relative "admin/tasks_screen"
@@ -17,6 +18,18 @@ require_relative "admin/widgets"
 
 module RecordingStudioAgents
   module Admin
+    SCREENS = [
+      AgentsScreen,
+      AgentShowScreen,
+      SkillsScreen,
+      SkillShowScreen,
+      ToolShowScreen,
+      TasksScreen,
+      RunsScreen,
+      UsageScreen,
+      EvaluationsScreen
+    ].freeze
+
     module_function
 
     def register!
@@ -57,16 +70,7 @@ module RecordingStudioAgents
     private_class_method :align_flatpack_button_url!
 
     def register_screens!
-      [
-        AgentsScreen,
-        AgentShowScreen,
-        SkillShowScreen,
-        ToolShowScreen,
-        TasksScreen,
-        RunsScreen,
-        UsageScreen,
-        EvaluationsScreen
-      ].each { |screen| RecordingStudioAdmin.register_screen(screen) }
+      SCREENS.each { |screen| RecordingStudioAdmin.register_screen(screen) }
     end
     private_class_method :register_screens!
 
