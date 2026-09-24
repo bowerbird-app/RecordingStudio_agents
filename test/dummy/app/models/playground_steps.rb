@@ -58,6 +58,7 @@ class PlaygroundSteps
     when "tool" then agent_step.tool_key.to_s.tr("_", " ").sub(/\A./, &:upcase)
     when "deliver" then "Answer"
     when "handoff" then "Asked for a reviewer"
+    when "arguments" then "Filled in"
     else "On it"
     end
   end

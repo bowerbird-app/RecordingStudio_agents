@@ -18,6 +18,17 @@ module RecordingStudioAgents
       lines.join("\n\n")
     end
 
+    def self.for_arguments(state:, candidate:, tool:)
+      [
+        "Return the arguments for #{candidate.tool_key} version #{candidate.tool_version}.",
+        labeled("GOAL", state.goal),
+        labeled("PURPOSE", candidate.purpose),
+        labeled("TOOL", tool.description),
+        "Use when: #{tool.use_when}",
+        "Do not use when: #{tool.do_not_use_when}"
+      ].join("\n\n")
+    end
+
     def self.for_synthesis(state:)
       [
         "Write the final answer from the current state.",

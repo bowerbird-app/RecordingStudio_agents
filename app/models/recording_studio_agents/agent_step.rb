@@ -5,7 +5,7 @@ module RecordingStudioAgents
     self.table_name = "recording_studio_agents_agent_steps"
 
     STATUSES = %w[planned started completed failed awaiting_confirmation unresolved].freeze
-    ACTION_TYPES = %w[reason decide tool deliver handoff].freeze
+    ACTION_TYPES = %w[reason decide tool deliver handoff arguments].freeze
 
     belongs_to :agent_run, class_name: "RecordingStudioAgents::AgentRun"
 

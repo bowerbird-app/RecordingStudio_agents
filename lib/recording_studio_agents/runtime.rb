@@ -124,6 +124,8 @@ module RecordingStudioAgents
                                             "replace_candidate_index" => menu.index,
                                             "increment" => { "reasoner_calls" => 1, "replans" => (replan ? 1 : 0) }
                                           })
+      state, menu, fills = supply_arguments(run, lease_token, state, menu)
+      state, = StateDelta.apply(state, { "replace_candidate_index" => menu.index })
       state = remember_compaction(state, compacted)
       state = shrink(request, run, lease_token, state)
       @ledger.checkpoint!(
@@ -135,11 +137,94 @@ module RecordingStudioAgents
         ),
         activities: replan ? [%w[replanned reasoner_requested]] : [%w[reasoner_requested]]
       )
+      remember_argument_fills(run, lease_token, state, fills)
       if compacted
         @ledger.note_activity!(run: run, lease_token: lease_token, kind: "compacted",
                                data: { "sequence" => run.agent_steps.maximum(:sequence).to_i })
       end
       [state, menu]
+    end
+
+    def supply_arguments(run, lease_token, state, menu)
+      fills = []
+      menu.tools.each do |candidate|
+        next unless arguments_invalid?(candidate)
+
+        tool = tool_definition(candidate)
+        if tool.nil? || state.counter("reasoner_calls") >= configuration.maximum_reasoner_calls
+          menu.consume(candidate.id)
+          next
+        end
+
+        response = Ai.fill_arguments(
+          invocation: @invocation, run: run, lease_token: lease_token,
+          prompt: ContextBuilder.for_arguments(state: state, candidate: candidate, tool: tool),
+          schema: tool.json_schema,
+          suffix: "arguments-#{state.counter('reasoner_calls') + 1}"
+        )
+        state, = StateDelta.apply(state, { "increment" => { "reasoner_calls" => 1 } })
+        arguments = accepted_arguments(tool, response)
+        if arguments
+          updated = candidate.with_arguments(arguments)
+          menu.add(updated)
+          fills << argument_fill(updated, response, "completed", "Filled in the missing details.")
+        else
+          menu.consume(candidate.id)
+          fills << argument_fill(candidate, response, "failed", "The details are still missing.")
+        end
+      end
+      [state, menu, fills]
+    end
+
+    def arguments_invalid?(candidate)
+      tool = tool_definition(candidate)
+      return false unless tool
+
+      tool.validate_arguments!(candidate.arguments)
+      false
+    rescue RecordingStudioAI::Errors::ContractValidationError
+      true
+    end
+
+    def accepted_arguments(tool, response)
+      return if response.respond_to?(:error) && response.error
+
+      data = response.respond_to?(:structured_data) ? response.structured_data : nil
+      return unless data.is_a?(Hash)
+
+      tool.validate_arguments!(data)
+    rescue RecordingStudioAI::Errors::ContractValidationError
+      nil
+    end
+
+    def argument_fill(candidate, response, status, summary)
+      {
+        status: status,
+        candidate: candidate,
+        summary: summary,
+        ai_run: response.try(:run)
+      }
+    end
+
+    def remember_argument_fills(run, lease_token, state, fills)
+      fills.each do |fill|
+        run.reload
+        candidate = fill[:candidate]
+        @ledger.checkpoint!(
+          run: run, lease_token: lease_token, state: state,
+          step: step_attributes(
+            run, fill[:status], "arguments", candidate.id,
+            tool_key: candidate.tool_key, tool_version: candidate.tool_version,
+            argument_digest: candidate.argument_digest,
+            observation_summary: fill[:summary],
+            ai_run_id: fill[:ai_run]&.id
+          ),
+          activities: [%w[reasoner_requested]]
+        )
+        next unless fill[:ai_run]
+
+        @ledger.attach_ai_run!(run: run, lease_token: lease_token, ai_run: fill[:ai_run])
+      end
     end
 
     def replan(request, run, lease_token, state, menu)
@@ -507,8 +592,14 @@ module RecordingStudioAgents
       candidate.argument_digest
     end
 
+    def tool_definition(candidate)
+      RecordingStudioAI.tools.fetch(candidate.tool_key, version: candidate.tool_version)
+    rescue StandardError
+      nil
+    end
+
     def repeatable_tool?(candidate)
-      definition = RecordingStudioAI.tools.fetch(candidate.tool_key, version: candidate.tool_version)
+      definition = tool_definition(candidate)
       return false unless definition
 
       definition.idempotent && !definition.destructive && !definition.requires_confirmation

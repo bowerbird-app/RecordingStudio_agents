@@ -113,6 +113,25 @@ module RecordingStudioAgents
       )
     end
 
+    def fill_arguments(invocation:, run:, lease_token:, prompt:, schema:, suffix:)
+      RecordingStudioAI.generate(
+        prompt: prompt,
+        system_instruction: "#{invocation.system_instruction}\n\nReturn only the arguments object for this tool.",
+        custom_tools: [],
+        schema: schema,
+        purpose: invocation.purpose,
+        profile: invocation.profile,
+        root_recording: invocation.root_recording,
+        context_recording: invocation.context_recording,
+        initiator: invocation.initiator,
+        initiator_kind: invocation.initiator_kind,
+        executor: invocation.executor,
+        execution_source: invocation.execution_source,
+        request_id: request_id_for(run, suffix),
+        metadata: lease_metadata(run, lease_token)
+      )
+    end
+
     def synthesize(invocation:, run:, lease_token:, state:)
       RecordingStudioAI.generate(
         prompt: ContextBuilder.for_synthesis(state: state),

@@ -29,6 +29,12 @@ module RecordingStudioAgents
     FINISHED_LABEL = "Done"
     FAILED_LABEL = "Did not finish"
     RUNNING_LABEL = "On it"
+    STEP_LABELS = {
+      "decide" => "Checked in",
+      "deliver" => "Answer",
+      "handoff" => HANDOFF_LABEL,
+      "arguments" => "Filled in"
+    }.freeze
 
     def self.for(run)
       new(run).steps
@@ -79,11 +85,8 @@ module RecordingStudioAgents
     def label_for(agent_step)
       case agent_step.action_type
       when "reason" then agent_step.sequence.to_i > 1 ? "New plan" : "Plan"
-      when "decide" then "Checked in"
       when "tool" then agent_step.tool_key.to_s.tr("_", " ").sub(/\A./, &:upcase)
-      when "deliver" then "Answer"
-      when "handoff" then HANDOFF_LABEL
-      else agent_step.action_type.to_s.tr("_", " ").sub(/\A./, &:upcase)
+      else STEP_LABELS.fetch(agent_step.action_type) { human_label(agent_step.action_type) }
       end
     end
 
@@ -97,6 +100,10 @@ module RecordingStudioAgents
     end
 
     private
+
+    def human_label(action_type)
+      action_type.to_s.tr("_", " ").sub(/\A./, &:upcase)
+    end
 
     def knowledge_step
       step(:knowledge, KNOWLEDGE_LABEL, :done)

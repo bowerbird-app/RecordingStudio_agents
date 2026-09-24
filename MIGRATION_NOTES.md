@@ -22,6 +22,8 @@ Existing `Agent#run` calls, skills, packs, knowledge loaders, and handoff allowl
 
 Plans now include each allowed tool's parameters from the Recording Studio AI registry. No host change. Put required fields on the tool registration. The internal handoff tool is not listed there. A handoff candidate still names an allowlisted target.
 
+A tool candidate whose arguments fail that tool's schema gets one more generate call for those arguments. The call counts toward `maximum_reasoner_calls`. The tool runs after the arguments validate. No host change.
+
 ## Current Requirements
 
 - Ruby 3.3 or newer

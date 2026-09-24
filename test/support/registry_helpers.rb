@@ -30,8 +30,10 @@ module RegistryHelpers
     RecordingStudioAI.tools.register(override: override, **attributes)
   end
 
-  def retune_tool(key, **overrides)
-    register_ai_tool(key, override: true, **overrides)
+  def retune_tool(key, version: 1, **overrides)
+    existing = RecordingStudioAI.tools.fetch(key, version: version)
+    overrides[:parameters] = existing.parameters if existing && !overrides.key?(:parameters)
+    register_ai_tool(key, version: version, override: true, **overrides)
   end
 
   def clear_agent_enablements
@@ -44,7 +46,13 @@ module RegistryHelpers
   end
 
   def register_librarian(handoffs: {}, tools: { find_page: 1 })
-    register_ai_tool(:find_page)
+    register_ai_tool(
+      :find_page,
+      parameters: [
+        { name: "note", type: "string", required: false, description: "Note to carry with the lookup." },
+        { name: "title", type: "string", required: false, description: "Title of the page." }
+      ]
+    )
     RecordingStudioAgents.skills.register(
       key: :lookup,
       version: 1,

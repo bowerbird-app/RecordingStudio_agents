@@ -42,6 +42,13 @@ module RecordingStudioAgents
         arguments.is_a?(Hash)
       end
 
+      def with_arguments(arguments)
+        self.class.new(
+          id: id, type: type, purpose: purpose, tool_key: tool_key, tool_version: tool_version,
+          arguments: arguments, handoff_key: handoff_key, handoff_version: handoff_version
+        )
+      end
+
       def index_entry
         {
           "id" => id,

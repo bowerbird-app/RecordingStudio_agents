@@ -181,13 +181,17 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
       tool_key: "find_page", tool_version: 1, observation_summary: "Found the page.", progress_made: true
     )
     RecordingStudioAgents::AgentStep.create!(
-      agent_run: run, sequence: 3, status: "completed", action_type: "deliver",
+      agent_run: run, sequence: 3, status: "completed", action_type: "arguments",
+      tool_key: "find_page", tool_version: 1, observation_summary: "Filled the required arguments."
+    )
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 4, status: "completed", action_type: "deliver",
       observation_summary: "Found the Staff handbook."
     )
 
     entries = PlaygroundSteps.for(run, initiator: user)
 
-    assert_equal [ "Plan", "Find page", "Answer" ], entries.map(&:title)
+    assert_equal [ "Plan", "Find page", "Filled in", "Answer" ], entries.map(&:title)
     answer = JSON.parse(entries.last.exchange)
     assert_equal "deliver", answer["action"]
     assert_equal "Find the named page", answer["now"]

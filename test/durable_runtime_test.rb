@@ -89,12 +89,15 @@ class DurableRuntimeTest < PersistenceTestCase
           result = run_librarian("empty-plan")
 
           assert_instance_of RecordingStudioAgents::Results::Completed, result
-          plan_calls = prompts.reject { |call| call[:request_id].to_s.end_with?(":answer") }
+          plan_calls = prompts.reject do |call|
+            request_id = call[:request_id].to_s
+            request_id.end_with?(":answer") || request_id.include?(":arguments-")
+          end
           assert_equal 2, plan_calls.length
           plan_calls.each do |call|
             assert_includes call[:system_instruction], "find_page version 1"
             assert_includes call[:system_instruction], "arguments object"
-            assert_includes call[:system_instruction], "Arguments: none."
+            assert_includes call[:system_instruction], "note (string, optional): Note to carry with the lookup."
             assert_equal [], call[:custom_tools]
           end
           type_schema = prompts.first[:schema].dig("properties", "action_candidates", "items", "properties", "type")
@@ -140,7 +143,10 @@ class DurableRuntimeTest < PersistenceTestCase
         result = run_librarian("tool-parameters")
 
         assert_instance_of RecordingStudioAgents::Results::Completed, result
-        plan_calls = prompts.reject { |call| call[:request_id].to_s.end_with?(":answer") }
+        plan_calls = prompts.reject do |call|
+          request_id = call[:request_id].to_s
+          request_id.end_with?(":answer") || request_id.include?(":arguments-")
+        end
         assert_equal 2, plan_calls.length
         assert_match(/:reason-/, plan_calls.last[:request_id])
         plan_calls.each do |call|
@@ -160,6 +166,223 @@ class DurableRuntimeTest < PersistenceTestCase
         end
       end
     end
+  end
+
+  def test_missing_required_arguments_are_filled_before_the_tool_runs
+    RecordingStudioAgents.agents.register(
+      key: :reviewer, version: 1, name: "Reviewer", description: "Reviews", instructions: "Review."
+    )
+    register_librarian(handoffs: { reviewer: 1 })
+    retune_tool(:find_page, parameters: [required_title])
+    seen = []
+    performed = []
+    generate = lambda do |**kwargs|
+      seen << kwargs
+      if kwargs[:request_id].to_s.include?(":arguments-")
+        arguments_response({ "title" => "Getting Started" }, 21)
+      elsif kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "Found Getting Started.", run_id: 22)
+      else
+        empty_arguments_plan(
+          20,
+          "Find the page titled Getting Started.",
+          extra: [deliver_candidate, handoff_candidate("reviewer", 1)]
+        )
+      end
+    end
+    decide = lambda do |**|
+      decision(finished: 0.1, choice_id: "1", candidate_ids: %w[1 deliver handoff_reviewer])
+    end
+    perform = lambda do |**kwargs|
+      performed << kwargs[:arguments]
+      performance(summary: "Found Getting Started.", criteria: ["done"])
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("fill-arguments")
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal [{ "title" => "Getting Started" }], performed
+          fills = seen.select { |call| call[:request_id].to_s.include?(":arguments-") }
+          assert_equal 1, fills.length
+          fill = fills.first
+          assert_equal ["title"], fill[:schema]["required"]
+          assert_equal false, fill[:schema]["additionalProperties"]
+          assert_equal [], fill[:custom_tools]
+          assert_equal :medium, fill[:profile]
+          assert_includes fill[:prompt], "Find Getting Started."
+          assert_includes fill[:prompt], "Find the page titled Getting Started."
+          refute_includes fill[:system_instruction], "action_candidates"
+          assert_equal 2, result.run.reload.working_state_json.dig("counters", "reasoner_calls")
+          assert_equal 0, result.run.working_state_json.dig("counters", "replans")
+          step = result.run.agent_steps.find_by!(action_type: "arguments", status: "completed")
+          assert_equal "Filled in the missing details.", step.observation_summary
+          refute_includes step.observation_summary, "Getting Started"
+          assert result.run.agent_steps.exists?(action_type: "deliver", status: "completed")
+          refute result.run.agent_steps.exists?(action_type: "handoff")
+          ids = result.run.working_state_json["candidate_index"].map { |entry| entry["id"] }
+          assert_includes ids, "deliver"
+          assert_includes ids, "handoff_reviewer"
+          refute_includes ids, "1"
+        end
+      end
+    end
+  end
+
+  def test_an_empty_object_skips_the_extra_call_when_nothing_is_required
+    register_ai_tool(:list_pages, description: "List the pages.")
+    register_librarian(tools: { find_page: 1, list_pages: 1 })
+    seen = []
+    performed = []
+    generate = lambda do |**kwargs|
+      seen << kwargs[:request_id].to_s
+      if kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "Listed the pages.", run_id: 29)
+      else
+        list_pages_plan(28)
+      end
+    end
+    perform = lambda do |**kwargs|
+      performed << kwargs[:arguments]
+      performance(summary: "Pages: Home", criteria: ["done"])
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, ->(**) { decision(finished: 0.1, choice_id: "1", candidate_ids: ["1"]) }) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("list-pages-empty")
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal [{}], performed
+          refute(seen.any? { |request_id| request_id.include?(":arguments-") })
+          assert_equal 1, result.run.reload.working_state_json.dig("counters", "reasoner_calls")
+        end
+      end
+    end
+  end
+
+  def test_arguments_with_the_wrong_type_are_filled_from_the_tool_schema
+    register_librarian
+    retune_tool(:find_page, parameters: [required_title])
+    seen = []
+    performed = []
+    generate = lambda do |**kwargs|
+      seen << kwargs
+      if kwargs[:request_id].to_s.include?(":arguments-")
+        arguments_response({ "title" => "Getting Started" }, 33)
+      elsif kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "Found it.", run_id: 34)
+      else
+        wrong_type_plan(32)
+      end
+    end
+    perform = lambda do |**kwargs|
+      performed << kwargs[:arguments]
+      performance(summary: "Found it.", criteria: ["done"])
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, ->(**) { decision(finished: 0.1, choice_id: "1", candidate_ids: ["1"]) }) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("arguments-wrong-type")
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal [{ "title" => "Getting Started" }], performed
+          assert_equal(1, seen.count { |call| call[:request_id].to_s.include?(":arguments-") })
+        end
+      end
+    end
+  end
+
+  def test_present_required_arguments_skip_the_extra_call
+    register_librarian
+    retune_tool(:find_page, parameters: [required_title])
+    seen = []
+    performed = []
+    generate = lambda do |**kwargs|
+      seen << kwargs[:request_id].to_s
+      if kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "Found it.", run_id: 24)
+      else
+        titled_plan(23)
+      end
+    end
+    perform = lambda do |**kwargs|
+      performed << kwargs[:arguments]
+      performance(summary: "Found it.", criteria: ["done"])
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, ->(**) { decision(finished: 0.1, choice_id: "1", candidate_ids: ["1"]) }) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("arguments-present")
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal [{ "title" => "Getting Started" }], performed
+          refute(seen.any? { |request_id| request_id.include?(":arguments-") })
+        end
+      end
+    end
+  end
+
+  def test_arguments_that_stay_invalid_are_dropped
+    register_librarian
+    retune_tool(:find_page, parameters: [required_title])
+    previous = RecordingStudioAgents.configuration.maximum_replans
+    RecordingStudioAgents.configuration.maximum_replans = 1
+    performed = 0
+    generate = lambda do |**kwargs|
+      if kwargs[:request_id].to_s.include?(":arguments-")
+        arguments_response({}, 26)
+      else
+        empty_arguments_plan(25, "Find the page titled Getting Started.")
+      end
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, ->(**) { decision(finished: 0.1, choice_id: "1", candidate_ids: ["1"]) }) do
+        RecordingStudioAI.stub(:perform_tool, ->(**) { performed += 1 }) do
+          result = run_librarian("arguments-still-empty")
+
+          assert_instance_of RecordingStudioAgents::Results::Failed, result
+          assert_equal "maximum_replans", result.failure.code
+          assert_equal 0, performed
+          assert result.run.agent_steps.exists?(action_type: "arguments", status: "failed")
+          refute result.run.agent_steps.exists?(action_type: "tool")
+        end
+      end
+    end
+  ensure
+    RecordingStudioAgents.configuration.maximum_replans = previous
+  end
+
+  def test_a_spent_reasoner_budget_drops_a_candidate_with_missing_arguments
+    register_librarian
+    retune_tool(:find_page, parameters: [required_title])
+    previous = RecordingStudioAgents.configuration.maximum_reasoner_calls
+    RecordingStudioAgents.configuration.maximum_reasoner_calls = 1
+    seen = []
+    generate = lambda do |**kwargs|
+      seen << kwargs[:request_id].to_s
+      empty_arguments_plan(27, "Find the page titled Getting Started.")
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, ->(**) { decision(finished: 0.1, choice_id: "1", candidate_ids: ["1"]) }) do
+        RecordingStudioAI.stub(:perform_tool, ->(**) { flunk "the tool should not run" }) do
+          result = run_librarian("arguments-budget")
+
+          assert_instance_of RecordingStudioAgents::Results::Failed, result
+          assert_equal "maximum_reasoner_calls", result.failure.code
+          refute(seen.any? { |request_id| request_id.include?(":arguments-") })
+          refute result.run.agent_steps.exists?(action_type: "arguments")
+        end
+      end
+    end
+  ensure
+    RecordingStudioAgents.configuration.maximum_reasoner_calls = previous
   end
 
   def test_a_deliver_only_plan_still_asks_the_controller
@@ -762,6 +985,85 @@ class DurableRuntimeTest < PersistenceTestCase
       initiator: actor,
       execution_source: :job,
       idempotency_key: idempotency_key
+    )
+  end
+
+  def required_title
+    { name: "title", type: "string", required: true, description: "Title of the page." }
+  end
+
+  def empty_arguments_plan(run_id, purpose, extra: [])
+    tool_plan(run_id, purpose, "find_page", {}, extra: extra)
+  end
+
+  def list_pages_plan(run_id)
+    tool_plan(run_id, "List the pages.", "list_pages", {})
+  end
+
+  def wrong_type_plan(run_id)
+    tool_plan(run_id, "Find the page titled Getting Started.", "find_page", { "title" => 1 })
+  end
+
+  def deliver_candidate
+    { "id" => "deliver", "type" => "deliver", "purpose" => "Write the answer" }
+  end
+
+  def tool_plan(run_id, purpose, tool_key, arguments, extra: [])
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: nil,
+      structured_data: {
+        "plan" => ["Find the page"],
+        "success_criteria" => [{ "id" => "done", "text" => "The page was found" }],
+        "current_objective" => "Find the page",
+        "action_candidates" => [
+          {
+            "id" => "1",
+            "type" => "tool",
+            "purpose" => purpose,
+            "tool_key" => tool_key,
+            "tool_version" => 1,
+            "arguments" => arguments
+          },
+          *extra
+        ]
+      },
+      run: Struct.new(:id, :status).new(run_id, "completed")
+    )
+  end
+
+  def titled_plan(run_id)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: nil,
+      structured_data: {
+        "plan" => ["Find the page"],
+        "success_criteria" => [{ "id" => "done", "text" => "The page was found" }],
+        "current_objective" => "Find the page",
+        "action_candidates" => [
+          {
+            "id" => "1",
+            "type" => "tool",
+            "purpose" => "Find the page titled Getting Started.",
+            "tool_key" => "find_page",
+            "tool_version" => 1,
+            "arguments" => { "title" => "Getting Started" }
+          }
+        ]
+      },
+      run: Struct.new(:id, :status).new(run_id, "completed")
+    )
+  end
+
+  def arguments_response(arguments, run_id)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: nil,
+      structured_data: arguments,
+      run: Struct.new(:id, :status).new(run_id, "completed")
     )
   end
 
