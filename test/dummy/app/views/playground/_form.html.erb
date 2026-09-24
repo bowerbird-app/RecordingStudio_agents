@@ -10,6 +10,14 @@
     required: true
   ) %>
 
+  <%= render FlatPack::Select::Component.new(
+    name: "profile",
+    label: "Profile",
+    options: RecordingStudioAgents::Profiles::NAMES.map { |name| [ RecordingStudioAgents::Profiles.label(name), name.to_s ] },
+    value: @form.profile,
+    required: true
+  ) %>
+
   <%= render FlatPack::TextArea::Component.new(
     name: "goal",
     label: "Instruction",
@@ -64,6 +72,7 @@
 <% end %>
 
 <script type="application/json" id="playground-skill-defaults"><%= raw @catalog.to_h { |entry| [ entry.token, entry.required_skills.map(&:token) ] }.to_json %></script>
+<script type="application/json" id="playground-profile-defaults"><%= raw @catalog.to_h { |entry| [ entry.token, entry.profile.to_s ] }.to_json %></script>
 <script>
   function playgroundApplyAgent(chosen, resetSkills) {
     document.querySelectorAll("[data-playground-tools]").forEach(function (group) {
@@ -72,6 +81,9 @@
       group.disabled = !visible
     })
     if (!resetSkills) return
+    var profiles = JSON.parse(document.getElementById("playground-profile-defaults").textContent)
+    var profile = document.querySelector("select[name='profile']")
+    if (profile && profiles[chosen]) profile.value = profiles[chosen]
     var defaults = JSON.parse(document.getElementById("playground-skill-defaults").textContent)
     var wanted = defaults[chosen] || []
     var skills = document.querySelector("[data-playground-skills]")

@@ -11,6 +11,7 @@ The dummy playground starts a registered agent and watches the attempt.
 
 ### Added
 - Dummy host page `/playground`. Pick a registered agent, write an instruction, choose that agent's tools and any registered skills, and watch the steps beside the form. Skills and tools are searchable selects. The dummy keeps the model reply so the page can show it. Admin model calls include the workspace, so that call is on the list.
+- A generate call uses a profile: `low`, `medium`, or `high`. The host default is `RecordingStudioAgents.configuration.profile` (`:medium`). An agent can pin `profile:` at registration. `Agent#run` can pass `profile:` for one attempt. A run wins, then the agent, then the host default. The model stays in the Recording Studio AI profile map. The dummy playground offers Low, Medium, and High, and starts from that agent's profile. Agent details name the profile.
 - Dummy tool `list_pages` on Page librarian. It returns the page titles in the current workspace, and the folder name when a page sits in one, plus the menu pages Home, Playground, Staff, and Agents with their paths. Find page matches a menu page by name, ignoring case. Page lookup tells the model to list pages when the name may not be the exact title, then find that title.
 - Studio Workspace seeds a small library: Product Docs, Guides, People, and a root page named Studio overview. Client Workspace and Private Workspace stay empty. Getting Started stays in Product Docs.
 
@@ -28,6 +29,7 @@ The dummy playground starts a registered agent and watches the attempt.
 - `skills:` replaces the required and optional set for that run. The run records that set. Do not pass it together with `pack:` or `extra_skills:`.
 - `tools:` must be a subset of the agent's tools. Each skill on that run still needs its tools in the subset.
 - No host change for the handoff lease. The tool still receives the lease from the model call metadata, including after token keys are redacted.
+- Leave `profile` unset to keep `:medium`. Set `RecordingStudioAgents.configuration.profile` for every agent that does not pin one. Pin `profile:` on an agent, or pass `profile:` to `Agent#run`, with `low`, `medium`, or `high`. A run wins, then the agent, then the host default. Agents does not take a model name.
 - Re-seed the dummy app (`bin/rails db:seed` from `test/dummy`) to add the extra Studio Workspace pages.
 
 ## [0.4.9] - 2026-09-23

@@ -8,7 +8,8 @@ class PlaygroundLaunch < Data.define(
   :pack,
   :extra_skills,
   :skills,
-  :tools
+  :tools,
+  :profile
 )
   class Error < StandardError
   end
@@ -40,7 +41,8 @@ class PlaygroundLaunch < Data.define(
         pack: chosen[:pack],
         extra_skills: chosen[:extra_skills],
         skills: chosen[:skills],
-        tools: chosen[:tools]
+        tools: chosen[:tools],
+        profile: profile
       )
     end
 
@@ -51,6 +53,15 @@ class PlaygroundLaunch < Data.define(
       raise Error, "Pick an agent from the list." unless entry
 
       entry
+    end
+
+    def profile
+      raw = @params[:profile]
+      return if raw.blank?
+
+      RecordingStudioAgents::Profiles.coerce!(raw)
+    rescue RecordingStudioAgents::ContractError
+      raise Error, "Pick Low, Medium, or High."
     end
 
     def goal

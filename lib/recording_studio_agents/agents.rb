@@ -6,7 +6,8 @@ module RecordingStudioAgents
   module Agents
     class Definition
       attr_reader :key, :version, :name, :description, :instructions,
-                  :skills, :optional_skills, :packs, :tools, :knowledge, :handoffs, :enabled
+                  :skills, :optional_skills, :packs, :tools, :knowledge, :handoffs, :enabled,
+                  :profile
 
       def initialize(
         key:,
@@ -20,7 +21,8 @@ module RecordingStudioAgents
         tools:,
         knowledge:,
         handoffs:,
-        enabled:
+        enabled:,
+        profile: nil
       )
         @key = key.to_s
         @version = Integer(version)
@@ -36,6 +38,7 @@ module RecordingStudioAgents
           handoffs: handoffs
         )
         @enabled = enabled == true
+        @profile = Profiles.blank?(profile) ? nil : Profiles.coerce!(profile)
         Reference.new(key: @key, version: @version)
         validate!
         freeze
@@ -77,7 +80,8 @@ module RecordingStudioAgents
         tools: {},
         knowledge: {},
         handoffs: {},
-        enabled: true
+        enabled: true,
+        profile: nil
       )
         definition = Definition.new(
           key: key,
@@ -91,7 +95,8 @@ module RecordingStudioAgents
           tools: normalize_references(tools),
           knowledge: normalize_references(knowledge),
           handoffs: normalize_references(handoffs),
-          enabled: enabled
+          enabled: enabled,
+          profile: profile
         )
         store(definition)
         definition

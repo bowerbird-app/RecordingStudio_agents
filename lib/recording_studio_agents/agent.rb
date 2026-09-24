@@ -36,7 +36,8 @@ module RecordingStudioAgents
       pack: nil,
       extra_skills: {},
       skills: nil,
-      tools: nil
+      tools: nil,
+      profile: nil
     )
       selection = selection_for(pack: pack, extra_skills: extra_skills, skills: skills)
       compiled = Programs::Compiler.compile(definition: definition, selection: selection, tools: tools)
@@ -49,7 +50,8 @@ module RecordingStudioAgents
         context_recording: context_recording,
         initiator_kind: initiator_kind,
         executor: executor,
-        selection: selection
+        selection: selection,
+        profile: Profiles.resolve(profile, definition.profile)
       )
       Execution::Engine.new(program: compiled).call(request: request)
     end

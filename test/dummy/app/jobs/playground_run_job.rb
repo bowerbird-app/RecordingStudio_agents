@@ -15,14 +15,17 @@ class PlaygroundRunJob < ApplicationJob
     pack,
     extra_skills,
     skills = nil,
-    tools = nil
+    tools = nil,
+    profile = nil
   )
     previous_actor = Current.actor
     root = RecordingStudio::Recording.find(root_recording_id)
     user = User.find(user_id)
     Current.actor = user
     task = RecordingStudioAgents::TaskInput.new(key: task_key, goal: goal, context: context || {})
-    run_agent(root, user, task, idempotency_key, agent_key, agent_version, pack, extra_skills, skills, tools)
+    run_agent(
+      root, user, task, idempotency_key, agent_key, agent_version, pack, extra_skills, skills, tools, profile
+    )
   rescue RecordingStudioAgents::Error => error
     remember_error(root_recording_id, idempotency_key, error)
   ensure
@@ -31,10 +34,10 @@ class PlaygroundRunJob < ApplicationJob
 
   private
 
-  def run_agent(root, user, task, idempotency_key, agent_key, agent_version, pack, extra_skills, skills, tools)
+  def run_agent(root, user, task, idempotency_key, agent_key, agent_version, pack, extra_skills, skills, tools, profile)
     runner = lambda do
       RecordingStudioAgents.agent(agent_key, version: agent_version).run(
-        **run_arguments(root, user, task, idempotency_key, pack, extra_skills, skills, tools)
+        **run_arguments(root, user, task, idempotency_key, pack, extra_skills, skills, tools, profile)
       )
     end
 
@@ -45,7 +48,7 @@ class PlaygroundRunJob < ApplicationJob
     end
   end
 
-  def run_arguments(root, user, task, idempotency_key, pack, extra_skills, skills, tools)
+  def run_arguments(root, user, task, idempotency_key, pack, extra_skills, skills, tools, profile)
     arguments = {
       task: task,
       root_recording: root,
@@ -59,6 +62,7 @@ class PlaygroundRunJob < ApplicationJob
     }
     arguments[:skills] = extras_for(skills) unless skills.nil?
     arguments[:tools] = extras_for(tools) unless tools.nil?
+    arguments[:profile] = profile if profile.present?
     arguments
   end
 
@@ -111,6 +115,7 @@ class PlaygroundRunJob < ApplicationJob
       initiator_kind: (kwargs[:initiator_kind] || :user).to_s,
       execution_source: (kwargs[:execution_source] || :web).to_s,
       request_id: kwargs[:request_id],
+      profile_key: kwargs[:profile]&.to_s,
       metadata: kwargs[:metadata],
       started_at: now,
       completed_at: now,

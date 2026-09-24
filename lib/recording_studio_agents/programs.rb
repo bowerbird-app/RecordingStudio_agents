@@ -78,7 +78,8 @@ module RecordingStudioAgents
           execution_source: request.execution_source,
           agent_run_id: run.id,
           program_digest: digest,
-          purpose: purpose
+          purpose: purpose,
+          profile: request.profile
         )
       end
 

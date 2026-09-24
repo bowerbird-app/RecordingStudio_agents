@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class PlaygroundController < ApplicationController
-  Form = Data.define(:agent, :goal, :context, :skills, :tools)
+  Form = Data.define(:agent, :goal, :context, :skills, :tools, :profile)
 
   before_action :prepare_page
 
@@ -33,7 +33,8 @@ class PlaygroundController < ApplicationController
       pack_argument(launch.pack),
       pair_argument(launch.extra_skills),
       pair_argument(launch.skills),
-      pair_argument(launch.tools)
+      pair_argument(launch.tools),
+      launch.profile&.to_s
     )
     redirect_to playground_run_path(idempotency_key)
   rescue PlaygroundLaunch::Error => error
@@ -67,7 +68,8 @@ class PlaygroundController < ApplicationController
       goal: params[:goal].to_s,
       context: params[:context].to_s,
       skills: submitted_or_default(:skills, agent, :required_skills),
-      tools: submitted_or_default(:tools, agent, :tools)
+      tools: submitted_or_default(:tools, agent, :tools),
+      profile: submitted_profile(agent)
     )
   end
 
@@ -75,6 +77,17 @@ class PlaygroundController < ApplicationController
     return tokens_for(agent, list_name) if params[:choices].blank?
 
     Array(params[key]).flatten.compact_blank
+  end
+
+  def submitted_profile(agent)
+    return params[:profile].to_s if params[:profile].present?
+
+    default_profile_for(agent)
+  end
+
+  def default_profile_for(agent)
+    entry = @catalog.find { |item| item.token == agent }
+    (entry&.profile || RecordingStudioAgents.configuration.profile).to_s
   end
 
   def tokens_for(agent, list_name)
@@ -95,7 +108,8 @@ class PlaygroundController < ApplicationController
       goal: payload["goal"].to_s,
       context: payload["context"].to_s,
       skills: payload["skills"] || tokens_for(agent, :required_skills),
-      tools: payload["tools"] || tokens_for(agent, :tools)
+      tools: payload["tools"] || tokens_for(agent, :tools),
+      profile: payload["profile"].presence || default_profile_for(agent)
     )
   end
 
@@ -109,7 +123,8 @@ class PlaygroundController < ApplicationController
       goal: @run.task.goal,
       context: "",
       skills: stored.presence || tokens_for(agent, :required_skills),
-      tools: tokens_for(agent, :tools)
+      tools: tokens_for(agent, :tools),
+      profile: default_profile_for(agent)
     )
   end
 
@@ -128,7 +143,8 @@ class PlaygroundController < ApplicationController
       "goal" => @form.goal,
       "context" => @form.context,
       "skills" => params[:choices].present? ? @form.skills : nil,
-      "tools" => params[:choices].present? ? @form.tools : nil
+      "tools" => params[:choices].present? ? @form.tools : nil,
+      "profile" => @form.profile
     }
     Rails.cache.write("playground:#{idempotency_key}:form", payload)
     session[:playground_form] = payload

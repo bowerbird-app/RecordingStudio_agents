@@ -182,6 +182,36 @@ RecordingStudioAgents.agent(:support, version: 1).run(
 
 `skills:` replaces that selection for one run, including the agent's required skills. Pass a hash of registered skills, or `{}` for no skill blocks. It cannot be combined with `pack:` or `extra_skills:`. `tools:` narrows the generate call to a subset of the agent's tools. Omit it to keep the usual allowlist. A skill on that run still needs its required tools in the subset, and a tool the agent does not list is rejected.
 
+## Profile
+
+A profile is the cost and quality tier for the generate call: `low`, `medium`, or `high`. Recording Studio AI maps each name to provider and model candidates. Agents does not name a model.
+
+The host default is `RecordingStudioAgents.configuration.profile`, which starts at `:medium`. An agent can pin `profile:` when it is registered. `Agent#run` can pass `profile:` for that attempt. A run wins, then the agent, then the host default. A replay of the same idempotency key keeps the call that already started.
+
+```ruby
+RecordingStudioAgents.configure do |config|
+  config.profile = :medium
+end
+
+RecordingStudioAgents.agents.register(
+  key: :page_librarian,
+  version: 1,
+  name: "Page librarian",
+  description: "Finds a page in the current workspace.",
+  instructions: "Find the named page with the allowed tool.",
+  profile: :low
+)
+
+RecordingStudioAgents.agent(:page_librarian, version: 1).run(
+  task: task,
+  root_recording: root,
+  initiator: user,
+  execution_source: :job,
+  idempotency_key: job_id,
+  profile: :high
+)
+```
+
 ## Execute a task from a job
 
 A task key identifies one durable goal inside a workspace. An idempotency key identifies one attempt. Use the Active Job `job_id` as that attempt key so retries and duplicate delivery converge on the same `AgentRun`.

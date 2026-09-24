@@ -3,16 +3,22 @@
 module RecordingStudioAgents
   class Configuration
     attr_accessor :lease_seconds
-    attr_reader :hooks
+    attr_reader :hooks, :profile
 
     def initialize
       @lease_seconds = 300
+      @profile = :medium
       @hooks = RecordingStudio::Hooks.new
+    end
+
+    def profile=(value)
+      @profile = Profiles.coerce!(value)
     end
 
     def to_h
       {
         lease_seconds: lease_seconds,
+        profile: profile,
         hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size)
       }
     end

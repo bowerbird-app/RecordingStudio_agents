@@ -32,7 +32,7 @@ module RecordingStudioAgents
           { key: reference.key.to_sym, version: reference.version }
         end,
         purpose: invocation.purpose,
-        profile: :medium,
+        profile: invocation.profile,
         root_recording: invocation.root_recording,
         context_recording: invocation.context_recording,
         initiator: invocation.initiator,

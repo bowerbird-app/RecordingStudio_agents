@@ -48,6 +48,12 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     defaults = JSON.parse(css_select("script#playground-skill-defaults").text)
     assert_equal [ "page_lookup@1" ], defaults["page_librarian@1"]
     assert_equal [ "support_voice@1" ], defaults["support_clerk@1"]
+    assert_select "select[name='profile'] option[value='low']", text: "Low"
+    assert_select "select[name='profile'] option[value='medium']", text: "Medium"
+    assert_select "select[name='profile'] option[value='high']", text: "High"
+    assert_select "select[name='profile'] option[selected][value='medium']"
+    profiles = JSON.parse(css_select("script#playground-profile-defaults").text)
+    assert_equal "medium", profiles["page_librarian@1"]
   end
 
   test "page librarian run shows steps and the reply" do
@@ -116,6 +122,46 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     )
     assert_equal "page_librarian", run.agent_key
     assert_equal "succeeded", run.status
+    assert_equal "medium", RecordingStudioAI::Run.find(run.recording_studio_ai_run_id).profile_key
+  end
+
+  test "a playground run can pick a profile" do
+    assert_enqueued_jobs 1, only: PlaygroundRunJob do
+      post "/playground", params: {
+        choices: "1",
+        agent: "page_librarian@1",
+        goal: "Find the Getting Started page.",
+        skills: [ "page_lookup@1" ],
+        tools: [ "find_page@1", "list_pages@1" ],
+        profile: "high"
+      }
+    end
+
+    assert_response :redirect
+    perform_enqueued_jobs
+    path = redirected_playground_path
+    get path
+
+    assert_select "select[name='profile'] option[selected][value='high']"
+    run = RecordingStudioAgents::AgentRun.find_by!(
+      root_recording_id: @root.id,
+      idempotency_key: path.split("/").last
+    )
+    assert_equal "high", RecordingStudioAI::Run.find(run.recording_studio_ai_run_id).profile_key
+  end
+
+  test "a playground run rejects an unknown profile" do
+    assert_no_enqueued_jobs only: PlaygroundRunJob do
+      post "/playground", params: {
+        choices: "1",
+        agent: "page_librarian@1",
+        goal: "Find the Getting Started page.",
+        profile: "turbo"
+      }
+    end
+
+    assert_response :unprocessable_entity
+    assert_includes response.body, "Pick Low, Medium, or High."
   end
 
   test "support clerk keeps the selected skills" do

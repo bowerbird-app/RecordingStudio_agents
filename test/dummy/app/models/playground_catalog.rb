@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class PlaygroundCatalog
-  Entry = Data.define(:key, :version, :name, :tools, :required_skills) do
+  Entry = Data.define(:key, :version, :name, :tools, :required_skills, :profile) do
     def token
       "#{key}@#{version}"
     end
@@ -20,7 +20,8 @@ class PlaygroundCatalog
         version: definition.version,
         name: definition.name,
         tools: options_for(definition.tools, RecordingStudioAI.tools),
-        required_skills: options_for(definition.skills, RecordingStudioAgents.skills)
+        required_skills: options_for(definition.skills, RecordingStudioAgents.skills),
+        profile: definition.profile || RecordingStudioAgents.configuration.profile
       )
     end
   end
