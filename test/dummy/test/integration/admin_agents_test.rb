@@ -115,6 +115,7 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Find the named page with the allowed tool."
     assert_includes response.body, "Page lookup"
     assert_includes response.body, "Find page"
+    assert_includes response.body, "List pages"
     assert_includes response.body, "Retitle page"
     assert_match(/registered_skill\?[^"]*skill_key=page_lookup/, response.body)
     assert_match(/registered_tool\?[^"]*tool_key=find_page/, response.body)

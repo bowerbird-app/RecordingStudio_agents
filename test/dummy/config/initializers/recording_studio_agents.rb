@@ -38,6 +38,43 @@ RecordingStudioAI.tools.register(
 
 RecordingStudioAI.tools.register(
   override: true,
+  key: :list_pages,
+  version: 1,
+  name: "List pages",
+  description: "List the page titles in the current workspace.",
+  use_when: "The task names a page loosely, or the exact title is not known yet.",
+  do_not_use_when: "The exact page title is already known.",
+  parameters: [],
+  returns: "Page titles in this workspace, with the folder name when a page sits in one.",
+  cost: :low,
+  latency: :fast,
+  read_only: true,
+  destructive: false,
+  requires_confirmation: false,
+  idempotent: true,
+  executor_label: "Dummy::ListPages",
+  executor: lambda do |_arguments, context|
+    recordings = RecordingStudio::Recording.where(
+      root_recording_id: context.root_recording.id,
+      recordable_type: "Page",
+      trashed_at: nil
+    ).includes(:recordable, parent_recording: :recordable)
+    pages = recordings.filter_map do |recording|
+      title = recording.recordable&.title
+      next if title.blank?
+
+      parent = recording.parent_recording
+      folder = parent&.recordable&.name if parent&.recordable_type == "Folder"
+      entry = { "title" => title }
+      entry["folder"] = folder if folder.present?
+      entry
+    end
+    { "pages" => pages.sort_by { |entry| [ entry["title"], entry["folder"].to_s ] } }
+  end
+)
+
+RecordingStudioAI.tools.register(
+  override: true,
   key: :retitle_page,
   version: 1,
   name: "Retitle page",
@@ -116,6 +153,7 @@ RecordingStudioAgents.skills.register(
   description: "Find a named page and stop.",
   instructions: <<~TEXT,
     Use the find page tool when the task names a page.
+    When the name may not be the exact title, list pages first and pick a title from that list.
     Quote the title you found.
     Request a handoff only when the page is missing and a reviewer should decide next.
   TEXT
@@ -177,7 +215,7 @@ RecordingStudioAgents.agents.register(
   description: "Finds a page in the current workspace.",
   instructions: "Find the named page with the allowed tool. Request a review handoff if it is missing.",
   skills: { page_lookup: 1 },
-  tools: { find_page: 1, retitle_page: 1 },
+  tools: { find_page: 1, list_pages: 1, retitle_page: 1 },
   knowledge: { workspace_outline: 1 },
   handoffs: { page_reviewer: 1 },
   enabled: true

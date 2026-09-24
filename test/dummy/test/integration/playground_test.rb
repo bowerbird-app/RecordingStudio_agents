@@ -37,6 +37,7 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_select "[data-playground-tools='page_librarian@1']:not([disabled]) [data-flat-pack--select-searchable-value='true']"
     assert_select "[data-playground-tools='page_librarian@1'] input[placeholder='Search...']"
     assert_select "[data-playground-tools='page_librarian@1'] input[name='tools[]'][value='find_page@1']"
+    assert_select "[data-playground-tools='page_librarian@1'] input[name='tools[]'][value='list_pages@1']"
     assert_select "[data-playground-tools='page_librarian@1'] input[name='tools[]'][value='retitle_page@1']"
     assert_select "input[name='tools[]'][type='checkbox']", count: 0
     assert_select "input[name='choices'][value='1']"
