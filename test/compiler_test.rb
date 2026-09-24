@@ -264,4 +264,110 @@ class CompilerTest < Minitest::Test
     assert(texts.any? { |text| text.include?("refund window") })
     assert(texts.any? { |text| text.include?("reset link") })
   end
+
+  def test_explicit_skills_replace_the_required_set
+    register_support_clerk
+    RecordingStudioAgents.skills.register(
+      key: :guest_note,
+      version: 1,
+      name: "Guest note",
+      description: "Not on the agent",
+      instructions: "Mention the guest window."
+    )
+    definition = RecordingStudioAgents.agents.fetch(:support_clerk, version: 1)
+    selection = RecordingStudioAgents::SkillSelection.explicit(skills: { guest_note: 1 })
+    program = RecordingStudioAgents::Programs::Compiler.compile(definition: definition, selection: selection)
+
+    texts = program.instruction_blocks.map(&:text)
+    assert(texts.any? { |text| text.include?("guest window") })
+    refute(texts.any? { |text| text.include?("steady voice") })
+    assert_equal [{ "key" => "guest_note", "version" => 1 }], selection.as_json
+  end
+
+  def test_explicit_empty_skills_omit_skill_blocks
+    register_support_clerk
+    definition = RecordingStudioAgents.agents.fetch(:support_clerk, version: 1)
+    selection = RecordingStudioAgents::SkillSelection.explicit(skills: {})
+    program = RecordingStudioAgents::Programs::Compiler.compile(
+      definition: definition,
+      selection: selection,
+      tools: {}
+    )
+
+    assert_equal [:agent], program.instruction_blocks.map(&:kind)
+    assert_empty program.tool_references
+  end
+
+  def test_unknown_explicit_skill_is_rejected
+    error = assert_raises(RecordingStudioAgents::ContractError) do
+      RecordingStudioAgents::SkillSelection.explicit(skills: { missing_skill: 1 })
+    end
+    assert_match(/not a registered skill/, error.message)
+  end
+
+  def test_narrowed_tools_drop_unselected_tools
+    definition = librarian_with_two_tools
+    selection = RecordingStudioAgents::SkillSelection.explicit(skills: { lookup: 1 })
+    program = RecordingStudioAgents::Programs::Compiler.compile(
+      definition: definition,
+      selection: selection,
+      tools: { find_page: 1 }
+    )
+
+    assert_equal ["find_page"], program.tool_references.map(&:key)
+  end
+
+  def test_omitted_tools_keep_the_agent_allowlist
+    definition = librarian_with_two_tools
+    selection = RecordingStudioAgents::SkillSelection.explicit(skills: { lookup: 1 })
+    program = RecordingStudioAgents::Programs::Compiler.compile(definition: definition, selection: selection)
+
+    assert_equal %w[find_page retitle_page], program.tool_references.map(&:key)
+  end
+
+  def test_narrowed_tools_reject_a_missing_skill_tool
+    definition = librarian_with_two_tools
+    selection = RecordingStudioAgents::SkillSelection.explicit(skills: { lookup: 1 })
+    error = assert_raises(RecordingStudioAgents::ContractError) do
+      RecordingStudioAgents::Programs::Compiler.compile(
+        definition: definition,
+        selection: selection,
+        tools: { retitle_page: 1 }
+      )
+    end
+    assert_match(/requires tool find_page/, error.message)
+  end
+
+  def test_narrowed_tools_reject_a_tool_outside_the_agent
+    definition = librarian_with_two_tools
+    error = assert_raises(RecordingStudioAgents::ContractError) do
+      RecordingStudioAgents::Programs::Compiler.compile(definition: definition, tools: { stranger: 1 })
+    end
+    assert_match(/not on agent librarian/, error.message)
+  end
+
+  private
+
+  def librarian_with_two_tools
+    register_ai_tool(:find_page)
+    register_ai_tool(:retitle_page)
+    RecordingStudioAgents.skills.register(
+      key: :lookup,
+      version: 1,
+      name: "Lookup",
+      description: "Find pages",
+      instructions: "Use find_page.",
+      required_tools: { find_page: 1 }
+    )
+    RecordingStudioAgents.agents.register(
+      key: :librarian,
+      version: 1,
+      name: "Librarian",
+      description: "Finds pages",
+      instructions: "Find the named page.",
+      skills: { lookup: 1 },
+      tools: { find_page: 1, retitle_page: 1 }
+    )
+    RecordingStudioAgents.agents.fetch(:librarian, version: 1)
+  end
 end

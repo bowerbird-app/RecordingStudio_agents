@@ -34,14 +34,12 @@ module RecordingStudioAgents
       initiator_kind: :user,
       executor: nil,
       pack: nil,
-      extra_skills: {}
+      extra_skills: {},
+      skills: nil,
+      tools: nil
     )
-      selection = SkillSelection.parse(
-        definition: definition,
-        pack: pack,
-        extra_skills: extra_skills || {}
-      )
-      compiled = Programs::Compiler.compile(definition: definition, selection: selection)
+      selection = selection_for(pack: pack, extra_skills: extra_skills, skills: skills)
+      compiled = Programs::Compiler.compile(definition: definition, selection: selection, tools: tools)
       request = Execution::Request.parse(
         task: task,
         root_recording: root_recording,
@@ -54,6 +52,16 @@ module RecordingStudioAgents
         selection: selection
       )
       Execution::Engine.new(program: compiled).call(request: request)
+    end
+
+    private
+
+    def selection_for(pack:, extra_skills:, skills:)
+      return SkillSelection.parse(definition: definition, pack: pack, extra_skills: extra_skills || {}) if skills.nil?
+
+      raise ContractError, "skills replaces pack and extra skills" if pack.present? || extra_skills.present?
+
+      SkillSelection.explicit(skills: skills)
     end
   end
 end

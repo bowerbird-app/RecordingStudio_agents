@@ -1,17 +1,19 @@
 # frozen_string_literal: true
 
 class PlaygroundController < ApplicationController
-  Form = Data.define(:agent, :goal, :context, :extra_skills, :pack)
+  Form = Data.define(:agent, :goal, :context, :skills, :tools)
   StepLine = Data.define(:label, :badge, :badge_style)
   WORKING = StepLine.new(label: "On it", badge: "Working", badge_style: :info).freeze
   OPEN_STATUSES = %w[pending running awaiting_confirmation].freeze
 
+  before_action :prepare_page
+
   def new
-    prepare_form
+    @form = form_from_params
   end
 
   def create
-    prepare_form
+    @form = form_from_params
     launch = PlaygroundLaunch.parse(params, catalog: @catalog)
     root = current_root_recording
     if root.nil?
@@ -21,6 +23,7 @@ class PlaygroundController < ApplicationController
     end
 
     idempotency_key = "playground:#{SecureRandom.uuid}"
+    remember_form(idempotency_key)
     PlaygroundRunJob.perform_later(
       idempotency_key,
       "playground-task:#{SecureRandom.uuid}",
@@ -31,7 +34,9 @@ class PlaygroundController < ApplicationController
       launch.goal,
       launch.context,
       pack_argument(launch.pack),
-      extra_argument(launch.extra_skills)
+      pair_argument(launch.extra_skills),
+      pair_argument(launch.skills),
+      pair_argument(launch.tools)
     )
     redirect_to playground_run_path(idempotency_key)
   rescue PlaygroundLaunch::Error => error
@@ -42,7 +47,8 @@ class PlaygroundController < ApplicationController
   def show
     @run = find_run
     @error = show_error
-    @subtitle = starting? ? "Starting." : nil
+    @form = remembered_form || form_from_run || form_from_params
+    @starting = starting?
     @steps = show_steps
     @reply_text = reply_text
     @skill_names = skill_names
@@ -53,16 +59,96 @@ class PlaygroundController < ApplicationController
 
   private
 
-  def prepare_form
+  def prepare_page
     @catalog = PlaygroundCatalog.entries
+    @skill_options = PlaygroundCatalog.skills
     @agent_options = @catalog.map { |entry| [ entry.name, entry.token ] }
-    @form = Form.new(
-      agent: params[:agent].presence || @catalog.first&.token,
+    @steps = []
+    @skill_names = []
+    @starting = false
+    @finished = false
+    @refresh = false
+  end
+
+  def form_from_params
+    agent = params[:agent].presence || @catalog.first&.token
+    Form.new(
+      agent: agent,
       goal: params[:goal].to_s,
       context: params[:context].to_s,
-      extra_skills: Array(params[:extra_skills]).flatten,
-      pack: params[:pack]
+      skills: submitted_or_default(:skills, agent, :required_skills),
+      tools: submitted_or_default(:tools, agent, :tools)
     )
+  end
+
+  def submitted_or_default(key, agent, list_name)
+    return tokens_for(agent, list_name) if params[:choices].blank?
+
+    Array(params[key]).flatten.compact_blank
+  end
+
+  def tokens_for(agent, list_name)
+    entry = @catalog.find { |item| item.token == agent }
+    return [] unless entry
+
+    entry.public_send(list_name).map(&:token)
+  end
+
+  def remembered_form
+    payload = Rails.cache.read("playground:#{params[:idempotency_key]}:form")
+    payload ||= session_form
+    return if payload.blank?
+
+    agent = payload["agent"]
+    Form.new(
+      agent: agent,
+      goal: payload["goal"].to_s,
+      context: payload["context"].to_s,
+      skills: payload["skills"] || tokens_for(agent, :required_skills),
+      tools: payload["tools"] || tokens_for(agent, :tools)
+    )
+  end
+
+  def form_from_run
+    return if @run.nil?
+
+    agent = "#{@run.agent_key}@#{@run.agent_version}"
+    stored = Array(@run.selected_skills_json).filter_map { |item| token_from(item) }
+    Form.new(
+      agent: agent,
+      goal: @run.task.goal,
+      context: "",
+      skills: stored.presence || tokens_for(agent, :required_skills),
+      tools: tokens_for(agent, :tools)
+    )
+  end
+
+  def token_from(item)
+    key = item["key"] || item[:key]
+    version = item["version"] || item[:version]
+    return if key.blank? || version.blank?
+
+    "#{key}@#{version}"
+  end
+
+  def remember_form(idempotency_key)
+    payload = {
+      "idempotency_key" => idempotency_key,
+      "agent" => @form.agent,
+      "goal" => @form.goal,
+      "context" => @form.context,
+      "skills" => params[:choices].present? ? @form.skills : nil,
+      "tools" => params[:choices].present? ? @form.tools : nil
+    }
+    Rails.cache.write("playground:#{idempotency_key}:form", payload)
+    session[:playground_form] = payload
+  end
+
+  def session_form
+    payload = session[:playground_form]
+    return if payload.blank? || payload["idempotency_key"] != params[:idempotency_key]
+
+    payload
   end
 
   def pack_argument(pack)
@@ -71,7 +157,9 @@ class PlaygroundController < ApplicationController
     [ pack.key, pack.version ]
   end
 
-  def extra_argument(choices)
+  def pair_argument(choices)
+    return if choices.nil?
+
     choices.map { |choice| [ choice.key, choice.version ] }
   end
 
@@ -114,12 +202,8 @@ class PlaygroundController < ApplicationController
   def agent_name
     return if @run.nil?
 
-    entry = catalog_entries.find { |item| item.key == @run.agent_key && item.version == @run.agent_version }
+    entry = @catalog.find { |item| item.key == @run.agent_key && item.version == @run.agent_version }
     entry&.name
-  end
-
-  def catalog_entries
-    @catalog_entries ||= PlaygroundCatalog.entries
   end
 
   def skill_names

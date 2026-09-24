@@ -1,13 +1,9 @@
 # frozen_string_literal: true
 
 class PlaygroundCatalog
-  Entry = Data.define(:key, :version, :name, :optional_skills, :packs) do
+  Entry = Data.define(:key, :version, :name, :tools, :required_skills) do
     def token
       "#{key}@#{version}"
-    end
-
-    def extra_help?
-      optional_skills.any? || packs.any?
     end
   end
 
@@ -23,9 +19,15 @@ class PlaygroundCatalog
         key: definition.key,
         version: definition.version,
         name: definition.name,
-        optional_skills: options_for(definition.optional_skills, RecordingStudioAgents.skills),
-        packs: options_for(definition.packs, RecordingStudioAgents.skill_packs)
+        tools: options_for(definition.tools, RecordingStudioAI.tools),
+        required_skills: options_for(definition.skills, RecordingStudioAgents.skills)
       )
+    end
+  end
+
+  def self.skills
+    RecordingStudioAgents.skills.all.map do |definition|
+      Option.new(key: definition.key, version: definition.version, name: definition.name)
     end
   end
 

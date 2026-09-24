@@ -3,13 +3,26 @@
 class PlaygroundRunJob < ApplicationJob
   FIND_PAGE = { key: :find_page, version: 1 }.freeze
 
-  def perform(idempotency_key, task_key, root_recording_id, user_id, agent_key, agent_version, goal, context, pack, extra_skills)
+  def perform(
+    idempotency_key,
+    task_key,
+    root_recording_id,
+    user_id,
+    agent_key,
+    agent_version,
+    goal,
+    context,
+    pack,
+    extra_skills,
+    skills = nil,
+    tools = nil
+  )
     previous_actor = Current.actor
     root = RecordingStudio::Recording.find(root_recording_id)
     user = User.find(user_id)
     Current.actor = user
     task = RecordingStudioAgents::TaskInput.new(key: task_key, goal: goal, context: context || {})
-    run_agent(root, user, task, idempotency_key, agent_key, agent_version, pack, extra_skills)
+    run_agent(root, user, task, idempotency_key, agent_key, agent_version, pack, extra_skills, skills, tools)
   rescue RecordingStudioAgents::Error => error
     remember_error(root_recording_id, idempotency_key, error)
   ensure
@@ -18,18 +31,10 @@ class PlaygroundRunJob < ApplicationJob
 
   private
 
-  def run_agent(root, user, task, idempotency_key, agent_key, agent_version, pack, extra_skills)
+  def run_agent(root, user, task, idempotency_key, agent_key, agent_version, pack, extra_skills, skills, tools)
     runner = lambda do
       RecordingStudioAgents.agent(agent_key, version: agent_version).run(
-        task: task,
-        root_recording: root,
-        initiator: user,
-        initiator_kind: :user,
-        execution_source: :web,
-        context_recording: nil,
-        idempotency_key: idempotency_key,
-        pack: pack_for(pack),
-        extra_skills: extras_for(extra_skills)
+        **run_arguments(root, user, task, idempotency_key, pack, extra_skills, skills, tools)
       )
     end
 
@@ -38,6 +43,23 @@ class PlaygroundRunJob < ApplicationJob
     else
       DummyGenerateStub.with_hook(method(:stubbed_response)) { runner.call }
     end
+  end
+
+  def run_arguments(root, user, task, idempotency_key, pack, extra_skills, skills, tools)
+    arguments = {
+      task: task,
+      root_recording: root,
+      initiator: user,
+      initiator_kind: :user,
+      execution_source: :web,
+      context_recording: nil,
+      idempotency_key: idempotency_key,
+      pack: pack_for(pack),
+      extra_skills: extras_for(extra_skills)
+    }
+    arguments[:skills] = extras_for(skills) unless skills.nil?
+    arguments[:tools] = extras_for(tools) unless tools.nil?
+    arguments
   end
 
   def pack_for(pack)

@@ -631,4 +631,47 @@ class ExecutionTest < PersistenceTestCase
     assert_instance_of RecordingStudioAgents::Results::Completed, result
     assert_equal "billing_tickets", result.run.skill_pack_key
   end
+
+  def test_run_skills_and_tools_replace_the_compiled_set
+    register_support_clerk
+    captured = nil
+    result = nil
+    RecordingStudioAI.stub(:generate, lambda { |**kwargs|
+      captured = kwargs
+      generation_response
+    }) do
+      result = RecordingStudioAgents.agent(:support_clerk, version: 1).run(
+        task: task_input(key: "ticket-skills", goal: "Help with this ticket."),
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "support-explicit",
+        skills: { login_help: 1 },
+        tools: {}
+      )
+    end
+
+    assert_instance_of RecordingStudioAgents::Results::Completed, result
+    assert_match(/reset link/, captured[:system_instruction])
+    refute_match(/steady voice/, captured[:system_instruction])
+    assert_equal [], captured[:custom_tools]
+    assert_equal [{ "key" => "login_help", "version" => 1 }], result.run.selected_skills_json
+    assert_nil result.run.skill_pack_key
+  end
+
+  def test_skills_cannot_combine_with_a_pack
+    register_support_clerk
+    error = assert_raises(RecordingStudioAgents::ContractError) do
+      RecordingStudioAgents.agent(:support_clerk, version: 1).run(
+        task: task_input(key: "ticket-both", goal: "Help with this ticket."),
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "support-both",
+        skills: { login_help: 1 },
+        pack: :billing_tickets
+      )
+    end
+    assert_match(/replaces pack/, error.message)
+  end
 end

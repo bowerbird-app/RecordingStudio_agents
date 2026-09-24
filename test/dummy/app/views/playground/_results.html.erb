@@ -1,0 +1,64 @@
+<% if @starting %>
+  <p>Starting.</p>
+<% elsif @run.nil? && @steps.empty? %>
+  <p>Run it to see the steps.</p>
+<% end %>
+
+<% if @run %>
+  <%= render FlatPack::PageTitle::Component.new(title: @agent_name, variant: :h2) if @agent_name %>
+  <p><%= @run.task.goal %></p>
+<% end %>
+
+<% if @steps.any? %>
+  <%= render FlatPack::List::Component.new(spacing: :dense) do %>
+    <% @steps.each do |step| %>
+      <%= render FlatPack::List::Item.new(
+        trailing: render(FlatPack::Badge::Component.new(
+          text: step.badge,
+          style: step.badge_style,
+          size: :sm
+        ))
+      ) do %>
+        <%= step.label %>
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>
+
+<% if @run %>
+  <%= render FlatPack::Badge::Component.new(
+    text: @run.status,
+    style: :info,
+    size: :sm
+  ) %>
+
+  <% if @run.failure_message.present? %>
+    <%= render FlatPack::Alert::Component.new(
+      description: @run.failure_message,
+      style: :danger
+    ) %>
+  <% end %>
+
+  <% if @skill_names.any? %>
+    <%= render FlatPack::PageTitle::Component.new(title: "Skills", variant: :h2) %>
+    <% @skill_names.each do |name| %>
+      <%= render FlatPack::Badge::Component.new(text: name, style: :info, size: :sm) %>
+    <% end %>
+  <% end %>
+
+  <% if @reply_text.present? %>
+    <%= render FlatPack::PageTitle::Component.new(title: "Reply", variant: :h2) %>
+    <p><%= @reply_text %></p>
+  <% elsif @finished %>
+    <p>The reply is not here anymore.</p>
+  <% end %>
+
+  <% if @run.recording_studio_ai_run_id.present? %>
+    <%= render FlatPack::Button::Component.new(
+      text: "Open the model call",
+      style: :secondary,
+      size: :md,
+      href: "/admin/screens/ai_calls?search=#{@run.recording_studio_ai_run_id}"
+    ) %>
+  <% end %>
+<% end %>

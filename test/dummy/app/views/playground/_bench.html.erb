@@ -1,0 +1,23 @@
+<% content_for :title, "Playground" %>
+
+<%= render FlatPack::PageTitle::Component.new(
+  title: "Playground",
+  subtitle: "Try an agent on this workspace and watch the steps.",
+  variant: :h1
+) %>
+
+<% if @error.present? && @run.nil? %>
+  <%= render FlatPack::Alert::Component.new(
+    description: @error,
+    style: :danger
+  ) %>
+<% end %>
+
+<%= render FlatPack::Grid::Component.new(cols: 2, gap: :lg, align: :start) do %>
+  <div>
+    <%= render "form" %>
+  </div>
+  <div>
+    <%= render "results" %>
+  </div>
+<% end %>

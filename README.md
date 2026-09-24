@@ -180,6 +180,8 @@ RecordingStudioAgents.agent(:support, version: 1).run(
 
 `extra_skills: { access_reset: 1 }` can load optional skills without a pack, and can combine with `pack:`.
 
+`skills:` replaces that selection for one run, including the agent's required skills. Pass a hash of registered skills, or `{}` for no skill blocks. It cannot be combined with `pack:` or `extra_skills:`. `tools:` narrows the generate call to a subset of the agent's tools. Omit it to keep the usual allowlist. A skill on that run still needs its required tools in the subset, and a tool the agent does not list is rejected.
+
 ## Execute a task from a job
 
 A task key identifies one durable goal inside a workspace. An idempotency key identifies one attempt. Use the Active Job `job_id` as that attempt key so retries and duplicate delivery converge on the same `AgentRun`.
@@ -258,6 +260,6 @@ pin_all_from RecordingStudioAdmin::Engine.root.join("app/javascript/recording_st
 
 `test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page, then lists what it did. That page uses a sidebar. Gem screens, including Admin and the workspace switcher, stay on Recording Studio's default layout. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is the staff hub. Agents is `/admin/sections/agents`.
 
-The dummy has a Playground page at `/playground`, where you pick a registered agent, write an instruction, optionally add context and extra help the agent already allows, and watch the steps. Tools stay on the agent. Skill packs are chosen only when that agent declares them. The dummy keeps model replies so that page can show the text.
+The dummy has a Playground page at `/playground`. The form sits on the left and the steps on the right. Pick a registered agent, write an instruction, check the tools that agent may use, and choose skills for that run. The dummy keeps model replies so that page can show the text.
 
 The dummy generates with Gemini and decides with TypeSafe Jev (`RecordingStudioAI.decide`). Set `GEMINI_API_KEY` or `google_ai_studio` for generation, and `TYPESAFE_API_KEY` or `typesafe` for decisions. Without a generative key, the librarian demo uses an offline stub. Tests ignore those variables and do not call a live model provider.
