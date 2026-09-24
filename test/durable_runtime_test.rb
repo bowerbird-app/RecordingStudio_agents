@@ -720,6 +720,232 @@ class DurableRuntimeTest < PersistenceTestCase
     end
   end
 
+  def test_a_page_list_does_not_ask_for_another_summary
+    register_librarian
+    calls = []
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: { "pages" => [{ "title" => "Guides" }, { "title" => "People" }] },
+        error: nil,
+        run: Struct.new(:id).new(11)
+      )
+    end
+
+    RecordingStudioAI.stub(:generate, lambda { |**kwargs|
+      calls << kwargs
+      listed_generate(kwargs)
+    }) do
+      RecordingStudioAI.stub(:decide, page_decisions) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("page-list-no-observe")
+          observation = result.run.agent_steps.find_by!(action_type: "tool").observation_summary
+          state = RecordingStudioAgents::WorkingState.load(result.run.working_state_json)
+
+          assert_equal "Pages: Guides, People", observation
+          assert_equal 0, state.counter("observation_calls")
+          refute(calls.any? { |call| call[:request_id].to_s.include?(":observe-") })
+        end
+      end
+    end
+  end
+
+  def test_a_small_record_keeps_its_fields
+    register_librarian
+    calls = []
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: { "author" => "Ada", "year" => 2024 },
+        error: nil,
+        run: Struct.new(:id).new(12)
+      )
+    end
+
+    RecordingStudioAI.stub(:generate, lambda { |**kwargs|
+      calls << kwargs
+      listed_generate(kwargs)
+    }) do
+      RecordingStudioAI.stub(:decide, page_decisions) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("small-record")
+          observation = result.run.agent_steps.find_by!(action_type: "tool").observation_summary
+
+          assert_equal "author: Ada. year: 2024", observation
+          refute(calls.any? { |call| call[:request_id].to_s.include?(":observe-") })
+        end
+      end
+    end
+  end
+
+  def test_a_titled_record_stays_a_title
+    register_librarian
+    calls = []
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: { "title" => "Staff handbook", "author" => "Ada" },
+        error: nil,
+        run: Struct.new(:id).new(13)
+      )
+    end
+
+    RecordingStudioAI.stub(:generate, lambda { |**kwargs|
+      calls << kwargs
+      listed_generate(kwargs)
+    }) do
+      RecordingStudioAI.stub(:decide, page_decisions) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("titled-record")
+          observation = result.run.agent_steps.find_by!(action_type: "tool").observation_summary
+
+          assert_equal "Found Staff handbook.", observation
+          refute(calls.any? { |call| call[:request_id].to_s.include?(":observe-") })
+        end
+      end
+    end
+  end
+
+  def test_a_long_tool_result_uses_one_cheap_summary
+    register_librarian
+    calls = []
+    secret = "sekret-value"
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: {
+          "title" => "Handbook",
+          "body" => "x" * 250,
+          "api_token" => secret,
+          "findings" => ["The tool found the handbook."]
+        },
+        error: nil,
+        run: Struct.new(:id).new(14)
+      )
+    end
+    generate = lambda do |**kwargs|
+      calls << kwargs
+      if kwargs[:request_id].to_s.include?(":observe-")
+        observation_response(
+          { "summary" => "The handbook covers onboarding.", "add_findings" => ["Onboarding is documented."] },
+          15
+        )
+      else
+        listed_generate(kwargs)
+      end
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, page_decisions) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("long-result")
+          observation = result.run.agent_steps.find_by!(action_type: "tool").observation_summary
+          state = RecordingStudioAgents::WorkingState.load(result.run.working_state_json)
+          observe = calls.find { |call| call[:request_id].to_s.include?(":observe-") }
+          stored = result.run.working_state_json.to_json
+
+          assert_equal "The handbook covers onboarding.", observation
+          assert_includes state.data["findings"], "Onboarding is documented."
+          assert_includes state.data["findings"], "The tool found the handbook."
+          assert_equal 1, state.counter("observation_calls")
+          assert_equal 1, state.counter("reasoner_calls")
+          assert_equal :low, observe[:profile]
+          assert_equal [], observe[:custom_tools]
+          assert_equal ["summary"], observe[:schema]["required"]
+          refute_includes observe[:prompt], secret
+          refute_includes observation, secret
+          refute_includes stored, secret
+        end
+      end
+    end
+  end
+
+  def test_a_bad_observation_keeps_the_title
+    register_librarian
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: { "title" => "Handbook", "body" => "y" * 250, "api_token" => "sekret-value" },
+        error: nil,
+        run: Struct.new(:id).new(16)
+      )
+    end
+    generate = lambda do |**kwargs|
+      if kwargs[:request_id].to_s.include?(":observe-")
+        observation_response({ "summary" => "sekret-value leaked" }, 17)
+      else
+        listed_generate(kwargs)
+      end
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, page_decisions) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("bad-observation")
+          observation = result.run.agent_steps.find_by!(action_type: "tool").observation_summary
+          state = RecordingStudioAgents::WorkingState.load(result.run.working_state_json)
+
+          assert_equal "leaked", observation
+          assert_equal 1, state.counter("observation_calls")
+          assert_equal 1, state.counter("reasoner_calls")
+          refute_includes result.run.working_state_json.to_json, "sekret-value"
+        end
+      end
+    end
+  end
+
+  def test_a_spent_observation_budget_keeps_the_title
+    register_librarian
+    calls = []
+    previous = RecordingStudioAgents.configuration.maximum_observation_calls
+    RecordingStudioAgents.configuration.maximum_observation_calls = 1
+    perform = lambda do |**kwargs|
+      title = kwargs[:arguments]["note"] == "note-1" ? "First" : "Second"
+      Performance.new(
+        status: "completed",
+        result: { "title" => title, "body" => "z" * 250 },
+        error: nil,
+        run: Struct.new(:id).new(18)
+      )
+    end
+    generate = lambda do |**kwargs|
+      calls << kwargs
+      if kwargs[:request_id].to_s.include?(":observe-")
+        observation_response({ "summary" => "Kept the first note." }, 19)
+      elsif kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "Both notes are in.", run_id: 20)
+      else
+        plan_response(candidates: 2, run_id: 21)
+      end
+    end
+    choices = 0
+    decide = lambda do |**|
+      choices += 1
+      case choices
+      when 1 then decision(finished: 0.1, choice_id: "action_1", candidate_ids: %w[action_1 action_2 deliver])
+      when 2 then decision(finished: 0.1, choice_id: "action_2", candidate_ids: %w[action_2 deliver])
+      else decision(finished: 0.95, choice_id: "deliver", candidate_ids: ["deliver"])
+      end
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("observation-budget")
+          steps = result.run.agent_steps.where(action_type: "tool").order(:sequence)
+          state = RecordingStudioAgents::WorkingState.load(result.run.working_state_json)
+
+          assert_equal ["Kept the first note.", "Found Second."], steps.map(&:observation_summary)
+          assert_equal(1, calls.count { |call| call[:request_id].to_s.include?(":observe-") })
+          assert_equal 1, state.counter("observation_calls")
+          assert_equal 1, state.counter("reasoner_calls")
+        end
+      end
+    end
+  ensure
+    RecordingStudioAgents.configuration.maximum_observation_calls = previous
+  end
+
   def test_a_missing_tool_runner_fails_the_started_step
     register_librarian
     message = "Tool steps need RecordingStudioAI.perform_tool. This Recording Studio AI gem does not provide it."
@@ -1205,6 +1431,28 @@ class DurableRuntimeTest < PersistenceTestCase
           }
         ]
       },
+      run: Struct.new(:id, :status).new(run_id, "completed")
+    )
+  end
+
+  def page_decisions
+    calls = 0
+    lambda do |**|
+      calls += 1
+      if calls == 1
+        decision(finished: 0.1, choice_id: "action_1", candidate_ids: %w[action_1 deliver])
+      else
+        decision(finished: 0.95, choice_id: "deliver", candidate_ids: ["deliver"])
+      end
+    end
+  end
+
+  def observation_response(data, run_id)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: nil,
+      structured_data: data,
       run: Struct.new(:id, :status).new(run_id, "completed")
     )
   end

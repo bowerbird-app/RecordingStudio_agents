@@ -29,6 +29,21 @@ module RecordingStudioAgents
       ].join("\n\n")
     end
 
+    def self.for_observation(state:, tool_label:, result:)
+      data = state.data
+      [
+        "Summarize this tool result into a state delta.",
+        "Add a finding, completed work, a failed approach, an open question, or a met criterion " \
+        "only when the result supports it.",
+        labeled("GOAL", data["goal"]),
+        labeled("CURRENT OBJECTIVE", data["current_objective"]),
+        labeled("SUCCESS CRITERIA", criteria(data["success_criteria"])),
+        labeled("IMPORTANT FINDINGS", lines(data["findings"])),
+        labeled("TOOL", tool_label),
+        labeled("RESULT", JSON.generate(result))
+      ].join("\n\n")
+    end
+
     def self.for_synthesis(state:)
       [
         "Write the final answer from the current state.",

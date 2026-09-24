@@ -406,9 +406,12 @@ module RecordingStudioAgents
         return [state, menu]
       end
 
-      summary = observation_summary(performance.result)
+      summary, extra = refresh_observation(run, lease_token, state, candidate, performance.result)
       previous = state.digest_of_progress
-      delta = observation_delta(performance.result, sequence, summary, candidate.argument_digest)
+      delta = ObservationReducer.fold(
+        observation_delta(performance.result, sequence, summary, candidate.argument_digest),
+        extra
+      )
       state, compacted = StateDelta.apply(state, delta)
       streak = state.digest_of_progress == previous ? state.data["no_progress_streak"].to_i + 1 : 0
       state, = StateDelta.apply(state, { "set_no_progress_streak" => streak, "increment" => { "tool_actions" => 1 } })
@@ -547,38 +550,38 @@ module RecordingStudioAgents
       state
     end
 
-    def observation_summary(result)
-      case result
-      when String then result.byteslice(0, WorkingState::TEXT_LIMIT)
-      when Hash
-        text = result["summary"] || result[:summary]
-        return text.to_s.byteslice(0, WorkingState::TEXT_LIMIT) if text
-
-        describe_hash(result).byteslice(0, WorkingState::TEXT_LIMIT)
-      else
-        result.class.name
-      end
+    def refresh_observation(run, lease_token, state, candidate, result)
+      preview = ObservationReducer.preview(result)
+      model = model_observation(run, lease_token, state, candidate, result, preview)
+      summary = model["summary"].presence || preview.fetch("summary")
+      [summary, model.fetch("delta")]
     end
 
-    def describe_hash(result)
-      pages = result["pages"] || result[:pages]
-      if pages.is_a?(Array)
-        titles = pages.filter_map { |page| page_title(page) }
-        return "No pages." if titles.empty?
+    def model_observation(run, lease_token, state, candidate, result, preview)
+      skipped = { "summary" => nil, "delta" => {} }
+      return skipped unless preview["needs_model"]
+      return skipped if state.counter("observation_calls") >= configuration.maximum_observation_calls
 
-        return "Pages: #{titles.join(', ')}"
-      end
-
-      title = result["title"] || result[:title]
-      return "Found #{title}." if title
-
-      "keys: #{result.keys.map(&:to_s).sort.join(', ')}"
+      response = Ai.observe(
+        invocation: @invocation, run: run, lease_token: lease_token,
+        prompt: observation_prompt(state, candidate, result),
+        suffix: "observe-#{state.counter('observation_calls') + 1}"
+      )
+      accepted = ObservationReducer.accept(response.try(:structured_data), result)
+      accepted["delta"] = accepted.fetch("delta").merge("increment" => { "observation_calls" => 1 })
+      accepted
+    rescue StandardError
+      { "summary" => nil, "delta" => { "increment" => { "observation_calls" => 1 } } }
     end
 
-    def page_title(page)
-      return unless page.is_a?(Hash)
-
-      page["title"] || page[:title]
+    def observation_prompt(state, candidate, result)
+      tool = tool_definition(candidate)
+      description = tool ? tool.description : candidate.purpose
+      ContextBuilder.for_observation(
+        state: state,
+        tool_label: "#{candidate.tool_key} v#{candidate.tool_version}. #{description}",
+        result: ObservationReducer.shareable(result)
+      )
     end
 
     def stop_for_tool_error(run, lease_token, state, sequence, message)

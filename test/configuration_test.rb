@@ -49,6 +49,12 @@ class ConfigurationTest < Minitest::Test
     assert_equal :high, @configuration.profile
   end
 
+  def test_merge_updates_the_observation_budget
+    @configuration.merge!(maximum_observation_calls: 4)
+
+    assert_equal 4, @configuration.maximum_observation_calls
+  end
+
   def test_merge_accepts_string_keys
     @configuration.merge!("lease_seconds" => 12)
 

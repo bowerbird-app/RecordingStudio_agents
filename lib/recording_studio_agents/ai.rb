@@ -60,6 +60,21 @@ module RecordingStudioAgents
       }
     }.freeze
 
+    OBSERVE_SCHEMA = {
+      "type" => "object",
+      "additionalProperties" => false,
+      "required" => %w[summary],
+      "properties" => {
+        "summary" => { "type" => "string" },
+        "add_findings" => { "type" => "array", "items" => { "type" => "string" } },
+        "add_completed" => { "type" => "array", "items" => { "type" => "string" } },
+        "add_failed" => { "type" => "array", "items" => { "type" => "string" } },
+        "add_open_questions" => { "type" => "array", "items" => { "type" => "string" } },
+        "meet_criteria" => { "type" => "array", "items" => { "type" => "string" } },
+        "set_current_objective" => { "type" => "string" }
+      }
+    }.freeze
+
     COMPACT_SCHEMA = {
       "type" => "object",
       "additionalProperties" => false,
@@ -121,6 +136,25 @@ module RecordingStudioAgents
         schema: schema,
         purpose: invocation.purpose,
         profile: invocation.profile,
+        root_recording: invocation.root_recording,
+        context_recording: invocation.context_recording,
+        initiator: invocation.initiator,
+        initiator_kind: invocation.initiator_kind,
+        executor: invocation.executor,
+        execution_source: invocation.execution_source,
+        request_id: request_id_for(run, suffix),
+        metadata: lease_metadata(run, lease_token)
+      )
+    end
+
+    def observe(invocation:, run:, lease_token:, prompt:, suffix:)
+      RecordingStudioAI.generate(
+        prompt: prompt,
+        system_instruction: "Return only the state delta for this tool result.",
+        custom_tools: [],
+        schema: OBSERVE_SCHEMA,
+        purpose: invocation.purpose,
+        profile: RecordingStudioAgents.configuration.controller_profile,
         root_recording: invocation.root_recording,
         context_recording: invocation.context_recording,
         initiator: invocation.initiator,

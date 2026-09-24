@@ -133,7 +133,9 @@ module RecordingStudioAgents
       open_questions recent_observations attempted_digests refused_digests candidate_index
       constraints counters no_progress_streak
     ].freeze
-    COUNTER_KEYS = %w[reasoner_calls controller_calls tool_actions replans compactions].freeze
+    COUNTER_KEYS = %w[
+      reasoner_calls controller_calls tool_actions replans compactions observation_calls
+    ].freeze
 
     attr_reader :data
 

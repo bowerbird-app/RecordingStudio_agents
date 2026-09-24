@@ -5,7 +5,8 @@ module RecordingStudioAgents
     attr_accessor :lease_seconds
     attr_reader :hooks, :profile, :controller_profile,
                 :maximum_steps, :maximum_tool_actions, :maximum_reasoner_calls,
-                :maximum_replans, :maximum_runtime_seconds, :maximum_working_state_bytes,
+                :maximum_replans, :maximum_observation_calls, :maximum_runtime_seconds,
+                :maximum_working_state_bytes,
                 :finished_probability, :stuck_probability, :progress_probability,
                 :needs_reasoning_probability, :choice_margin
 
@@ -17,6 +18,7 @@ module RecordingStudioAgents
       @maximum_tool_actions = 30
       @maximum_reasoner_calls = 8
       @maximum_replans = 3
+      @maximum_observation_calls = 30
       @maximum_runtime_seconds = 1800
       @maximum_working_state_bytes = 12_000
       @finished_probability = 0.8
@@ -49,6 +51,10 @@ module RecordingStudioAgents
 
     def maximum_replans=(value)
       @maximum_replans = positive_integer(value, "maximum_replans")
+    end
+
+    def maximum_observation_calls=(value)
+      @maximum_observation_calls = positive_integer(value, "maximum_observation_calls")
     end
 
     def maximum_runtime_seconds=(value)
@@ -88,6 +94,7 @@ module RecordingStudioAgents
         maximum_tool_actions: maximum_tool_actions,
         maximum_reasoner_calls: maximum_reasoner_calls,
         maximum_replans: maximum_replans,
+        maximum_observation_calls: maximum_observation_calls,
         maximum_runtime_seconds: maximum_runtime_seconds,
         maximum_working_state_bytes: maximum_working_state_bytes,
         finished_probability: finished_probability,

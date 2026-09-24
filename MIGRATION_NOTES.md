@@ -26,6 +26,8 @@ A tool candidate whose arguments fail that tool's schema gets one more generate 
 
 An explicit empty `action_candidates` list now enters the runtime. A generate result that omits that key still finishes from its text. A failed final answer fails the run with `synthesis_failed`. The compiled instruction names a handoff candidate. A resume keeps a stored tool outcome when Recording Studio AI has one.
 
+A long or nested tool result can use one generate call on `controller_profile`. That call counts toward `maximum_observation_calls`, which defaults to 30. It does not count toward `maximum_reasoner_calls`. Set the key on `RecordingStudioAgents.configuration` to change the cap. No migration.
+
 ## Current Requirements
 
 - Ruby 3.3 or newer

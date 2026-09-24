@@ -12,7 +12,7 @@ An agent run can keep working across many tool actions. The next model call sees
 ### Added
 - `AgentStep` rows and `working_state_json` on `AgentRun`. A checkpoint after each completed step is enough to resume. A new worker does not repeat a finished tool. A non-repeatable tool that was interrupted is closed as `unresolved` and refused for the rest of the attempt.
 - A runtime loop. The reasoner (`RecordingStudioAI.generate`) writes a plan, success criteria, and action candidates with complete arguments. The controller (`RecordingStudioAI.decide`) picks among those candidates using probabilities. One tool runs through `RecordingStudioAI.perform_tool`.
-- Host budgets that are separate from Recording Studio AI attempt limits. Defaults are 80 steps, 30 tool actions, 8 reasoner calls, 3 replans, and 1800 seconds. Working state is capped at 12000 bytes. Recent observations stay in a short window. Compaction runs only after that byte cap, and at most three times.
+- Host budgets that are separate from Recording Studio AI attempt limits. Defaults are 80 steps, 30 tool actions, 8 reasoner calls, 3 replans, 30 observation calls, and 1800 seconds. Working state is capped at 12000 bytes. Recent observations stay in a short window. Compaction runs only after that byte cap, and at most three times.
 - Controller thresholds. `finished_probability` defaults to 0.8, `stuck_probability` to 0.7, and `choice_margin` to 0.15. A failed or uncertain decision does not count as finished.
 - Activity kinds `step_started`, `step_completed`, `state_updated`, `controller_evaluated`, `reasoner_requested`, `replanned`, `stuck_detected`, and `compacted`.
 - Admin columns for the current objective, plan count, check-in count, replan count, and stuck state. The Steps column lists durable labels when steps exist. Token totals include the model calls linked from those steps.
@@ -32,6 +32,7 @@ An agent run can keep working across many tool actions. The next model call sees
 - The compiled instruction tells the model to name a handoff candidate. It does not tell the planner to call the handoff tool.
 - A resume reads a stored Recording Studio AI tool outcome for a started step. A missing or in-progress tool call is closed as `unresolved` and is not run again.
 - A tool candidate whose arguments fail that tool's schema gets one more generate call. The schema is that tool's parameter schema, and the call counts toward `maximum_reasoner_calls`. The tool runs after the arguments validate. A candidate that still fails is dropped before the tool runs. An empty arguments object stays put when the tool requires nothing.
+- A long or nested tool result gets one generate call on `controller_profile`. The call returns a short summary and a state delta, and it counts toward `maximum_observation_calls` (default 30). A page list, a summary, a title, and other short fields skip that call. Secret, token, password, and credential fields stay out of the summary.
 
 ### Upgrade notes
 - Install and run the engine migration that adds `working_state_json` and `recording_studio_agents_agent_steps`.
