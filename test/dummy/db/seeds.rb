@@ -52,8 +52,14 @@ end
 workspace = Workspace.find_or_create_by!(name: "Studio Workspace")
 accessible_workspace = Workspace.find_or_create_by!(name: "Client Workspace")
 private_workspace = Workspace.find_or_create_by!(name: "Private Workspace")
-folder = Folder.find_or_create_by!(name: "Product Docs")
-page = Page.find_or_create_by!(title: "Getting Started")
+
+# Studio Workspace is the example library. Client and Private stay empty.
+studio_library = {
+  "Product Docs" => [ "Getting Started", "Invite your team", "Plans and billing" ],
+  "Guides" => [ "Publish a page", "Move a page", "Leave a comment" ],
+  "People" => [ "Staff handbook", "Time off" ]
+}
+studio_overview = Page.find_or_create_by!(title: "Studio overview")
 
 previous_actor = Current.actor
 Current.actor = user
@@ -63,8 +69,15 @@ begin
   accessible_root_recording = RecordingStudio.root_recording_for(accessible_workspace)
   private_root_recording = RecordingStudio.root_recording_for(private_workspace)
 
-  folder_recording = find_or_record_child.call(folder, root_recording, root_recording)
-  find_or_record_child.call(page, root_recording, folder_recording)
+  studio_library.each do |folder_name, titles|
+    folder = Folder.find_or_create_by!(name: folder_name)
+    folder_recording = find_or_record_child.call(folder, root_recording, root_recording)
+    titles.each do |title|
+      page = Page.find_or_create_by!(title: title)
+      find_or_record_child.call(page, root_recording, folder_recording)
+    end
+  end
+  find_or_record_child.call(studio_overview, root_recording, root_recording)
 
   admin_root = AdminRoot.find_or_create_by!(name: "Admin")
   admin_root_recording = RecordingStudio.root_recording_for(admin_root)
