@@ -80,7 +80,7 @@ module RecordingStudioAgents
     def plan(invocation:, run:, lease_token:, prompt: nil, suffix: nil)
       RecordingStudioAI.generate(
         prompt: prompt || invocation.goal,
-        system_instruction: "#{invocation.system_instruction}\n\n#{planning_note}",
+        system_instruction: "#{invocation.system_instruction}\n\n#{planning_note(invocation)}",
         custom_tools: [],
         schema: PLAN_SCHEMA,
         purpose: invocation.purpose,
@@ -181,9 +181,12 @@ module RecordingStudioAgents
       "#{base}:#{suffix}"
     end
 
-    def planning_note
-      "Plan the work. Return success criteria and action candidates with complete arguments. " \
-        "Do not call tools from this step."
+    def planning_note(invocation)
+      names = invocation.tool_references.map { |reference| "#{reference.key} version #{reference.version}" }
+      allowed = names.empty? ? "No tools are allowed." : "Allowed tools: #{names.join(', ')}."
+      "Plan the work. Put the next actions in action_candidates. " \
+        "A tool candidate needs type tool, tool_key, tool_version, purpose, and an arguments object. " \
+        "#{allowed} Include a deliver candidate when the answer can be written. This step returns the plan only."
     end
 
     def lease_metadata(run, lease_token)

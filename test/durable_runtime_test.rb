@@ -67,6 +67,171 @@ class DurableRuntimeTest < PersistenceTestCase
     end
   end
 
+  def test_an_empty_plan_asks_for_a_usable_candidate
+    register_librarian
+    prompts = []
+    generate = lambda do |**kwargs|
+      prompts << kwargs
+      if kwargs[:prompt].to_s.include?("no usable action candidates")
+        plan_response(candidates: 1, run_id: 4)
+      elsif kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "Done.", run_id: 5)
+      else
+        rejected_plan(6)
+      end
+    end
+    decide = ->(**) { decision(finished: 0.95, choice_id: "deliver", candidate_ids: ["deliver"]) }
+    perform = ->(**) { performance(summary: "unused") }
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("empty-plan")
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_includes prompts.first[:system_instruction], "find_page version 1"
+          assert_includes prompts.first[:system_instruction], "arguments object"
+          assert(prompts.any? { |call| call[:prompt].to_s.include?("no usable action candidates") })
+        end
+      end
+    end
+  end
+
+  def test_a_deliver_only_plan_answers_after_the_list
+    register_librarian
+    plans = 0
+    decisions = 0
+    generate = lambda do |**kwargs|
+      if kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "No pages about dogs.", run_id: 11)
+      else
+        plans += 1
+        plans == 1 ? tool_only_plan(1) : deliver_only_plan(2)
+      end
+    end
+    decide = lambda do |**kwargs|
+      decisions += 1
+      ids = kwargs[:questions][:next_action][:criteria].keys.map(&:to_s)
+      decision(finished: 0.1, choice_id: "1", candidate_ids: ids)
+    end
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: { "pages" => [{ "title" => "Guides" }] },
+        error: nil,
+        run: Struct.new(:id).new(12)
+      )
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("deliver-only")
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal "No pages about dogs.", result.output.text
+          assert_equal 1, decisions
+        end
+      end
+    end
+  end
+
+  def test_a_page_list_can_be_answered
+    register_librarian
+    plans = 0
+    generate = lambda do |**kwargs|
+      if kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "No pages about dogs.", run_id: 8)
+      else
+        plans += 1
+        tool_only_plan(plans)
+      end
+    end
+    decide = lambda do |**kwargs|
+      ids = kwargs[:questions][:next_action][:criteria].keys.map(&:to_s)
+      if ids.include?("answer")
+        decision(finished: 0.95, choice_id: "answer", candidate_ids: ids)
+      else
+        decision(finished: 0.1, choice_id: "1", candidate_ids: ids)
+      end
+    end
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: { "pages" => [{ "title" => "Guides" }] },
+        error: nil,
+        run: Struct.new(:id).new(9)
+      )
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("answer-the-list")
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal "No pages about dogs.", result.output.text
+          assert_equal 1, result.run.agent_steps.where(action_type: "tool", status: "completed").count
+        end
+      end
+    end
+  end
+
+  def test_a_page_list_stays_in_the_observation
+    register_librarian
+    calls = 0
+    decide = lambda do |**|
+      calls += 1
+      if calls == 1
+        decision(finished: 0.1, choice_id: "action_1", candidate_ids: %w[action_1 deliver])
+      else
+        decision(finished: 0.95, choice_id: "deliver", candidate_ids: ["deliver"])
+      end
+    end
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: { "pages" => [{ "title" => "Guides" }, { "title" => "People" }] },
+        error: nil,
+        run: Struct.new(:id).new(9)
+      )
+    end
+
+    RecordingStudioAI.stub(:generate, ->(**kwargs) { listed_generate(kwargs) }) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("page-list")
+          observation = result.run.agent_steps.find_by!(action_type: "tool").observation_summary
+
+          assert_includes observation, "Guides"
+          assert_includes observation, "People"
+        end
+      end
+    end
+  end
+
+  def test_a_missing_tool_runner_fails_the_started_step
+    register_librarian
+    message = "Tool steps need RecordingStudioAI.perform_tool. This Recording Studio AI gem does not provide it."
+    decide = ->(**) { decision(finished: 0.1, choice_id: "action_1", candidate_ids: %w[action_1 deliver]) }
+    perform = ->(**) { raise RecordingStudioAgents::ConfigurationError, message }
+
+    RecordingStudioAI.stub(:generate, ->(**kwargs) { listed_generate(kwargs) }) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("missing-tool")
+          step = result.run.agent_steps.find_by!(action_type: "tool")
+
+          assert_instance_of RecordingStudioAgents::Results::Failed, result
+          assert_equal "failed", result.run.status
+          assert_equal "failed", step.status
+          assert_equal message, step.observation_summary
+          assert_equal "tool_unavailable", result.failure.code
+        end
+      end
+    end
+  end
+
   def test_a_stale_lease_cannot_commit_the_run
     register_librarian
     RecordingStudioAI.stub(:generate, lambda { |**|
@@ -407,6 +572,27 @@ class DurableRuntimeTest < PersistenceTestCase
     refute(menu.index.any? { |entry| entry.key?("arguments") })
   end
 
+  def test_a_dotted_tool_code_candidate_is_admitted_as_the_allowed_tool
+    register_librarian
+    program = RecordingStudioAgents::Programs::Compiler.compile(
+      definition: RecordingStudioAgents.agents.fetch(:librarian, version: 1)
+    )
+    menu = RecordingStudioAgents::ActionMenu.admit(
+      [
+        candidate("list", "pages").merge(
+          "type" => "tool_code",
+          "tool_key" => "page_lookup.find_page"
+        )
+      ],
+      program: program,
+      refused_digests: []
+    )
+
+    admitted = menu.fetch("list")
+    assert_equal "tool", admitted.type
+    assert_equal "find_page", admitted.tool_key
+  end
+
   private
 
   def run_librarian(idempotency_key)
@@ -455,6 +641,72 @@ class DurableRuntimeTest < PersistenceTestCase
       "handoff_key" => key,
       "handoff_version" => version
     }
+  end
+
+  def deliver_only_plan(run_id)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: nil,
+      structured_data: {
+        "plan" => ["Answer"],
+        "success_criteria" => [{ "id" => "done", "text" => "The pages were checked" }],
+        "current_objective" => "Answer",
+        "action_candidates" => [
+          { "id" => "1", "type" => "deliver", "purpose" => "Answer the question" }
+        ]
+      },
+      run: Struct.new(:id, :status).new(run_id, "completed")
+    )
+  end
+
+  def tool_only_plan(run_id)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: nil,
+      structured_data: {
+        "plan" => ["List the pages"],
+        "success_criteria" => [{ "id" => "done", "text" => "The pages were checked" }],
+        "current_objective" => "List the pages",
+        "action_candidates" => [
+          {
+            "id" => "1",
+            "type" => "tool",
+            "purpose" => "List pages",
+            "tool_key" => "find_page",
+            "tool_version" => 1,
+            "arguments" => { "title" => "Dogs" }
+          }
+        ]
+      },
+      run: Struct.new(:id, :status).new(run_id, "completed")
+    )
+  end
+
+  def rejected_plan(run_id)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: nil,
+      structured_data: {
+        "plan" => ["Look"],
+        "success_criteria" => [{ "id" => "done", "text" => "Found" }],
+        "current_objective" => "Look",
+        "action_candidates" => [
+          candidate("bad", "missing").merge("tool_key" => "lookup_invoice")
+        ]
+      },
+      run: Struct.new(:id, :status).new(run_id, "completed")
+    )
+  end
+
+  def listed_generate(kwargs)
+    if kwargs[:request_id].to_s.end_with?(":answer")
+      generation_response(text: "No matching pages.", run_id: 3)
+    else
+      plan_response(candidates: 1, run_id: 2)
+    end
   end
 
   def twenty_generate(kwargs, generated)

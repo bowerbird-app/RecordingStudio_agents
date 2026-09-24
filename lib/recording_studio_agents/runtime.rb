@@ -68,6 +68,7 @@ module RecordingStudioAgents
         if state.criteria_met? && menu.actionable.any?(&:deliver?)
           return finish(request, run, lease_token, state, menu.actionable.find(&:deliver?))
         end
+        return finish(request, run, lease_token, state, menu.actionable.first) if menu.answer_plan
 
         verdict, state = decide(request, run, lease_token, state, menu, steps)
         if verdict.fail?
@@ -107,6 +108,7 @@ module RecordingStudioAgents
         program: @program,
         refused_digests: state.data["refused_digests"]
       )
+      menu = keep_answer_available(menu, state)
       state, compacted = StateDelta.apply(state, {
                                             "replace_plan" => Array(data["plan"]),
                                             "replace_criteria" => Array(data["success_criteria"]),
@@ -198,9 +200,13 @@ module RecordingStudioAgents
         ),
         activities: [%w[step_started]]
       )
-      performance = Ai.perform_tool(
-        invocation: @invocation, run: run, candidate: candidate, sequence: sequence, resume: false
-      )
+      begin
+        performance = Ai.perform_tool(
+          invocation: @invocation, run: run, candidate: candidate, sequence: sequence, resume: false
+        )
+      rescue ConfigurationError => e
+        return stop_for_tool_error(run, lease_token, state, sequence, e.message)
+      end
       apply_performance(request, run, lease_token, state, menu, candidate, sequence, performance, verdict)
     end
 
@@ -210,9 +216,13 @@ module RecordingStudioAgents
 
       if step.status == "awaiting_confirmation"
         candidate = candidate_from_step(step)
-        performance = Ai.perform_tool(
-          invocation: @invocation, run: run, candidate: candidate, sequence: step.sequence, resume: true
-        )
+        begin
+          performance = Ai.perform_tool(
+            invocation: @invocation, run: run, candidate: candidate, sequence: step.sequence, resume: true
+          )
+        rescue ConfigurationError => e
+          return stop_for_tool_error(run, lease_token, state, step.sequence, e.message)
+        end
         menu = ActionMenu.new.restore_terminal(state.data["candidate_index"])
         return apply_performance(request, run, lease_token, state, menu, candidate, step.sequence, performance, nil)
       end
@@ -391,10 +401,46 @@ module RecordingStudioAgents
         text = result["summary"] || result[:summary]
         return text.to_s.byteslice(0, WorkingState::TEXT_LIMIT) if text
 
-        "keys: #{result.keys.map(&:to_s).sort.join(', ')}"
+        describe_hash(result).byteslice(0, WorkingState::TEXT_LIMIT)
       else
         result.class.name
       end
+    end
+
+    def describe_hash(result)
+      pages = result["pages"] || result[:pages]
+      if pages.is_a?(Array)
+        titles = pages.filter_map { |page| page_title(page) }
+        return "No pages." if titles.empty?
+
+        return "Pages: #{titles.join(', ')}"
+      end
+
+      title = result["title"] || result[:title]
+      return "Found #{title}." if title
+
+      "keys: #{result.keys.map(&:to_s).sort.join(', ')}"
+    end
+
+    def page_title(page)
+      return unless page.is_a?(Hash)
+
+      page["title"] || page[:title]
+    end
+
+    def stop_for_tool_error(run, lease_token, state, sequence, message)
+      @ledger.checkpoint!(
+        run: run, lease_token: lease_token, state: state,
+        step: {
+          sequence: sequence, status: "failed",
+          observation_summary: message,
+          observation_digest: Digests.of(message)
+        },
+        activities: [%w[step_completed]]
+      )
+      failure = Failure.new(category: "configuration", code: "tool_unavailable", message: message, retryable: false)
+      @ledger.commit_failed!(run: run, lease_token: lease_token, failure: failure)
+      Results::Failed.new(run: run.reload, failure: failure)
     end
 
     def observation_delta(result, sequence, summary, digest)
@@ -458,6 +504,23 @@ module RecordingStudioAgents
 
     def next_sequence(run)
       run.agent_steps.maximum(:sequence).to_i + 1
+    end
+
+    def keep_answer_available(menu, state)
+      return menu unless observations_present?(state)
+      return menu if answer_available?(menu)
+
+      menu.add(
+        ActionMenu::Candidate.new(id: "answer", type: "deliver", purpose: "Answer from the current observations")
+      )
+    end
+
+    def answer_available?(menu)
+      menu.actionable.any?(&:deliver?)
+    end
+
+    def observations_present?(state)
+      Array(state.data["recent_observations"]).any?
     end
 
     def signal_lines(state, run)

@@ -22,6 +22,7 @@ An agent run can keep working across many tool actions. The next model call sees
 - The lease renews on each loop turn and on each checkpoint, only while the same token is current and unexpired. A stale worker cannot checkpoint.
 - A confirmation pause stores `awaiting_confirmation` on the step and the run. The same idempotency key resumes that step.
 - The dummy playground, without a generative key, shows Plan, tool steps, check-ins, and Answer for Page librarian.
+- A tool result that lists pages is kept as those titles. A plan whose only candidate is an answer is written. A `tool_code` candidate whose key ends in an allowed tool is admitted as that tool. A missing `perform_tool` fails the run instead of leaving the tool step running.
 
 ### Upgrade notes
 - Install and run the engine migration that adds `working_state_json` and `recording_studio_agents_agent_steps`.

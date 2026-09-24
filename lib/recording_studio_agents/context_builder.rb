@@ -7,11 +7,15 @@ module RecordingStudioAgents
     end
 
     def self.for_reasoner(state:, menu:, signals:)
-      [
+      lines = [
         "Revise the plan and action candidates from the current state.",
-        "Return only the structured fields. Do not invent a tool call the runtime did not ask for.",
-        sections(state, menu, signals).join("\n\n")
-      ].join("\n\n")
+        "A tool candidate needs type tool, tool_key, tool_version, purpose, and an arguments object."
+      ]
+      if menu.actionable.empty?
+        lines << "The last plan had no usable action candidates. Include a tool candidate or a deliver candidate."
+      end
+      lines << sections(state, menu, signals).join("\n\n")
+      lines.join("\n\n")
     end
 
     def self.for_synthesis(state:)

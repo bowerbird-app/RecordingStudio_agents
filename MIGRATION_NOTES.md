@@ -9,7 +9,7 @@ bin/rails generate recording_studio_agents:migrations
 bin/rails db:migrate
 ```
 
-Development and dummy Gemfiles pin Recording Studio AI `v0.5.0`. That release does not add `perform_tool`. A tool step raises `ConfigurationError` until a later AI release provides that method and its migration for operation `tool`. Answer-only `generate` results still complete.
+Development and dummy Gemfiles pin Recording Studio AI `v0.5.0`. That release does not add `perform_tool`. A tool step fails the run with `tool_unavailable` until a later AI release provides that method and its migration for operation `tool`. The tool step is marked failed, so the attempt does not stay running. Answer-only `generate` results still complete.
 
 Existing `Agent#run` calls, skills, packs, knowledge loaders, and handoff allowlists stay valid. A generate result without `action_candidates` still finishes from that text. Agent budgets are separate from `maximum_attempts` and `maximum_custom_tool_rounds`.
 

@@ -37,7 +37,7 @@ A **controller** call is one `RecordingStudioAI.decide` request. It asks whether
 
 A **reasoner** call is one `RecordingStudioAI.generate` request on the run profile (`low`, `medium`, or `high`). The first call writes the plan, the success criteria, and the action candidates. Later calls replan, write the final answer, or compact state when the document is over its byte cap. The controller uses `controller_profile`, which starts at `:low`. Agents does not name a provider or a model.
 
-An **action candidate** is one next action with its arguments already filled in. Kinds are `tool`, `deliver`, and `handoff`. The controller picks an id from that list. A tool the program did not allow is dropped before the controller sees it.
+An **action candidate** is one next action with its arguments already filled in. Kinds are `tool`, `deliver`, and `handoff`. A tool candidate names the tool key, the version, and an arguments object. The plan lists the allowed tools. The controller picks an id from the candidates that remain. A tool the program did not allow is dropped. A plan with nothing left is sent back to the reasoner. After a tool observation is stored, an answer candidate stays available so the run can finish from what it already learned. When the only remaining candidate is an answer, the run writes that answer.
 
 A **tool** stays registered with Recording Studio AI. The runtime calls `RecordingStudioAI.perform_tool` for one candidate. That call keeps validation, authorization, confirmation, timeout, and result-size limits. Agents does not call a tool executor itself. The published Recording Studio AI 0.5.0 gem does not define `perform_tool` yet. A tool step raises `ConfigurationError` on that gem. Answer-only runs still finish from `generate`.
 
