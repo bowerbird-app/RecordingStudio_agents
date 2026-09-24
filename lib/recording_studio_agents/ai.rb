@@ -154,7 +154,8 @@ module RecordingStudioAgents
 
     def perform_tool(invocation:, run:, candidate:, sequence:, resume:)
       unless RecordingStudioAI.respond_to?(:perform_tool)
-        raise ConfigurationError, "Tool steps need RecordingStudioAI.perform_tool. This Recording Studio AI gem does not provide it."
+        raise ConfigurationError,
+              "Tool steps need RecordingStudioAI.perform_tool. This Recording Studio AI gem does not provide it."
       end
 
       RecordingStudioAI.perform_tool(
