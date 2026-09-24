@@ -172,7 +172,7 @@ class PlaygroundController < ApplicationController
   def show_steps
     return [] if @run.nil?
 
-    PlaygroundSteps.for(@run, reply_text: reply_text)
+    PlaygroundSteps.for(@run, reply_text: reply_text, context: @form.context)
   end
 
   def reply_text

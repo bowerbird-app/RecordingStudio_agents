@@ -11,15 +11,10 @@
           size: :sm
         ))
       ) do %>
-        <p><%= step.body %></p>
-        <% if step.arguments_text.present? %>
-          <%= render FlatPack::CodeBlock::Component.new(
-            title: "Passed in",
-            code: step.arguments_text,
-            language: "json",
-            wrap: true
-          ) %>
-        <% end %>
+        <%= render FlatPack::PageTitle::Component.new(title: "Given", variant: :h4) %>
+        <%= simple_format(step.given) %>
+        <%= render FlatPack::PageTitle::Component.new(title: "Returned", variant: :h4) %>
+        <%= simple_format(step.returned) %>
       <% end %>
     <% end %>
   <% end %>

@@ -15,7 +15,7 @@ The dummy playground starts a registered agent and watches the attempt.
 - Studio Workspace seeds a small library: Product Docs, Guides, People, and a root page named Studio overview. Client Workspace and Private Workspace stay empty. Getting Started stays in Product Docs.
 
 ### Changed
-- Dummy playground results start blank, including when a new run starts. Each step is a collapse with a title and a progress badge. Open a tool step to see the data that was passed in. The reply is a collapse when the run finishes. The agent name, skills, and model-call link are not repeated on that side.
+- Dummy playground results start blank, including when a new run starts. Each step is a collapse with a title and a progress badge. Open a step to see what the agent was given and what it returned. The reply is a collapse when the run finishes. The agent name, skills, and model-call link are not repeated on that side.
 
 ### Fixed
 - A handoff requested during a live model call can record the request. Recording Studio AI redacts metadata keys that contain `token`, so the handoff tool matches a digest of the lease instead of the redacted value.

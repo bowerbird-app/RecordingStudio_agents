@@ -4,9 +4,8 @@ require "test_helper"
 
 class PlaygroundStepsTest < ActiveSupport::TestCase
   Step = RecordingStudioAgents::Progress::Step
-  Invocation = Struct.new(:error_message, :result_summary, :metadata, keyword_init: true)
 
-  test "builds a closed step for each progress row and a reply collapse" do
+  test "each step shows what the agent was given and what it returned" do
     steps = [
       Step.new(kind: :knowledge, label: "Checked this workspace", status: :done, badge: "Done", badge_style: :success),
       Step.new(kind: :tool, label: "Find page", status: :done, badge: "Done", badge_style: :success),
@@ -15,101 +14,76 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
 
     entries = PlaygroundSteps.build(
       steps,
-      [ Invocation.new(result_summary: "Getting Started is in Product Docs.") ],
       failure_message: nil,
-      reply_text: "Found it."
+      reply_text: "Found it.",
+      instruction: "Find the staff handbook.",
+      context: "{\"folder\":\"People\"}"
     )
 
     assert_equal [
-      [ "playground-step-0", "Checked this workspace", "Done", "Looked through this workspace." ],
-      [ "playground-step-1", "Find page", "Done", "Getting Started is in Product Docs." ],
-      [ "playground-step-2", "Wrapped up", "Done", "The run finished." ],
-      [ "playground-reply", "Reply", "Done", "Found it." ]
-    ], entries.map { |entry| [ entry.id, entry.title, entry.badge, entry.body ] }
+      "playground-step-0",
+      "playground-step-1",
+      "playground-step-2",
+      "playground-reply"
+    ], entries.map(&:id)
+    assert entries.all? { |entry| entry.given == "Find the staff handbook.\n\n{\"folder\":\"People\"}" }
+    assert entries.all? { |entry| entry.returned == "Found it." }
   end
 
-  test "a blank run has no reply collapse" do
-    entries = PlaygroundSteps.build([], [], failure_message: nil, reply_text: nil)
+  test "a blank run has no collapses" do
+    entries = PlaygroundSteps.build([], failure_message: nil, reply_text: nil, instruction: "")
 
     assert_empty entries
   end
 
-  test "a waiting tool and a failed run keep their own detail" do
+  test "a failed run with no reply shows the failure" do
     steps = [
-      Step.new(kind: :tool, label: "Retitle page", status: :waiting, badge: "Waiting", badge_style: :warning),
       Step.new(kind: :failed, label: "Did not finish", status: :failed, badge: "Failed", badge_style: :danger)
     ]
 
     entries = PlaygroundSteps.build(
       steps,
-      [ Invocation.new(error_message: "Needs a yes.") ],
       failure_message: "The title was not saved.",
-      reply_text: " "
+      reply_text: " ",
+      instruction: "Rename the page."
     )
 
-    assert_equal "Waiting for a yes before using Retitle page.", entries.first.body
-    assert_equal "The title was not saved.", entries.second.body
-    assert_equal 2, entries.length
+    assert_equal [ "playground-step-0" ], entries.map(&:id)
+    assert_equal "Rename the page.", entries.first.given
+    assert_equal "The title was not saved.", entries.first.returned
   end
 
-  test "a machine summary does not replace the tool sentence" do
+  test "a run that is still going says so" do
     steps = [
-      Step.new(kind: :tool, label: "Find page", status: :done, badge: "Done", badge_style: :success)
-    ]
-    summary = "{\"type\":\"Hash\",\"byte_size\":116}"
-
-    entries = PlaygroundSteps.build(
-      steps,
-      [ Invocation.new(result_summary: summary) ],
-      failure_message: nil,
-      reply_text: nil
-    )
-
-    assert_equal "Used Find page.", entries.first.body
-    assert_nil entries.first.arguments_text
-  end
-
-  test "a tool step shows the arguments that were passed in" do
-    steps = [
-      Step.new(kind: :tool, label: "Find page", status: :done, badge: "Done", badge_style: :success)
+      Step.new(kind: :running, label: "On it", status: :running, badge: "Working", badge_style: :info)
     ]
 
     entries = PlaygroundSteps.build(
       steps,
-      [ Invocation.new(metadata: { "arguments" => { "title" => "Staff handbook" } }) ],
       failure_message: nil,
-      reply_text: nil
+      reply_text: nil,
+      instruction: "Find the staff handbook."
     )
 
-    assert_equal "Used Find page.", entries.first.body
-    assert_equal "{\n  \"title\": \"Staff handbook\"\n}", entries.first.arguments_text
+    assert_equal "Still going.", entries.first.returned
   end
 
-  test "the collapse renders passed-in arguments" do
+  test "the collapse renders given and returned" do
     step = PlaygroundSteps::Entry.new(
       id: "playground-step-1",
       title: "Find page",
       badge: "Done",
       badge_style: :success,
-      body: "Used Find page.",
-      arguments_text: "{\n  \"title\": \"Staff handbook\"\n}"
+      given: "Find the staff handbook.",
+      returned: "I found the page \"Staff handbook\"."
     )
 
     html = ApplicationController.render(partial: "playground/results", assigns: { steps: [ step ] })
 
-    assert_includes html, "Passed in"
-    assert_includes html, "Staff handbook"
+    assert_includes html, "Given"
+    assert_includes html, "Find the staff handbook."
+    assert_includes html, "Returned"
+    assert_includes html, "I found the page"
     assert_includes html, "playground-step-1-content"
-  end
-
-  test "a tool with no summary says which tool ran" do
-    steps = [
-      Step.new(kind: :tool, label: "List pages", status: :running, badge: "Working", badge_style: :info)
-    ]
-
-    entries = PlaygroundSteps.build(steps, [ Invocation.new ], failure_message: nil, reply_text: nil)
-
-    assert_equal "Used List pages.", entries.first.body
-    assert_equal "Working", entries.first.badge
   end
 end
