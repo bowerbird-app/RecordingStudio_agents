@@ -6,6 +6,16 @@ module RecordingStudioAgents
       sections(state, menu, signals).join("\n\n")
     end
 
+    def self.for_next_actions(state:, menu:, signals:)
+      lines = [
+        "Return the next one to three actions from the current state.",
+        "A tool action needs type tool, tool_key, tool_version, purpose, and an arguments object.",
+        "Leave the plan and the success criteria as they are."
+      ]
+      lines << sections(state, menu, signals).join("\n\n")
+      lines.join("\n\n")
+    end
+
     def self.for_reasoner(state:, menu:, signals:)
       lines = [
         "Revise the plan and action candidates from the current state.",

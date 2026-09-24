@@ -28,6 +28,8 @@ An explicit empty `action_candidates` list now enters the runtime. A generate re
 
 A long or nested tool result can use one generate call on `controller_profile`. That call counts toward `maximum_observation_calls`, which defaults to 30. It does not count toward `maximum_reasoner_calls`. Set the key on `RecordingStudioAgents.configuration` to change the cap. No migration.
 
+A plan now keeps at most three tool actions. Later tools are requested after the current ones finish, and that request does not replace the plan. A stuck run still replans. No host change.
+
 ## Current Requirements
 
 - Ruby 3.3 or newer

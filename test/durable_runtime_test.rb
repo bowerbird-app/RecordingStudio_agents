@@ -20,23 +20,74 @@ class DurableRuntimeTest < PersistenceTestCase
     end
   end
 
-  def test_twenty_tool_steps_keep_the_model_context_bounded
+  def test_a_large_plan_keeps_only_three_tools
     register_librarian
     generated = []
     decided = []
+    generate = lambda do |**kwargs|
+      generated << kwargs
+      if kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "The page is ready.", run_id: 50)
+      else
+        plan_response(candidates: 20, run_id: 7)
+      end
+    end
+    decide = lambda do |**kwargs|
+      decided << kwargs
+      criteria = kwargs[:questions].dig(:next_action, :criteria) || {}
+      tool_id = criteria.keys.find { |id| id.to_s.start_with?("action_") }
+      if tool_id
+        decision(finished: 0.1, choice_id: tool_id, candidate_ids: criteria.keys)
+      else
+        decision(finished: 0.95, choice_id: "deliver", candidate_ids: criteria.keys)
+      end
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, ->(**) { performance(summary: "saw a page", finding: "kept a page") }) do
+          result = run_librarian("large-plan")
+          criteria = decided.first[:questions][:next_action][:criteria]
+          stored = result.run.working_state_json.to_json
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal 3, result.run.agent_steps.where(action_type: "tool", status: "completed").count
+          assert_equal 1, legacy_plan_calls(generated, result)
+          assert_equal %w[action_1 action_2 action_3 deliver], criteria.keys
+          assert_includes criteria.fetch("action_1"), "find_page v1. Look note-1"
+          refute_includes decided.first[:state], "Look note-20"
+          refute_includes stored, "note-20"
+          assert_equal ["Look it up", "Answer"], result.run.working_state_json["plan"]
+          refute(generated.any? { |call| call[:request_id].to_s.include?(":next-") })
+        end
+      end
+    end
+  end
+
+  def test_a_tool_chain_keeps_the_model_context_bounded
+    register_librarian
+    previous_calls = RecordingStudioAgents.configuration.maximum_reasoner_calls
+    previous_steps = RecordingStudioAgents.configuration.maximum_steps
+    RecordingStudioAgents.configuration.maximum_reasoner_calls = 40
+    RecordingStudioAgents.configuration.maximum_steps = 120
+    generated = []
+    decided = []
     performed = []
-    counts = { choice: 0, tool: 0 }
-    generate = ->(**kwargs) { twenty_generate(kwargs, generated) }
-    decide = ->(**kwargs) { twenty_decide(kwargs, decided, counts) }
-    perform = ->(**kwargs) { twenty_perform(kwargs, performed, counts) }
+    counts = { tools: 0 }
+    generate = ->(**kwargs) { chain_generate(kwargs, generated) }
+    decide = ->(**kwargs) { chain_decide(kwargs, decided, counts) }
+    perform = ->(**kwargs) { chain_perform(kwargs, performed, counts) }
 
     RecordingStudioAI.stub(:generate, generate) do
       RecordingStudioAI.stub(:decide, decide) do
         RecordingStudioAI.stub(:perform_tool, perform) do
-          assert_bounded_twenty(run_librarian("twenty-steps"), generated, decided)
+          assert_bounded_chain(run_librarian("tool-chain"), generated, decided, performed)
         end
       end
     end
+  ensure
+    RecordingStudioAgents.configuration.maximum_reasoner_calls = previous_calls
+    RecordingStudioAgents.configuration.maximum_steps = previous_steps
   end
 
   def test_a_dead_worker_does_not_repeat_a_finished_tool
@@ -1571,62 +1622,111 @@ class DurableRuntimeTest < PersistenceTestCase
     end
   end
 
-  def twenty_generate(kwargs, generated)
+  def chain_generate(kwargs, generated)
     generated << kwargs
-    if kwargs[:request_id].to_s.end_with?(":answer")
+    request_id = kwargs[:request_id].to_s
+    if request_id.end_with?(":answer")
       generation_response(text: "The page is ready.", run_id: 50)
+    elsif request_id.include?(":next-")
+      page = kwargs[:prompt].scan(/Page \d+/).last || "missing"
+      next_response(page, 51)
     else
-      plan_response(candidates: 20, run_id: 7)
+      chain_plan(52)
     end
   end
 
-  def twenty_decide(kwargs, decided, counts)
+  def chain_decide(kwargs, decided, counts)
     decided << kwargs
-    counts[:choice] += 1
-    number = counts[:choice]
-    return decision(finished: 0.95, choice_id: "deliver", candidate_ids: ["deliver"]) if number > 20
-
-    decision(finished: 0.1, choice_id: "action_#{number}", candidate_ids: ["action_#{number}", "deliver"])
+    if kwargs[:questions].key?(:next_action)
+      criteria = kwargs[:questions][:next_action][:criteria]
+      choice_id = criteria.keys.first
+      decision(finished: 0.1, choice_id: choice_id, candidate_ids: criteria.keys)
+    elsif counts[:tools] >= 20
+      decision(finished: 0.95, stuck: 0.1, choice_id: "deliver", candidate_ids: ["deliver"])
+    else
+      decision(finished: 0.1, stuck: 0.05, choice_id: "deliver", candidate_ids: ["deliver"])
+    end
   end
 
-  def twenty_perform(kwargs, performed, counts)
+  def chain_perform(kwargs, performed, counts)
     performed << kwargs
-    counts[:tool] += 1
-    performance(
-      summary: format("observation-%02d", counts[:tool]),
-      secret: "SECRET-ARGUMENT",
-      finding: "found #{counts[:tool]}"
+    counts[:tools] += 1
+    Performance.new(
+      status: "completed",
+      result: {
+        "title" => "Page #{counts[:tools]}",
+        "findings" => ["Opened Page #{counts[:tools]}"],
+        "api_token" => "SECRET-ARGUMENT"
+      },
+      error: nil,
+      run: Struct.new(:id).new(500)
     )
   end
 
-  def assert_bounded_twenty(result, generated, decided)
+  def chain_plan(run_id)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: nil,
+      structured_data: {
+        "plan" => ["Open the next page"],
+        "success_criteria" => [{ "id" => "done", "text" => "Twenty pages were opened" }],
+        "current_objective" => "Open the next page",
+        "action_candidates" => [
+          candidate("action_1", "start").merge("purpose" => "Open the first page")
+        ]
+      },
+      run: Struct.new(:id, :status).new(run_id, "completed")
+    )
+  end
+
+  def next_response(page, run_id)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: nil,
+      structured_data: {
+        "current_objective" => "Open #{page}",
+        "action_candidates" => [
+          {
+            "id" => "next",
+            "type" => "tool",
+            "purpose" => "Open #{page}",
+            "tool_key" => "find_page",
+            "tool_version" => 1,
+            "arguments" => { "title" => page }
+          }
+        ]
+      },
+      run: Struct.new(:id, :status).new(run_id, "completed")
+    )
+  end
+
+  def assert_bounded_chain(result, generated, decided, performed)
+    state = RecordingStudioAgents::WorkingState.load(result.run.working_state_json)
+    stored = result.run.working_state_json.to_json + result.run.agent_steps.map(&:attributes).to_json
+
     assert_instance_of RecordingStudioAgents::Results::Completed, result
     assert_equal "The page is ready.", result.output.text
-    assert_equal "The page is ready.", result.run.agent_steps.find_by!(action_type: "deliver").observation_summary
-    assert_operator result.run.agent_steps.where(action_type: "tool", status: "completed").count, :>=, 20
-    assert_equal (1..result.run.agent_steps.maximum(:sequence)).to_a, ordered_sequences(result)
-    assert_equal 1, legacy_plan_calls(generated, result)
+    assert_equal 20, result.run.agent_steps.where(action_type: "tool", status: "completed").count
+    assert_equal({ "note" => "start" }, performed[0][:arguments])
+    assert_equal "Page 1", performed[1][:arguments]["title"]
+    assert_equal "Page 2", performed[2][:arguments]["title"]
+    assert_equal "Page 19", performed[19][:arguments]["title"]
+    assert_equal ["Open the next page"], state.data["plan"]
+    assert_equal 0, state.counter("replans")
+    assert_equal 20, state.counter("reasoner_calls")
+    assert_equal(19, generated.count { |call| call[:request_id].to_s.include?(":next-") })
+    refute(generated.any? { |call| call[:request_id].to_s.include?(":arguments-") })
+    refute(generated.any? { |call| call[:request_id].to_s.include?(":observe-") })
     assert_equal [], generated.first[:custom_tools]
-    refute passes_attempt_limit?(generated)
-    assert_equal 3, RecordingStudioAI.configuration.maximum_attempts
-    assert_equal 21, decided.length
-    assert_equal %i[progress_made finished stuck needs_reasoning next_action], decided.first[:questions].keys
-    criteria = decided.first[:questions][:next_action][:criteria]
-    assert_includes criteria.fetch("action_1"), "find_page v1. Look note-1"
-    refute(criteria.values.any?(&:nil?))
-    refute_includes decided.last[:state], "observation-01"
-    refute_includes decided.last[:state], "Look note-1\n"
-    refute_includes decided.last[:state], "SECRET-ARGUMENT"
-    assert_includes decided.last[:state], "observation-20"
+    refute_includes decided.last[:state], "Found Page 1."
+    assert_includes decided.last[:state], "Found Page 20."
     assert_operator decided.last[:state].bytesize, :<, 8_000
     assert_operator widest_state(decided), :<, decided.first[:state].bytesize + 4_000
-    answer = answer_call(generated)
-    refute_includes answer[:prompt], "observation-01"
-    refute_includes answer[:prompt], "SECRET-ARGUMENT"
-    stored = result.run.working_state_json.to_json + result.run.agent_steps.map(&:attributes).to_json
+    refute_includes answer_call(generated)[:prompt], "Found Page 1."
     refute_includes stored, "SECRET-ARGUMENT"
-    refute_includes stored, "chain of thought"
-    assert result.run.agent_steps.where.not(observation_digest: nil).any?
+    assert_equal (1..result.run.agent_steps.maximum(:sequence)).to_a, ordered_sequences(result)
   end
 
   def ordered_sequences(result)

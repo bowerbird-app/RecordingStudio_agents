@@ -75,6 +75,16 @@ module RecordingStudioAgents
       }
     }.freeze
 
+    NEXT_SCHEMA = {
+      "type" => "object",
+      "additionalProperties" => false,
+      "required" => %w[action_candidates],
+      "properties" => {
+        "current_objective" => { "type" => "string" },
+        "action_candidates" => PLAN_SCHEMA.dig("properties", "action_candidates")
+      }
+    }.freeze
+
     COMPACT_SCHEMA = {
       "type" => "object",
       "additionalProperties" => false,
@@ -166,6 +176,25 @@ module RecordingStudioAgents
       )
     end
 
+    def next_actions(invocation:, run:, lease_token:, prompt:, suffix:)
+      RecordingStudioAI.generate(
+        prompt: prompt,
+        system_instruction: "#{invocation.system_instruction}\n\n#{planning_note(invocation)}",
+        custom_tools: [],
+        schema: NEXT_SCHEMA,
+        purpose: invocation.purpose,
+        profile: invocation.profile,
+        root_recording: invocation.root_recording,
+        context_recording: invocation.context_recording,
+        initiator: invocation.initiator,
+        initiator_kind: invocation.initiator_kind,
+        executor: invocation.executor,
+        execution_source: invocation.execution_source,
+        request_id: request_id_for(run, suffix),
+        metadata: lease_metadata(run, lease_token)
+      )
+    end
+
     def synthesize(invocation:, run:, lease_token:, state:)
       RecordingStudioAI.generate(
         prompt: ContextBuilder.for_synthesis(state: state),
@@ -237,7 +266,7 @@ module RecordingStudioAgents
     def planning_note(invocation)
       catalog = tool_catalog(invocation)
       note = [
-        "Plan the work. Put the next actions in action_candidates.",
+        "Plan the work. Put at most three next actions in action_candidates.",
         "A tool candidate needs type tool, tool_key, tool_version, purpose, and an arguments object.",
         "Fill each arguments object with the parameters listed for that tool.",
         "Include a deliver candidate when the answer can be written. This step returns the plan only."

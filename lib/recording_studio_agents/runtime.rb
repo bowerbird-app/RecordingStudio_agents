@@ -40,26 +40,10 @@ module RecordingStudioAgents
         end
 
         if menu.actionable.empty?
-          return finish(request, run, lease_token, state, nil) if state.criteria_met?
+          followed = follow_empty_menu(request, run, lease_token, state, menu)
+          return followed unless followed.is_a?(Array)
 
-          if observations_present?(state)
-            verdict, state = decide_if_answered(request, run, lease_token, state)
-            if verdict.fail?
-              return fail_run(run, lease_token, "decision_failed",
-                              verdict.probabilities["retryable"] == true)
-            end
-            return finish(request, run, lease_token, state, nil) if verdict.finish?
-          end
-          if state.counter("replans") >= configuration.maximum_replans
-            return fail_run(run, lease_token, "maximum_replans",
-                            false)
-          end
-          if state.counter("reasoner_calls") >= configuration.maximum_reasoner_calls
-            return fail_run(run, lease_token, "maximum_reasoner_calls",
-                            false)
-          end
-
-          state, menu = replan(request, run, lease_token, state, menu)
+          state, menu = followed
           next
         end
 
@@ -225,6 +209,98 @@ module RecordingStudioAgents
 
         @ledger.attach_ai_run!(run: run, lease_token: lease_token, ai_run: fill[:ai_run])
       end
+    end
+
+    def follow_empty_menu(request, run, lease_token, state, menu)
+      return finish(request, run, lease_token, state, nil) if state.criteria_met?
+      return follow_observations(request, run, lease_token, state, menu) if observations_present?(state)
+
+      replan_or_stop(request, run, lease_token, state, menu)
+    end
+
+    def follow_observations(request, run, lease_token, state, menu)
+      verdict, state = decide_if_answered(request, run, lease_token, state)
+      if verdict.fail?
+        return fail_run(run, lease_token, "decision_failed",
+                        verdict.probabilities["retryable"] == true)
+      end
+      return finish(request, run, lease_token, state, nil) if verdict.finish?
+      return ask_for_next_actions(request, run, lease_token, state, menu) if fresh_actions?(state, verdict)
+
+      replan_or_stop(request, run, lease_token, state, menu)
+    end
+
+    def ask_for_next_actions(request, run, lease_token, state, menu)
+      if state.counter("reasoner_calls") >= configuration.maximum_reasoner_calls
+        return fail_run(run, lease_token, "maximum_reasoner_calls", false)
+      end
+
+      next_actions(request, run, lease_token, state, menu)
+    end
+
+    def replan_or_stop(request, run, lease_token, state, menu)
+      if state.counter("replans") >= configuration.maximum_replans
+        return fail_run(run, lease_token, "maximum_replans", false)
+      end
+      if state.counter("reasoner_calls") >= configuration.maximum_reasoner_calls
+        return fail_run(run, lease_token, "maximum_reasoner_calls", false)
+      end
+
+      replan(request, run, lease_token, state, menu)
+    end
+
+    def fresh_actions?(state, verdict)
+      return false if Signals.hard_stuck?(state)
+
+      verdict.probabilities["stuck"].to_f < configuration.stuck_probability
+    end
+
+    def next_actions(request, run, lease_token, state, menu)
+      prompt = ContextBuilder.for_next_actions(state: state, menu: menu, signals: signal_lines(state, run))
+      response = Ai.next_actions(
+        invocation: @invocation, run: run, lease_token: lease_token, prompt: prompt,
+        suffix: "next-#{state.counter('reasoner_calls') + 1}"
+      )
+      if response.respond_to?(:run) && response.run
+        @ledger.attach_ai_run!(run: run, lease_token: lease_token, ai_run: response.run)
+      end
+      unless response.respond_to?(:error) ? response.error.nil? : true
+        raise response.error if response.error.respond_to?(:message)
+
+        raise ContractError, "next actions failed"
+      end
+
+      accept_next(request, run, lease_token, state, response)
+    end
+
+    def accept_next(request, run, lease_token, state, response)
+      data = response.structured_data.is_a?(Hash) ? response.structured_data.stringify_keys : {}
+      menu = ActionMenu.admit(
+        data["action_candidates"],
+        program: @program,
+        refused_digests: state.data["refused_digests"]
+      )
+      delta = {
+        "replace_candidate_index" => menu.index,
+        "increment" => { "reasoner_calls" => 1 }
+      }
+      delta["set_current_objective"] = data["current_objective"] if data["current_objective"].present?
+      state, compacted = StateDelta.apply(state, delta)
+      state, menu, fills = supply_arguments(run, lease_token, state, menu)
+      state, = StateDelta.apply(state, { "replace_candidate_index" => menu.index })
+      state = remember_compaction(state, compacted)
+      state = shrink(request, run, lease_token, state)
+      @ledger.checkpoint!(
+        run: run, lease_token: lease_token, state: state,
+        step: step_attributes(
+          run, "completed", "reason", nil,
+          observation_summary: "Asked for the next actions.",
+          ai_run_id: response.try(:run)&.id
+        ),
+        activities: [%w[reasoner_requested]]
+      )
+      remember_argument_fills(run, lease_token, state, fills)
+      [state, menu]
     end
 
     def replan(request, run, lease_token, state, menu)

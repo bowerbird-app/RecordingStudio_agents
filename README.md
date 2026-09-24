@@ -39,6 +39,8 @@ A **reasoner** call is one `RecordingStudioAI.generate` request on the run profi
 
 A long or nested tool result gets one more `generate` call on `controller_profile`. The call returns a short summary and a state delta. It counts toward `maximum_observation_calls`, not `maximum_reasoner_calls`. A string, a summary field, a page list, a title, and other short fields skip that call. Fields named secret, token, password, or credential stay out of the summary and out of that prompt.
 
+A plan keeps at most three tool actions, plus a deliver or handoff candidate when the plan includes one. When those tools are finished and the observations do not answer the goal, one `generate` call on the run profile asks for the next one to three actions. That call counts toward `maximum_reasoner_calls`. It does not replace the plan or the success criteria, and it does not count as a replan. Arguments that already match the tool schema are kept. Arguments that do not match get the same argument fill as a plan. A stuck run still replans and replaces the plan.
+
 An **action candidate** is one next action with its arguments already filled in. Kinds are `tool`, `deliver`, and `handoff`. A tool candidate names the tool key, the version, and an arguments object. The type is `tool`. The plan lists each allowed tool with the description, use, parameters, and return value from its Recording Studio AI registration, and the reasoner fills those arguments. When a tool candidate fails that tool's argument check, one more generate call uses that tool's parameter schema and returns the arguments object. That call counts toward `maximum_reasoner_calls`. The tool runs after those arguments validate. A candidate that still fails is dropped before the tool runs. An empty arguments object stays put when the tool requires nothing. Deliver and handoff candidates are left as they are. The internal handoff tool stays off that list. A handoff candidate still names an allowlisted target. The controller picks an id from the candidates that remain. A tool the program did not allow is dropped. A plan with nothing left goes back to the reasoner when no observation is stored yet. After an observation, an empty menu asks whether the goal can be answered from those observations. The runtime does not add a candidate of its own. The answer is written when that finished score crosses the threshold, or when every success criterion is already met.
 
 A **tool** stays registered with Recording Studio AI. The runtime calls `RecordingStudioAI.perform_tool` for one candidate. That call keeps validation, authorization, confirmation, timeout, and result-size limits. Agents does not call a tool executor itself. Recording Studio AI 0.6.0 provides `perform_tool`. Hosts run that gem's migration so a run can use operation `tool`. A missing `perform_tool` still fails the tool step with `tool_unavailable`. Answer-only runs still finish from `generate`.
@@ -62,6 +64,7 @@ progress, finished, stuck, next candidate
         |         |
         |         v
         |    short observation, state delta, checkpoint
+        |    next one to three actions when no tool is left
         |
         +--> controller again when an observation is stored and no candidates remain
         |

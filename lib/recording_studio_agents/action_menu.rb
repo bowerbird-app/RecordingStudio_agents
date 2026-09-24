@@ -2,6 +2,8 @@
 
 module RecordingStudioAgents
   class ActionMenu
+    TOOL_LIMIT = 3
+
     class Candidate
       attr_reader :id, :type, :tool_key, :tool_version, :arguments, :purpose,
                   :handoff_key, :handoff_version, :argument_digest
@@ -80,10 +82,13 @@ module RecordingStudioAgents
 
     def self.admit(raw_candidates, program:, refused_digests:)
       menu = new
+      tools = 0
       Array(raw_candidates).each do |raw|
         candidate = build(raw, program)
         next if candidate.nil? || (candidate.tool? && refused_digests.include?(candidate.argument_digest))
+        next if candidate.tool? && tools >= TOOL_LIMIT
 
+        tools += 1 if candidate.tool?
         menu.add(candidate)
       end
       menu
