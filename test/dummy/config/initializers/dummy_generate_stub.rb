@@ -7,9 +7,27 @@ module DummyGenerateStub
 
   def generate(**kwargs, &block)
     hook = Thread.current[THREAD_KEY]
+    return hook.generate(**kwargs, &block) if hook.respond_to?(:generate)
     return hook.call(**kwargs, &block) if hook.respond_to?(:call)
 
     super
+  end
+
+  def decide(**kwargs)
+    hook = Thread.current[THREAD_KEY]
+    return hook.decide(**kwargs) if hook.respond_to?(:decide)
+
+    super
+  end
+
+  def perform_tool(**kwargs)
+    hook = Thread.current[THREAD_KEY]
+    return hook.perform_tool(**kwargs) if hook.respond_to?(:perform_tool)
+
+    super
+  rescue NoMethodError
+    raise RecordingStudioAgents::ConfigurationError,
+          "Tool steps need RecordingStudioAI.perform_tool from Recording Studio AI 0.5.0."
   end
 
   def self.with_hook(hook)

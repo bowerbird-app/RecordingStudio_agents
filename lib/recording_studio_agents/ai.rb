@@ -8,10 +8,6 @@ module RecordingStudioAgents
 
     module_function
 
-    def request_id_for(run)
-      "#{REQUEST_ID_PREFIX}#{run.id}"
-    end
-
     def authorize!(request:, program:)
       RecordingStudioAI::Authorization.authorize!(
         :execute,
@@ -24,13 +20,69 @@ module RecordingStudioAgents
       )
     end
 
+    PLAN_SCHEMA = {
+      "type" => "object",
+      "additionalProperties" => false,
+      "required" => %w[plan success_criteria current_objective action_candidates],
+      "properties" => {
+        "plan" => { "type" => "array", "items" => { "type" => "string" } },
+        "success_criteria" => {
+          "type" => "array",
+          "items" => {
+            "type" => "object",
+            "additionalProperties" => false,
+            "required" => %w[id text],
+            "properties" => {
+              "id" => { "type" => "string" },
+              "text" => { "type" => "string" }
+            }
+          }
+        },
+        "current_objective" => { "type" => "string" },
+        "action_candidates" => {
+          "type" => "array",
+          "items" => {
+            "type" => "object",
+            "additionalProperties" => false,
+            "required" => %w[id type purpose],
+            "properties" => {
+              "id" => { "type" => "string" },
+              "type" => { "type" => "string" },
+              "purpose" => { "type" => "string" },
+              "tool_key" => { "type" => "string" },
+              "tool_version" => { "type" => "integer" },
+              "arguments" => { "type" => "object" },
+              "handoff_key" => { "type" => "string" },
+              "handoff_version" => { "type" => "integer" }
+            }
+          }
+        }
+      }
+    }.freeze
+
+    COMPACT_SCHEMA = {
+      "type" => "object",
+      "additionalProperties" => false,
+      "properties" => {
+        "replace_plan" => { "type" => "array", "items" => { "type" => "string" } },
+        "set_current_objective" => { "type" => "string" },
+        "add_findings" => { "type" => "array", "items" => { "type" => "string" } },
+        "add_completed" => { "type" => "array", "items" => { "type" => "string" } },
+        "add_failed" => { "type" => "array", "items" => { "type" => "string" } },
+        "add_open_questions" => { "type" => "array", "items" => { "type" => "string" } }
+      }
+    }.freeze
+
     def generate(invocation:, run:, lease_token:)
+      plan(invocation: invocation, run: run, lease_token: lease_token)
+    end
+
+    def plan(invocation:, run:, lease_token:, prompt: nil, suffix: nil)
       RecordingStudioAI.generate(
-        prompt: invocation.goal,
-        system_instruction: invocation.system_instruction,
-        custom_tools: invocation.tool_references.map do |reference|
-          { key: reference.key.to_sym, version: reference.version }
-        end,
+        prompt: prompt || invocation.goal,
+        system_instruction: "#{invocation.system_instruction}\n\n#{planning_note}",
+        custom_tools: [],
+        schema: PLAN_SCHEMA,
         purpose: invocation.purpose,
         profile: invocation.profile,
         root_recording: invocation.root_recording,
@@ -39,15 +91,105 @@ module RecordingStudioAgents
         initiator_kind: invocation.initiator_kind,
         executor: invocation.executor,
         execution_source: invocation.execution_source,
-        request_id: request_id_for(run),
-        metadata: {
-          "agent_run_id" => run.id,
-          "lease_token" => lease_token,
-          # Recording Studio AI redacts metadata keys that contain "token"
-          # before the tool runs. The digest still matches the live lease.
-          "agent_lease_check" => Digest::SHA256.hexdigest(lease_token.to_s)
-        }
+        request_id: request_id_for(run, suffix),
+        metadata: lease_metadata(run, lease_token)
       )
+    end
+
+    def decide(invocation:, run:, lease_token:, state:, questions:, suffix:)
+      RecordingStudioAI.decide(
+        state: state,
+        questions: questions,
+        purpose: invocation.purpose,
+        profile: RecordingStudioAgents.configuration.controller_profile,
+        root_recording: invocation.root_recording,
+        context_recording: invocation.context_recording,
+        initiator: invocation.initiator,
+        initiator_kind: invocation.initiator_kind,
+        executor: invocation.executor,
+        execution_source: invocation.execution_source,
+        request_id: request_id_for(run, suffix),
+        metadata: lease_metadata(run, lease_token)
+      )
+    end
+
+    def synthesize(invocation:, run:, lease_token:, state:)
+      RecordingStudioAI.generate(
+        prompt: ContextBuilder.for_synthesis(state: state),
+        system_instruction: invocation.system_instruction,
+        custom_tools: [],
+        purpose: invocation.purpose,
+        profile: invocation.profile,
+        root_recording: invocation.root_recording,
+        context_recording: invocation.context_recording,
+        initiator: invocation.initiator,
+        initiator_kind: invocation.initiator_kind,
+        executor: invocation.executor,
+        execution_source: invocation.execution_source,
+        request_id: request_id_for(run, "answer"),
+        metadata: lease_metadata(run, lease_token)
+      )
+    end
+
+    def compact_state(invocation:, run:, lease_token:, state:, suffix:)
+      RecordingStudioAI.generate(
+        prompt: ContextBuilder.for_reasoner(state: state, menu: ActionMenu.new, signals: []),
+        system_instruction: "Return only the state delta that keeps the goal, success criteria, important findings, completed work, failed approaches, open questions, and the current objective.",
+        custom_tools: [],
+        schema: COMPACT_SCHEMA,
+        purpose: invocation.purpose,
+        profile: :low,
+        root_recording: invocation.root_recording,
+        context_recording: invocation.context_recording,
+        initiator: invocation.initiator,
+        initiator_kind: invocation.initiator_kind,
+        executor: invocation.executor,
+        execution_source: invocation.execution_source,
+        request_id: request_id_for(run, suffix),
+        metadata: lease_metadata(run, lease_token)
+      )
+    end
+
+    def perform_tool(invocation:, run:, candidate:, sequence:, resume:)
+      unless RecordingStudioAI.respond_to?(:perform_tool)
+        raise ConfigurationError, "Tool steps need RecordingStudioAI.perform_tool from Recording Studio AI 0.5.0."
+      end
+
+      RecordingStudioAI.perform_tool(
+        tool: { key: candidate.tool_key.to_sym, version: candidate.tool_version },
+        arguments: resume ? nil : candidate.arguments,
+        resume: resume,
+        purpose: invocation.purpose,
+        root_recording: invocation.root_recording,
+        context_recording: invocation.context_recording,
+        initiator: invocation.initiator,
+        initiator_kind: invocation.initiator_kind,
+        executor: invocation.executor,
+        execution_source: invocation.execution_source,
+        request_id: "#{request_id_for(run)}:tool:#{sequence}",
+        metadata: { "agent_run_id" => run.id, "argument_digest" => candidate.argument_digest }
+      )
+    end
+
+    def request_id_for(run, suffix = nil)
+      base = "#{REQUEST_ID_PREFIX}#{run.id}"
+      return base if suffix.nil? || suffix.to_s.empty?
+
+      "#{base}:#{suffix}"
+    end
+
+    def planning_note
+      "Plan the work. Return success criteria and action candidates with complete arguments. Do not call tools from this step."
+    end
+
+    def lease_metadata(run, lease_token)
+      {
+        "agent_run_id" => run.id,
+        "lease_token" => lease_token,
+        # Recording Studio AI redacts metadata keys that contain "token"
+        # before the tool runs. The digest still matches the live lease.
+        "agent_lease_check" => Digest::SHA256.hexdigest(lease_token.to_s)
+      }
     end
 
     def find_run(request_id:)

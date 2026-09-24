@@ -88,17 +88,21 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     get path
     assert_response :success
     assert_select "textarea[name='goal']", text: "Find the Getting Started page."
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Plan/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /List pages/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Checked in/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Answer/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Done/
-    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Reply/
-    asked = JSON.parse(css_select("#playground-step-0-content pre").text)
-    answered = JSON.parse(css_select("#playground-step-1-content pre").text)
-    assert_equal "Find the Getting Started page.", asked.dig("input", "instruction")
-    assert_equal "Getting Started", asked.dig("output", "find_page", "title")
-    refute_includes asked.to_json, "Finished."
-    assert_equal "Finished.", answered.dig("output", "text")
-    assert_equal "Getting Started", answered.dig("input", "find_page", "title")
-    refute_includes answered.to_json, "Find the Getting Started page."
+    exchanges = css_select("[data-playground-step-list] pre").map { |node| JSON.parse(node.text) }
+    listed = exchanges.find { |item| item["observation"] == "Listed the pages." }
+    found = exchanges.find { |item| item["observation"] == "Found the page." }
+    answer = exchanges.find { |item| item["action"] == "deliver" }
+    assert_equal "tool", listed["action"]
+    assert_equal "Find the named page", found["now"]
+    assert_equal "Found Getting Started.", answer["observation"]
+    refute exchanges.any? { |item| item.key?("arguments") }
+    refute_includes response.body, "Finished."
     refute_includes response.body, ">Given<"
     refute_includes response.body, ">Returned<"
     assert_select "h2", text: "Page librarian", count: 0
@@ -209,13 +213,16 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     path = redirected_playground_path
     get path
 
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Plan/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
-    asked = JSON.parse(css_select("#playground-step-0-content pre").text)
-    answered = JSON.parse(css_select("#playground-step-1-content pre").text)
-    assert_equal "Find the Getting Started page.", asked.dig("input", "instruction")
-    refute_includes asked.to_json, "Finished."
-    assert_equal "Finished.", answered.dig("output", "text")
-    refute_includes answered.to_json, "Find the Getting Started page."
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Answer/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /List pages/, count: 0
+    exchanges = css_select("[data-playground-step-list] pre").map { |node| JSON.parse(node.text) }
+    found = exchanges.find { |item| item["observation"] == "Found the page." }
+    answer = exchanges.find { |item| item["action"] == "deliver" }
+    assert_equal "tool", found["action"]
+    assert_equal "Found Getting Started.", answer["observation"]
+    refute exchanges.any? { |item| item.key?("arguments") }
     run = RecordingStudioAgents::AgentRun.find_by!(
       root_recording_id: @root.id,
       idempotency_key: path.split("/").last

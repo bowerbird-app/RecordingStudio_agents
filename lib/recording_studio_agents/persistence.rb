@@ -42,7 +42,15 @@ module RecordingStudioAgents
         "run_failed" => %w[failure_code failure_category],
         "run_cancelled" => %w[],
         "evaluation_recorded" => %w[evaluator_key verdict],
-        "awaiting_confirmation" => %w[]
+        "awaiting_confirmation" => %w[],
+        "step_started" => %w[sequence action_type],
+        "step_completed" => %w[sequence action_type],
+        "state_updated" => %w[sequence],
+        "controller_evaluated" => %w[sequence],
+        "reasoner_requested" => %w[sequence],
+        "replanned" => %w[sequence],
+        "stuck_detected" => %w[sequence],
+        "compacted" => %w[sequence]
       }.freeze
 
       def initialize(lease_seconds: RecordingStudioAgents.configuration.lease_seconds)
@@ -62,7 +70,7 @@ module RecordingStudioAgents
           run.reload
           return Opening.new(kind: :existing, task: task, run: run) if Lifecycle.terminal?(run.status)
           return Opening.new(kind: :in_progress, task: task, run: run) if held_by_live_lease?(run)
-          if run.status == "awaiting_confirmation" && !recoverable_ai_run?(run)
+          if run.status == "awaiting_confirmation" && !recoverable_ai_run?(run) && !confirmation_step?(run)
             return Opening.new(kind: :blocked, task: task, run: run)
           end
 
@@ -107,11 +115,42 @@ module RecordingStudioAgents
 
       def record_composed!(run:, lease_token:, program:, knowledge_entries:)
         with_valid_lease!(run, lease_token) do |locked|
+          return if locked.run_activities.exists?(kind: "program_composed")
+
           append_activity!(locked, "program_composed", {
                              "program_digest" => program.digest,
                              "selected_skill_keys" => locked.selected_skill_key_list
                            })
           append_activity!(locked, "knowledge_loaded", { "entry_count" => knowledge_entries.length })
+        end
+      end
+
+      def renew_lease!(run:, lease_token:)
+        with_valid_lease!(run, lease_token) do |locked|
+          locked.update!(lease_expires_at: Time.current + @lease_seconds)
+        end
+      end
+
+      def checkpoint!(run:, lease_token:, state:, step:, activities: [])
+        with_valid_lease!(run, lease_token) do |locked|
+          locked.update!(
+            working_state_json: state.data,
+            lease_expires_at: Time.current + @lease_seconds
+          )
+          saved = upsert_step!(locked, step)
+          Array(activities).flatten.each do |kind|
+            data = { "sequence" => saved.sequence }
+            data["action_type"] = saved.action_type if ACTIVITY_KEYS.fetch(kind).include?("action_type")
+            append_activity!(locked, kind, data)
+          end
+          saved
+        end
+      end
+
+      def note_activity!(run:, lease_token:, kind:, data:)
+        with_valid_lease!(run, lease_token) do |locked|
+          append_activity!(locked, kind, data)
+          locked.update!(lease_expires_at: Time.current + @lease_seconds)
         end
       end
 
@@ -344,10 +383,45 @@ module RecordingStudioAgents
       end
 
       def recoverable_ai_run?(run)
+        return false if confirmation_step?(run)
+
         ai_run = Ai.find_run(request_id: Ai.request_id_for(run))
         return false unless ai_run.respond_to?(:status)
 
         ai_run.status.to_s == "completed"
+      end
+
+      def confirmation_step?(run)
+        return false unless run.respond_to?(:agent_steps)
+
+        run.agent_steps.exists?(status: "awaiting_confirmation")
+      rescue StandardError
+        false
+      end
+
+      def upsert_step!(run, attributes)
+        attrs = attributes.symbolize_keys
+        sequence = Integer(attrs.fetch(:sequence))
+        step = run.agent_steps.find_by(sequence: sequence)
+        now = Time.current
+        payload = attrs.except(:sequence).compact
+        if step
+          payload[:completed_at] = now if finished_step?(payload[:status]) && step.completed_at.nil?
+          step.update!(payload)
+          step
+        else
+          run.agent_steps.create!(
+            payload.merge(
+              sequence: sequence,
+              started_at: now,
+              completed_at: finished_step?(payload[:status]) ? now : nil
+            )
+          )
+        end
+      end
+
+      def finished_step?(status)
+        %w[completed failed unresolved].include?(status.to_s)
       end
 
       def handoff_allowlist(program)

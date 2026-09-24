@@ -8,7 +8,7 @@ module RegistryHelpers
     clear_agent_enablements
   end
 
-  def register_ai_tool(key, version: 1, **overrides)
+  def register_ai_tool(key, version: 1, override: false, **overrides)
     attributes = {
       key: key,
       version: version,
@@ -27,7 +27,11 @@ module RegistryHelpers
       executor_label: "Test",
       executor: ->(arguments, _context) { arguments }
     }.merge(overrides)
-    RecordingStudioAI.tools.register(**attributes)
+    RecordingStudioAI.tools.register(override: override, **attributes)
+  end
+
+  def retune_tool(key, **overrides)
+    register_ai_tool(key, override: true, **overrides)
   end
 
   def clear_agent_enablements

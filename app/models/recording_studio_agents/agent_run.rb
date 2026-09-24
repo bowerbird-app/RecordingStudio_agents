@@ -16,6 +16,7 @@ module RecordingStudioAgents
 
     belongs_to :task, class_name: "RecordingStudioAgents::Task"
     has_many :run_activities, class_name: "RecordingStudioAgents::RunActivity", dependent: :destroy
+    has_many :agent_steps, class_name: "RecordingStudioAgents::AgentStep", dependent: :destroy
     has_many :evaluations, class_name: "RecordingStudioAgents::Evaluation", dependent: :destroy
 
     validates :status, inclusion: { in: STATUSES }

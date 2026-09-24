@@ -190,12 +190,29 @@ module RecordingStudioAgents
           knowledge_entries: invocation.knowledge_entries
         )
 
+        if run.agent_steps.exists?
+          return Runtime.new(program: @program, ledger: @ledger, invocation: invocation).call(
+            request: request, run: run, lease_token: lease_token
+          )
+        end
+
         adopted = adopt_existing_ai_run(request, run, lease_token)
         return adopted if adopted.is_a?(Results::InProgress) || adopted.is_a?(Results::Existing)
 
-        response = adopted || Ai.generate(invocation: invocation, run: run, lease_token: lease_token)
+        response = adopted || Ai.plan(invocation: invocation, run: run, lease_token: lease_token)
         attach_response_run(run, lease_token, response)
-        commit_response(run, lease_token, response)
+        run.reload
+        if run.handoff_agent_key.present? || !durable_plan?(response)
+          return commit_response(run, lease_token, response)
+        end
+
+        Runtime.new(program: @program, ledger: @ledger, invocation: invocation).call(
+          request: request, run: run, lease_token: lease_token, plan: response
+        )
+      rescue IdempotencyConflict
+        raise
+      rescue ConfigurationError
+        raise
       rescue RecordingStudioAI::Errors::ContractValidationError => e
         handle_ai_contract_error(run, lease_token, e)
       rescue StandardError => e
@@ -283,6 +300,15 @@ module RecordingStudioAgents
         )
         @ledger.commit_failed!(run: run, lease_token: lease_token, failure: failure)
         Results::Failed.new(run: run.reload, failure: failure)
+      end
+
+      def durable_plan?(response)
+        return false unless successful?(response)
+        return false if blocked?(response)
+
+        data = response.try(:structured_data)
+        data = data.stringify_keys if data.respond_to?(:stringify_keys)
+        data.is_a?(Hash) && Array(data["action_candidates"]).any?
       end
 
       def blocked?(response)

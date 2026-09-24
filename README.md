@@ -1,6 +1,8 @@
 # Recording Studio Agents
 
-Recording Studio Agents defines reusable agents in code and records each task attempt as an `AgentRun`. An agent compiles exact versions of its skills, tools, knowledge sources, and allowed handoff targets into one immutable program. `Agent#run` validates the task, authorizes the actor through Recording Studio AI, creates or reuses the run, and executes through `RecordingStudioAI.generate`.
+Recording Studio Agents defines reusable agents in code and records each task attempt as an `AgentRun`. An agent compiles exact versions of its skills, tools, knowledge sources, and allowed handoff targets into one immutable program. `Agent#run` validates the task, authorizes the actor through Recording Studio AI, creates or reuses the run, and executes that run.
+
+A plan that returns action candidates continues as a durable loop. The loop stores working state on the `AgentRun`, asks `RecordingStudioAI.decide` which candidate to take, and runs one tool through `RecordingStudioAI.perform_tool`. The next model call sees the current state, not a concatenation of earlier tool exchanges. A generate call that returns text and no action candidates still finishes from that one call.
 
 Agents does not add a second authorization callback. Configure Recording Studio AI with its Accessible adapter.
 
@@ -25,9 +27,63 @@ A **tool** is an executable capability registered with Recording Studio AI. Agen
 
 A **task** is a durable goal inside a workspace, identified by a stable key. `TaskInput#context` travels with the goal in the prompt, under a label that it is data. Empty context is omitted. It is not stored on the task, and it is not mixed into workspace knowledge. When `Agent#run` is given a `context_recording`, that recording must be the task root or a child inside that root.
 
-An **agent run** is one attempt. It stores status, an optional output digest, the handoff allowlist from the program that started it, and the Recording Studio AI run id. It does not copy prompts, model output, or chain-of-thought. Duplicate delivery of the same `idempotency_key` reuses that attempt. A different task or a different context recording for that key raises `IdempotencyConflict`.
+An **agent run** is one attempt. It stores status, working state, an optional output digest, the handoff allowlist from the program that started it, and the latest Recording Studio AI run id. It does not copy prompts, raw tool payloads, or chain-of-thought. Duplicate delivery of the same `idempotency_key` reuses that attempt. A different task or a different context recording for that key raises `IdempotencyConflict`.
 
-A **handoff** is an allowlisted request recorded by an internal AI tool. The allowlist is the one stored on that run, not a fresh compile of the agent. The tool needs the live lease from that generate call, so a stale worker cannot stamp a target onto a run another worker owns. `Agent#run` never starts the target. The host routes the next call. If a worker dies after recording the target, a retry with the same idempotency key finishes as `handoff_requested` instead of succeeding.
+An **agent step** is one transition inside that attempt. The step stores its sequence, status, action type, candidate id, tool key when the action is a tool, an argument digest, a short observation, and the controller outcome. Statuses are `planned`, `started`, `completed`, `failed`, `awaiting_confirmation`, and `unresolved`. The step does not store tool arguments or tool result bodies.
+
+**Working state** is the bounded document the next action is rebuilt from. It holds the goal, the plan, the current objective, success criteria, findings, completed work, failed approaches, open questions, a short window of recent observations, and counters. The step table keeps the older history. That history is not copied into the next prompt.
+
+A **controller** call is one `RecordingStudioAI.decide` request. It asks whether the latest step made progress, whether the success criteria look met, whether the run looks stuck, whether it needs a new plan, and which listed candidate should go next. The decision model returns probabilities. It does not write tool arguments, queries, or prose.
+
+A **reasoner** call is one `RecordingStudioAI.generate` request on the run profile (`low`, `medium`, or `high`). The first call writes the plan, the success criteria, and the action candidates. Later calls replan, write the final answer, or compact state when the document is over its byte cap. The controller uses `controller_profile`, which starts at `:low`. Agents does not name a provider or a model.
+
+An **action candidate** is one next action with its arguments already filled in. Kinds are `tool`, `deliver`, and `handoff`. The controller picks an id from that list. A tool the program did not allow is dropped before the controller sees it.
+
+A **tool** stays registered with Recording Studio AI. The runtime calls `RecordingStudioAI.perform_tool` for one candidate. That call keeps validation, authorization, confirmation, timeout, and result-size limits. Agents does not call a tool executor itself. Tool steps need Recording Studio AI 0.5.0, which adds `perform_tool`. Answer-only runs still work on Recording Studio AI 0.4.0.
+
+A **checkpoint** writes the working state and the current step, then renews the lease when the same worker still holds it. A new worker resumes from the last checkpoint. It does not repeat a finished tool. A non-repeatable tool that was started and then interrupted is closed as `unresolved` and is not run again.
+
+Event history is the activity log plus the step rows. It is there to inspect. Memory that lasts across separate runs is not part of this version. Knowledge is loaded once for the attempt and kept in the system instruction. It is not written into working state as a second copy of the source text.
+
+```text
+AgentRun working state
+        |
+        v
+Reasoner (RecordingStudioAI.generate)
+plan, success criteria, action candidates
+        |
+        v
+Controller (RecordingStudioAI.decide)
+progress, finished, stuck, next candidate
+        |
+        +--> one tool (RecordingStudioAI.perform_tool)
+        |         |
+        |         v
+        |    observation, state delta, checkpoint
+        |
+        +--> reasoner again when stuck, uncertain, or out of candidates
+        |
+        +--> final answer
+```
+
+## Budgets, stuck runs, and confirmation
+
+Agent budgets are separate from Recording Studio AI attempt limits. Raising `maximum_attempts` or `maximum_custom_tool_rounds` does not lengthen an agent. The host defaults are:
+
+- `maximum_steps` 80
+- `maximum_tool_actions` 30
+- `maximum_reasoner_calls` 8
+- `maximum_replans` 3
+- `maximum_runtime_seconds` 1800
+- `maximum_working_state_bytes` 12000
+
+The controller treats a run as finished when `finished` is at least `finished_probability` (0.8) and `stuck` is below `stuck_probability` (0.7). A choice whose top two probabilities differ by less than `choice_margin` (0.15) is uncertain, and the run asks the reasoner. A failed decision is not treated as finished. If another reasoner call is still inside the budget, the run replans. Otherwise the run fails with `decision_failed`.
+
+Ruby detects an identical argument digest three times, or three steps whose findings, completed work, and criteria did not change. That streak asks for a new plan. The decision model can also report that the work looks stuck. Replanning stops at `maximum_replans` with failure code `maximum_replans`. Compaction runs only when working state is over `maximum_working_state_bytes`, and at most three times. It keeps the goal, the criteria, the important findings, and the step history.
+
+A tool that needs confirmation checkpoints the step as `awaiting_confirmation` and stops. The same idempotency key resumes that step. It does not start the plan over, and it does not repeat tools that already finished.
+
+A **handoff** stays an allowlisted terminal outcome of the current run. The controller can select a handoff candidate only when that target is on the allowlist stored on the run. `Agent#run` does not start the target. The host routes the next call. If a worker dies after recording the target, a retry with the same idempotency key finishes as `handoff_requested` instead of succeeding. The internal handoff tool remains registered so older runs can still record a handoff during a generate call. The durable loop does not call that tool.
 
 `enabled` is a registry boolean. Lookup for a disabled agent raises `AgentDisabled`. Admin still lists disabled agents and can turn them on or off. An admin change is stored and wins over the registry default until it is changed again.
 
@@ -144,7 +200,7 @@ A **skill pack** groups optional skills. Pack skills must already be listed on `
 
 Skills may set `use_when` and `do_not_use_when` for host catalogs. Those strings are not added to a generate prompt unless the skill is selected.
 
-Tools named only by an unselected optional skill are dropped from that generate call. They still belong on the agent allowlist and in Recording Studio AI.
+Tools named only by an unselected optional skill are dropped from that run. They still belong on the agent allowlist and in Recording Studio AI.
 
 ```ruby
 RecordingStudioAgents.skill_packs.register(
@@ -180,7 +236,7 @@ RecordingStudioAgents.agent(:support, version: 1).run(
 
 `extra_skills: { access_reset: 1 }` can load optional skills without a pack, and can combine with `pack:`.
 
-`skills:` replaces that selection for one run, including the agent's required skills. Pass a hash of registered skills, or `{}` for no skill blocks. It cannot be combined with `pack:` or `extra_skills:`. `tools:` narrows the generate call to a subset of the agent's tools. Omit it to keep the usual allowlist. A skill on that run still needs its required tools in the subset, and a tool the agent does not list is rejected.
+`skills:` replaces that selection for one run, including the agent's required skills. Pass a hash of registered skills, or `{}` for no skill blocks. It cannot be combined with `pack:` or `extra_skills:`. `tools:` narrows the tools that run may call to a subset of the agent's tools. Omit it to keep the usual allowlist. A skill on that run still needs its required tools in the subset, and a tool the agent does not list is rejected.
 
 ## Profile
 
@@ -265,9 +321,9 @@ A failed run is retryable for timeouts and connection resets, and when Recording
 
 ## Progress
 
-`RecordingStudioAgents::Progress.for(run)` returns coarse steps for one attempt. Steps come from knowledge load plus Recording Studio AI tool invocations, joined by `recording_studio_ai_run_id` or `request_id` (`recording-studio-agents:<agent_run_id>`). Hosts can poll that helper from a job. Do not stream token text as progress, and do not copy model output onto the agent run.
+`RecordingStudioAgents::Progress.for(run)` returns coarse steps for one attempt. When the run has agent steps, the labels come from those steps, in sequence. Plan, Checked in, the tool name, and Answer are the usual ones, plus knowledge and a closing status. A run with no agent steps still uses knowledge plus the tool invocations on the linked Recording Studio AI run, joined by `recording_studio_ai_run_id` or `request_id` (`recording-studio-agents:<agent_run_id>`). Hosts can poll that helper from a job. Do not stream token text as progress, and do not copy the full model transcript onto the agent run.
 
-Each step has a label and a badge: Done, Working, Waiting, or Failed. Tool labels use the tool name (for example "Find page"), not the registry key. The dummy home lists steps after a librarian run. Admin run rows show the labels in a Steps column, plus token and tool counts from the linked model call.
+Each step has a label and a badge: Done, Working, Waiting, or Failed. Tool labels use the tool name (for example "Find page"), not the registry key. The dummy home lists steps after a librarian run. Admin run rows show the labels in a Steps column. Token totals add the model calls linked from those steps, and fall back to the single AI run id on older rows. Optional columns show the current objective, plan count, check-in count, replan count, and whether the run looks stuck.
 
 ## Admin
 
@@ -290,6 +346,6 @@ pin_all_from RecordingStudioAdmin::Engine.root.join("app/javascript/recording_st
 
 `test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page, then lists what it did. That page uses a sidebar. Gem screens, including Admin and the workspace switcher, stay on Recording Studio's default layout. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is the staff hub. Agents is `/admin/sections/agents`.
 
-The dummy has a Playground page at `/playground`. The form sits on the left and the steps on the right. The right side is blank until a run has model turns. While a run is going, each turn shows up when that turn starts, and the list updates in place. Each turn is a collapse with a title and a progress badge. Open a turn to see that call as one hash, with input and output. A later call's input is the tool result, not the original instruction again. Pick a registered agent, write an instruction, and search for the tools and skills that run may use. Page librarian can list the workspace pages and the menu pages (Home, Playground, Staff, and Agents) before it looks one up by title. The dummy keeps model replies so that page can show the text. Admin model calls include workspace runs, so that call is listed.
+The dummy has a Playground page at `/playground`. The form sits on the left and the steps on the right. The right side is blank until a run has steps. While a run is going, the list updates in place. Each step is a collapse with a title and a progress badge. A durable run shows Plan, Checked in, each tool, and Answer. Open a step to see the action, the current objective, and a short observation. The exchange does not include tool arguments. Page librarian can list the workspace pages and the menu pages (Home, Playground, Staff, and Agents) before it looks one up by title. Without a generative key, that playground run uses an offline stub of the durable loop. The home button still uses a one-reply stub so the demo finishes without `perform_tool`. Admin model calls include workspace runs, so that call is listed.
 
 The dummy generates with Gemini and decides with TypeSafe Jev (`RecordingStudioAI.decide`). Set `GEMINI_API_KEY` or `google_ai_studio` for generation, and `TYPESAFE_API_KEY` or `typesafe` for decisions. Without a generative key, the librarian demo uses an offline stub. Tests ignore those variables and do not call a live model provider.

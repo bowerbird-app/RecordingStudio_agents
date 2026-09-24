@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 class PlaygroundRunJob < ApplicationJob
-  FIND_PAGE = { key: :find_page, version: 1 }.freeze
-
   def perform(
     idempotency_key,
     task_key,
@@ -44,7 +42,7 @@ class PlaygroundRunJob < ApplicationJob
     if generative_provider_configured?
       runner.call
     else
-      DummyGenerateStub.with_hook(method(:stubbed_response)) { runner.call }
+      DummyGenerateStub.with_hook(PlaygroundDurableStub.new) { runner.call }
     end
   end
 
@@ -80,100 +78,6 @@ class PlaygroundRunJob < ApplicationJob
   def generative_provider_configured?
     configuration = RecordingStudioAI.configuration
     configuration.gemini_api_key.present? || configuration.openai_api_key.present?
-  end
-
-  def stubbed_response(**kwargs)
-    ai_run = persist_stubbed_ai_run(**kwargs)
-    if Array(kwargs[:custom_tools]).include?(FIND_PAGE)
-      remember_find_page_turns(ai_run)
-    else
-      remember_reply(ai_run, sequence: 1, kind: "primary", text: "Finished.")
-    end
-    RecordingStudioAI::Contracts::GenerationResponse.new(
-      operation: "generation",
-      purpose: kwargs[:purpose],
-      text: "Finished.",
-      run: ai_run
-    )
-  end
-
-  def persist_stubbed_ai_run(**kwargs)
-    initiator = kwargs.fetch(:initiator)
-    root = kwargs.fetch(:root_recording)
-    now = Time.current
-    context = kwargs[:context_recording]
-    find_page = Array(kwargs[:custom_tools]).include?(FIND_PAGE)
-
-    RecordingStudioAI::Run.create!(
-      operation: "generation",
-      purpose: kwargs[:purpose],
-      status: "completed",
-      root_recording_id: root.id,
-      context_recording_id: context&.id,
-      initiator_type: initiator.class.name,
-      initiator_id: initiator.id.to_s,
-      initiator_kind: (kwargs[:initiator_kind] || :user).to_s,
-      execution_source: (kwargs[:execution_source] || :web).to_s,
-      request_id: kwargs[:request_id],
-      profile_key: kwargs[:profile]&.to_s,
-      metadata: kwargs[:metadata],
-      started_at: now,
-      completed_at: now,
-      custom_tool_invocation_count: find_page ? 1 : 0,
-      total_tokens: 1_200,
-      latency_ms: 400,
-      input_tokens: 900,
-      output_tokens: 300
-    )
-  end
-
-  def remember_find_page_turns(ai_run)
-    asked = remember_reply(ai_run, sequence: 1, kind: "primary", text: nil)
-    answered = remember_reply(ai_run, sequence: 2, kind: "continuation", text: "Finished.")
-    now = Time.current
-    RecordingStudioAI::CustomToolInvocation.create!(
-      run: ai_run,
-      requested_by_attempt: asked,
-      continued_by_attempt: answered,
-      tool_key: "find_page",
-      tool_version: 1,
-      tool_name_snapshot: "Find page",
-      status: "completed",
-      read_only: true,
-      destructive: false,
-      requires_confirmation: false,
-      idempotent: true,
-      confirmation_status: "not_required",
-      started_at: now,
-      completed_at: now,
-      metadata: {
-        "arguments" => { "title" => "Getting Started" },
-        "result" => { "found" => true, "title" => "Getting Started" }
-      }
-    )
-  end
-
-  def remember_reply(ai_run, sequence:, kind:, text:)
-    now = Time.current
-    attempt = RecordingStudioAI::Attempt.create!(
-      run: ai_run,
-      sequence: sequence,
-      kind: kind,
-      status: "completed",
-      started_at: now,
-      completed_at: now
-    )
-    return attempt if text.blank?
-
-    RecordingStudioAI::Response.create!(
-      attempt: attempt,
-      response_type: "generation",
-      content_text: text,
-      content_type: "text/plain",
-      complete: true,
-      expires_at: now + RecordingStudioAI.configuration.response_retention_period
-    )
-    attempt
   end
 
   def remember_error(root_recording_id, idempotency_key, error)

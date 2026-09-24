@@ -144,6 +144,57 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     assert_equal({ "error" => "The model stopped." }, call["output"])
   end
 
+  test "agent steps show the plan, the tool, and the answer" do
+    workspace = Workspace.create!(name: "Playground Steps #{SecureRandom.hex(4)}")
+    root = RecordingStudio.root_recording_for(workspace)
+    user = User.create!(
+      email: "playground-steps-#{SecureRandom.hex(4)}@example.com",
+      password: "Password123!",
+      password_confirmation: "Password123!"
+    )
+    task = RecordingStudioAgents::Task.create!(
+      root_recording_id: root.id,
+      task_key: "playground-steps:#{SecureRandom.hex(4)}",
+      goal: "Find the staff handbook.",
+      input_digest: "playground-steps"
+    )
+    run = RecordingStudioAgents::AgentRun.create!(
+      task: task,
+      root_recording_id: root.id,
+      agent_key: "page_librarian",
+      agent_version: 1,
+      program_digest: "playground-steps",
+      idempotency_key: "playground-steps:#{SecureRandom.uuid}",
+      status: "succeeded",
+      initiator_type: "User",
+      initiator_id: user.id.to_s,
+      initiator_kind: "user",
+      execution_source: "web",
+      working_state_json: { "current_objective" => "Find the named page", "goal" => "Find the staff handbook." }
+    )
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 1, status: "completed", action_type: "reason",
+      observation_summary: "Find the named page"
+    )
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 2, status: "completed", action_type: "tool",
+      tool_key: "find_page", tool_version: 1, observation_summary: "Found the page.", progress_made: true
+    )
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 3, status: "completed", action_type: "deliver",
+      observation_summary: "Found the Staff handbook."
+    )
+
+    entries = PlaygroundSteps.for(run, initiator: user)
+
+    assert_equal [ "Plan", "Find page", "Answer" ], entries.map(&:title)
+    answer = JSON.parse(entries.last.exchange)
+    assert_equal "deliver", answer["action"]
+    assert_equal "Find the named page", answer["now"]
+    assert_equal "Found the Staff handbook.", answer["observation"]
+    refute_includes entries.last.exchange, "arguments"
+  end
+
   test "the collapse renders the call as one hash" do
     step = PlaygroundSteps::Entry.new(
       id: "playground-step-1",

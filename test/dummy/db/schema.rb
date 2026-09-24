@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_23_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_24_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -106,11 +106,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_23_000001) do
     t.string "status", default: "pending", null: false
     t.bigint "task_id", null: false
     t.datetime "updated_at", null: false
+    t.json "working_state_json", default: {}, null: false
     t.index ["recording_studio_ai_run_id"], name: "index_rsa_runs_on_ai_run_id", unique: true, where: "(recording_studio_ai_run_id IS NOT NULL)"
     t.index ["root_recording_id", "agent_key", "agent_version", "idempotency_key"], name: "index_rsa_runs_on_root_agent_idempotency", unique: true
     t.index ["root_recording_id"], name: "index_rsa_runs_on_root"
     t.index ["status"], name: "index_rsa_runs_on_status"
     t.index ["task_id"], name: "index_rsa_runs_on_task_id"
+  end
+
+  create_table "recording_studio_agents_agent_steps", force: :cascade do |t|
+    t.string "action_type", null: false
+    t.bigint "agent_run_id", null: false
+    t.string "argument_digest"
+    t.string "candidate_id"
+    t.datetime "completed_at"
+    t.json "controller_outcome"
+    t.datetime "created_at", null: false
+    t.string "observation_digest"
+    t.text "observation_summary"
+    t.boolean "progress_made"
+    t.bigint "recording_studio_ai_run_id"
+    t.boolean "repeatable", default: false, null: false
+    t.integer "sequence", null: false
+    t.datetime "started_at"
+    t.string "status", null: false
+    t.string "tool_key"
+    t.integer "tool_version"
+    t.datetime "updated_at", null: false
+    t.index ["agent_run_id", "sequence"], name: "index_rsa_steps_on_run_and_sequence", unique: true
   end
 
   create_table "recording_studio_agents_enablements", force: :cascade do |t|
@@ -365,7 +388,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_23_000001) do
     t.index ["provider_response_id"], name: "index_recording_studio_ai_responses_on_provider_response_id"
     t.check_constraint "attempt_id IS NOT NULL AND batch_item_id IS NULL OR attempt_id IS NULL AND batch_item_id IS NOT NULL", name: "chk_rsai_responses_attempt_xor_batch_item"
     t.check_constraint "byte_size IS NULL OR byte_size >= 0", name: "chk_rsai_responses_nonnegative_byte_size"
-    t.check_constraint "response_type::text = ANY (ARRAY['generation'::character varying, 'stream'::character varying, 'batch_item'::character varying, 'error'::character varying, 'decision'::character varying]::text[])", name: "chk_rsai_responses_type"
+    t.check_constraint "response_type::text = ANY (ARRAY['generation'::character varying::text, 'stream'::character varying::text, 'batch_item'::character varying::text, 'error'::character varying::text, 'decision'::character varying::text])", name: "chk_rsai_responses_type"
   end
 
   create_table "recording_studio_ai_runs", force: :cascade do |t|
@@ -435,7 +458,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_23_000001) do
     t.check_constraint "attachment_count >= 0 AND attachment_total_bytes >= 0 AND citation_count >= 0", name: "chk_rsai_runs_nonnegative_attachment_counts"
     t.check_constraint "attempt_count >= 0 AND retry_count >= 0 AND fallback_count >= 0 AND custom_tool_invocation_count >= 0", name: "chk_rsai_runs_nonnegative_counts"
     t.check_constraint "completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at", name: "chk_rsai_runs_timeline"
-    t.check_constraint "operation::text = ANY (ARRAY['generation'::character varying, 'stream'::character varying, 'batch'::character varying, 'decision'::character varying]::text[])", name: "chk_rsai_runs_operation"
+    t.check_constraint "operation::text = ANY (ARRAY['generation'::character varying::text, 'stream'::character varying::text, 'batch'::character varying::text, 'decision'::character varying::text])", name: "chk_rsai_runs_operation"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "chk_rsai_runs_status"
   end
 
@@ -516,6 +539,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_23_000001) do
   end
 
   add_foreign_key "recording_studio_agents_agent_runs", "recording_studio_agents_tasks", column: "task_id"
+  add_foreign_key "recording_studio_agents_agent_steps", "recording_studio_agents_agent_runs", column: "agent_run_id"
   add_foreign_key "recording_studio_agents_evaluations", "recording_studio_agents_agent_runs", column: "agent_run_id"
   add_foreign_key "recording_studio_agents_run_activities", "recording_studio_agents_agent_runs", column: "agent_run_id"
   add_foreign_key "recording_studio_ai_attempts", "recording_studio_ai_runs", column: "run_id"

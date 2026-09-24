@@ -13,6 +13,8 @@ class PlaygroundSteps
   }.freeze
 
   def self.for(run, initiator:, context: nil)
+    return entries_for_agent_steps(run) if run.agent_steps.exists?
+
     build(
       turns_for(run, initiator),
       instruction: run.task.goal,
@@ -20,6 +22,44 @@ class PlaygroundSteps
       failure_message: run.failure_message,
       status: run.status
     )
+  end
+
+  def self.entries_for_agent_steps(run)
+    objective = objective_for(run)
+    run.agent_steps.order(:sequence).each_with_index.map do |agent_step, index|
+      badge, style = badge_for(agent_step.status == "completed" ? "completed" : agent_step.status)
+      Entry.new(
+        id: "playground-step-#{index}",
+        title: title_for_agent_step(agent_step),
+        badge: badge,
+        badge_style: style,
+        exchange: dump(
+          "action" => agent_step.action_type,
+          "now" => objective,
+          "observation" => agent_step.observation_summary,
+          "progress" => agent_step.progress_made
+        )
+      )
+    end
+  end
+
+  def self.objective_for(run)
+    return unless run.respond_to?(:working_state_json)
+
+    RecordingStudioAgents::WorkingState.load(run.working_state_json).current_objective
+  rescue StandardError
+    nil
+  end
+
+  def self.title_for_agent_step(agent_step)
+    case agent_step.action_type
+    when "reason" then agent_step.sequence.to_i > 1 ? "New plan" : "Plan"
+    when "decide" then "Checked in"
+    when "tool" then agent_step.tool_key.to_s.tr("_", " ").sub(/\A./, &:upcase)
+    when "deliver" then "Answer"
+    when "handoff" then "Asked for a reviewer"
+    else "On it"
+    end
   end
 
   def self.build(turns, instruction:, context: nil, failure_message: nil, status: nil)
@@ -206,7 +246,8 @@ class PlaygroundSteps
     %w[failed cancelled].include?(status.to_s)
   end
 
-  private_class_method :turns_for, :ai_run_for, :linked_ai_run, :visible_invocations, :turn_for, :notes_for,
+  private_class_method :entries_for_agent_steps, :objective_for, :title_for_agent_step,
+    :turns_for, :ai_run_for, :linked_ai_run, :visible_invocations, :turn_for, :notes_for,
     :response_text, :entry_for, :failure_entry, :exchange_for, :input_for, :instruction_input,
     :output_for, :tool_hash, :context_value, :dump, :title_for, :badge_for, :tool_name,
     :metadata_value, :failed?

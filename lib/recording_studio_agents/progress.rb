@@ -40,12 +40,60 @@ module RecordingStudioAgents
     end
 
     def steps
+      return durable_steps if durable_run?
+
       collected = []
       collected << knowledge_step if @source.knowledge_loaded?
       collected.concat(tool_steps)
       closing = status_step_for(collected)
       collected << closing if closing
       collected
+    end
+
+    def durable_run?
+      @run.respond_to?(:agent_steps) && @run.agent_steps.exists?
+    rescue StandardError
+      false
+    end
+
+    def durable_steps
+      collected = []
+      collected << knowledge_step if @source.knowledge_loaded?
+      @run.agent_steps.order(:sequence).each do |agent_step|
+        collected << step(kind_for(agent_step), label_for(agent_step), status_for(agent_step))
+      end
+      closing = status_step_for(collected)
+      collected << closing if closing
+      collected
+    end
+
+    def kind_for(agent_step)
+      case agent_step.action_type
+      when "tool" then :tool
+      when "handoff" then :handoff
+      when "deliver" then :finished
+      else :running
+      end
+    end
+
+    def label_for(agent_step)
+      case agent_step.action_type
+      when "reason" then agent_step.sequence.to_i > 1 ? "New plan" : "Plan"
+      when "decide" then "Checked in"
+      when "tool" then agent_step.tool_key.to_s.tr("_", " ").sub(/\A./, &:upcase)
+      when "deliver" then "Answer"
+      when "handoff" then HANDOFF_LABEL
+      else agent_step.action_type.to_s.tr("_", " ").sub(/\A./, &:upcase)
+      end
+    end
+
+    def status_for(agent_step)
+      case agent_step.status
+      when "completed" then :done
+      when "failed", "unresolved" then :failed
+      when "awaiting_confirmation" then :waiting
+      else :running
+      end
     end
 
     private

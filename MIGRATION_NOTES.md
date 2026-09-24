@@ -1,5 +1,18 @@
 # Migration Notes
 
+## 0.5.0
+
+Run the engine migration that adds `recording_studio_agents_agent_runs.working_state_json` and `recording_studio_agents_agent_steps`.
+
+```bash
+bin/rails generate recording_studio_agents:migrations
+bin/rails db:migrate
+```
+
+Tool steps need Recording Studio AI 0.5.0 (`RecordingStudioAI.perform_tool`) and that gem's migration for operation `tool`. The Agents Gemfile stays on AI tag `v0.4.0` until 0.5.0 is published. Answer-only `generate` results still complete on 0.4.0.
+
+Existing `Agent#run` calls, skills, packs, knowledge loaders, and handoff allowlists stay valid. A generate result without `action_candidates` still finishes from that text. Agent budgets are separate from `maximum_attempts` and `maximum_custom_tool_rounds`.
+
 ## Current Requirements
 
 - Ruby 3.3 or newer

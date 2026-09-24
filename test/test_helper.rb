@@ -23,3 +23,11 @@ Time.zone ||= "UTC"
 require "recording_studio_agents"
 require_relative "support/registry_helpers"
 require_relative "support/persistence"
+
+unless RecordingStudioAI.respond_to?(:perform_tool)
+  class << RecordingStudioAI
+    def perform_tool(**)
+      raise RecordingStudioAgents::ConfigurationError, "RecordingStudioAI.perform_tool is not available"
+    end
+  end
+end

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-09-24
+
+An agent run can keep working across many tool actions. The next model call sees the current state, not the whole transcript.
+
+### Added
+- `AgentStep` rows and `working_state_json` on `AgentRun`. A checkpoint after each completed step is enough to resume. A new worker does not repeat a finished tool. A non-repeatable tool that was interrupted is closed as `unresolved` and refused for the rest of the attempt.
+- A runtime loop. The reasoner (`RecordingStudioAI.generate`) writes a plan, success criteria, and action candidates with complete arguments. The controller (`RecordingStudioAI.decide`) picks among those candidates using probabilities. One tool runs through `RecordingStudioAI.perform_tool`.
+- Host budgets that are separate from Recording Studio AI attempt limits. Defaults are 80 steps, 30 tool actions, 8 reasoner calls, 3 replans, and 1800 seconds. Working state is capped at 12000 bytes. Recent observations stay in a short window. Compaction runs only after that byte cap, and at most three times.
+- Controller thresholds. `finished_probability` defaults to 0.8, `stuck_probability` to 0.7, and `choice_margin` to 0.15. A failed or uncertain decision does not count as finished.
+- Activity kinds `step_started`, `step_completed`, `state_updated`, `controller_evaluated`, `reasoner_requested`, `replanned`, `stuck_detected`, and `compacted`.
+- Admin columns for the current objective, plan count, check-in count, replan count, and stuck state. The Steps column lists durable labels when steps exist. Token totals include the model calls linked from those steps.
+
+### Changed
+- `Progress.for` reads agent steps when the run has any. Older runs with no steps still read the single linked model call.
+- The lease renews on each loop turn and on each checkpoint, only while the same token is current and unexpired. A stale worker cannot checkpoint.
+- A confirmation pause stores `awaiting_confirmation` on the step and the run. The same idempotency key resumes that step.
+- The dummy playground, without a generative key, shows Plan, tool steps, check-ins, and Answer for Page librarian.
+
+### Upgrade notes
+- Install and run the engine migration that adds `working_state_json` and `recording_studio_agents_agent_steps`.
+- `RecordingStudioAgents.agent(...).run(...)` still works. A generate result with no `action_candidates` still completes from that text.
+- Tool steps call `RecordingStudioAI.perform_tool`. That method ships in Recording Studio AI 0.5.0. This gem's Gemfile still pins AI `v0.4.0` until that release is on GitHub. Answer-only agents keep working on 0.4.0. Hosts that run tool steps need the 0.5.0 AI gem, including its migration for operation `tool` and sealed confirmation arguments.
+- New budget and threshold keys are optional. Omitted keys keep the defaults above. Set them on `RecordingStudioAgents.configuration` or in `recording_studio_agents.yml`.
+- The durable loop does not call the internal handoff tool. A handoff candidate is accepted only when the target is on the run's allowlist. The tool stays registered.
+- Do not expect `maximum_custom_tool_rounds` to cap an agent. Set `maximum_steps` and `maximum_tool_actions` instead.
+
 ## [0.4.11] - 2026-09-23
 
 The dummy playground starts a registered agent and watches the attempt.

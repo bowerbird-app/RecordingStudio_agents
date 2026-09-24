@@ -50,6 +50,7 @@ module PersistenceSupport
       t.text :failure_message
       t.boolean :failure_retryable
       t.string :output_digest
+      t.json :working_state_json, null: false, default: {}
       t.datetime :started_at
       t.datetime :completed_at
       t.timestamps
@@ -57,6 +58,31 @@ module PersistenceSupport
     ActiveRecord::Base.connection.add_index(
       :recording_studio_agents_agent_runs,
       %i[root_recording_id agent_key agent_version idempotency_key],
+      unique: true
+    )
+
+    ActiveRecord::Base.connection.create_table :recording_studio_agents_agent_steps do |t|
+      t.integer :agent_run_id, null: false
+      t.integer :sequence, null: false
+      t.string :status, null: false
+      t.string :action_type, null: false
+      t.string :candidate_id
+      t.string :tool_key
+      t.integer :tool_version
+      t.string :argument_digest
+      t.text :observation_summary
+      t.string :observation_digest
+      t.boolean :progress_made
+      t.json :controller_outcome
+      t.integer :recording_studio_ai_run_id
+      t.boolean :repeatable, null: false, default: false
+      t.datetime :started_at
+      t.datetime :completed_at
+      t.timestamps
+    end
+    ActiveRecord::Base.connection.add_index(
+      :recording_studio_agents_agent_steps,
+      %i[agent_run_id sequence],
       unique: true
     )
 
@@ -102,7 +128,7 @@ module PersistenceSupport
     ActiveRecord::Base.connection.add_index(:recording_studio_agents_enablements, %i[agent_key agent_version],
                                             unique: true)
 
-    %w[application_record task agent_run run_activity evaluation agent_enablement].each do |model|
+    %w[application_record task agent_run agent_step run_activity evaluation agent_enablement].each do |model|
       require File.expand_path("../../app/models/recording_studio_agents/#{model}.rb", __dir__)
     end
   end
