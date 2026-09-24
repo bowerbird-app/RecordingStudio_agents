@@ -27,7 +27,8 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Playground"
     assert_includes response.body, "Try an agent on this workspace and watch the steps."
     assert_includes response.body, "md:grid-cols-2"
-    assert_includes response.body, "Run it to see the steps."
+    assert_select "[data-controller='flat-pack--collapse']", count: 0
+    refute_includes response.body, "Run it to see the steps."
     assert_select "textarea[name='goal']"
     assert_select "form .grid.grid-cols-1.gap-4"
     assert_select "[data-playground-skills] [data-flat-pack--select-searchable-value='true']"
@@ -63,7 +64,8 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
 
     get path
     assert_response :success
-    assert_includes response.body, "Starting."
+    assert_select "[data-controller='flat-pack--collapse']", count: 0
+    refute_includes response.body, "Starting."
     assert_includes response.body, "md:grid-cols-2"
     assert_select "textarea[name='goal']", text: "Find the Getting Started page."
     assert_includes response.body, "http-equiv=\"refresh\""
@@ -71,12 +73,16 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     perform_enqueued_jobs
     get path
     assert_response :success
-    assert_includes response.body, "Find the Getting Started page."
-    assert_includes response.body, "Page librarian"
-    assert_includes response.body, "Find page"
-    assert_includes response.body, "Open the model call"
-    assert_includes response.body, "Done"
-    assert_includes response.body, "Finished."
+    assert_select "textarea[name='goal']", text: "Find the Getting Started page."
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Done/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Reply/
+    assert_select "#playground-reply-content[hidden]", text: /Finished\./
+    assert_select "#playground-reply-content", text: /Used Find page\./, count: 0
+    assert_select "h2", text: "Page librarian", count: 0
+    assert_select "h2", text: "Skills", count: 0
+    assert_select "h2", text: "Reply", count: 0
+    refute_includes response.body, "Open the model call"
     assert_not_includes response.body, "http-equiv=\"refresh\""
 
     run = RecordingStudioAgents::AgentRun.find_by!(
@@ -111,8 +117,9 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_nil run.skill_pack_key
 
     get redirected_playground_path
-    assert_includes response.body, "Billing help"
-    assert_includes response.body, "Support voice"
+    assert_select "[data-playground-skills] input[name='skills[]'][value='billing_help@1']"
+    assert_select "[data-playground-skills] input[name='skills[]'][value='support_voice@1']"
+    refute_includes response.body, "Open the model call"
   end
 
   test "page librarian can run with find page only" do
@@ -131,8 +138,9 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     path = redirected_playground_path
     get path
 
-    assert_includes response.body, "Find page"
-    assert_includes response.body, "Finished."
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
+    assert_select "#playground-reply-content[hidden]", text: /Finished\./
+    assert_select "[id^='playground-step-'][id$='-content']", text: /Used Find page\./
     run = RecordingStudioAgents::AgentRun.find_by!(
       root_recording_id: @root.id,
       idempotency_key: path.split("/").last

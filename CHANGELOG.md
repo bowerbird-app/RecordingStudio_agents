@@ -10,9 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The dummy playground starts a registered agent and watches the attempt.
 
 ### Added
-- Dummy host page `/playground`. Pick a registered agent, write an instruction, choose that agent's tools and any registered skills, and watch the steps beside the form. Skills and tools are searchable selects. The dummy keeps the model reply so the page can show it. Open the model call from the steps. Admin model calls include the workspace, so that call is on the list.
+- Dummy host page `/playground`. Pick a registered agent, write an instruction, choose that agent's tools and any registered skills, and watch the steps beside the form. Skills and tools are searchable selects. The dummy keeps the model reply so the page can show it. Admin model calls include the workspace, so that call is on the list.
 - Dummy tool `list_pages` on Page librarian. It returns the page titles in the current workspace, and the folder name when a page sits in one, plus the menu pages Home, Playground, Staff, and Agents with their paths. Find page matches a menu page by name, ignoring case. Page lookup tells the model to list pages when the name may not be the exact title, then find that title.
 - Studio Workspace seeds a small library: Product Docs, Guides, People, and a root page named Studio overview. Client Workspace and Private Workspace stay empty. Getting Started stays in Product Docs.
+
+### Changed
+- Dummy playground results start blank, including when a new run starts. Each step is a collapse with a title and a progress badge. The reply is a collapse when the run finishes. The agent name, skills, and model-call link are not repeated on that side.
 
 ### Fixed
 - A handoff requested during a live model call can record the request. Recording Studio AI redacts metadata keys that contain `token`, so the handoff tool matches a digest of the lease instead of the redacted value.
