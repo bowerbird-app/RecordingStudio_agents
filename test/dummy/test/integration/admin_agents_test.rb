@@ -136,7 +136,7 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     get "/admin/screens/registered_tool", params: { tool_key: "find_page", version: 1 }
     assert_response :success
     assert_includes response.body, "Find page"
-    assert_includes response.body, "Find a page by title inside the current workspace."
+    assert_includes response.body, "Find a workspace page or a menu page by title."
     assert_select "a", text: "Calls"
 
     get "/admin/screens/registered_tool/table", params: { tool_key: "find_page", version: 1 }
