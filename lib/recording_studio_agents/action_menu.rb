@@ -70,17 +70,12 @@ module RecordingStudioAgents
 
     def self.admit(raw_candidates, program:, refused_digests:)
       menu = new
-      dropped = false
       Array(raw_candidates).each do |raw|
         candidate = build(raw, program)
-        if candidate.nil? || (candidate.tool? && refused_digests.include?(candidate.argument_digest))
-          dropped = true
-          next
-        end
+        next if candidate.nil? || (candidate.tool? && refused_digests.include?(candidate.argument_digest))
 
         menu.add(candidate)
       end
-      menu.answer_plan = !dropped && menu.actionable.any? && menu.actionable.all?(&:deliver?)
       menu
     end
 
@@ -89,7 +84,7 @@ module RecordingStudioAgents
       return unless item
 
       id = item["id"].to_s.strip
-      type = canonical_type(item["type"])
+      type = item["type"].to_s
       purpose = item["purpose"].to_s.strip
       return if id.empty? || purpose.empty?
       return unless %w[tool deliver handoff].include?(type)
@@ -97,7 +92,7 @@ module RecordingStudioAgents
       case type
       when "tool"
         version = item["tool_version"].to_i
-        key = canonical_tool_key(item["tool_key"], program, version)
+        key = item["tool_key"].to_s
         return unless program_allows_tool?(program, key, version)
         return unless item["arguments"].is_a?(Hash)
 
@@ -116,32 +111,12 @@ module RecordingStudioAgents
       end
     end
 
-    def self.canonical_type(value)
-      type = value.to_s
-      return "tool" if type == "tool_code"
-
-      type
-    end
-
-    def self.canonical_tool_key(value, program, version)
-      key = value.to_s
-      return key if program_allows_tool?(program, key, version)
-
-      segment = key.split(".").last.to_s
-      return segment if program_allows_tool?(program, segment, version)
-
-      key
-    end
-
     def self.program_allows_tool?(program, key, version)
       program.tool_references.any? { |reference| reference.key == key && reference.version == version }
     end
 
-    attr_accessor :answer_plan
-
     def initialize(candidates = [])
       @candidates = {}
-      @answer_plan = false
       candidates.each { |candidate| add(candidate) }
     end
 

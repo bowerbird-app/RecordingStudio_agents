@@ -47,7 +47,7 @@ module RecordingStudioAgents
             "required" => %w[id type purpose],
             "properties" => {
               "id" => { "type" => "string" },
-              "type" => { "type" => "string" },
+              "type" => { "type" => "string", "enum" => %w[tool deliver handoff] },
               "purpose" => { "type" => "string" },
               "tool_key" => { "type" => "string" },
               "tool_version" => { "type" => "integer" },

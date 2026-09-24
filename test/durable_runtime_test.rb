@@ -91,16 +91,19 @@ class DurableRuntimeTest < PersistenceTestCase
           assert_instance_of RecordingStudioAgents::Results::Completed, result
           assert_includes prompts.first[:system_instruction], "find_page version 1"
           assert_includes prompts.first[:system_instruction], "arguments object"
+          type_schema = prompts.first[:schema].dig("properties", "action_candidates", "items", "properties", "type")
+          assert_equal %w[tool deliver handoff], type_schema["enum"]
           assert(prompts.any? { |call| call[:prompt].to_s.include?("no usable action candidates") })
         end
       end
     end
   end
 
-  def test_a_deliver_only_plan_answers_after_the_list
+  def test_a_deliver_only_plan_still_asks_the_controller
     register_librarian
     plans = 0
     decisions = 0
+    seen = []
     generate = lambda do |**kwargs|
       if kwargs[:request_id].to_s.end_with?(":answer")
         generation_response(text: "No pages about dogs.", run_id: 11)
@@ -112,7 +115,12 @@ class DurableRuntimeTest < PersistenceTestCase
     decide = lambda do |**kwargs|
       decisions += 1
       ids = kwargs[:questions][:next_action][:criteria].keys.map(&:to_s)
-      decision(finished: 0.1, choice_id: "1", candidate_ids: ids)
+      seen << ids
+      if decisions == 1
+        decision(finished: 0.1, choice_id: "1", candidate_ids: ids)
+      else
+        decision(finished: 0.95, choice_id: "1", candidate_ids: ids)
+      end
     end
     perform = lambda do |**|
       Performance.new(
@@ -130,30 +138,27 @@ class DurableRuntimeTest < PersistenceTestCase
 
           assert_instance_of RecordingStudioAgents::Results::Completed, result
           assert_equal "No pages about dogs.", result.output.text
-          assert_equal 1, decisions
+          assert_equal 2, decisions
+          assert_equal [%w[1], %w[1]], seen
         end
       end
     end
   end
 
-  def test_a_page_list_can_be_answered
+  def test_a_page_list_does_not_invent_an_answer
     register_librarian
-    plans = 0
+    seen = []
     generate = lambda do |**kwargs|
       if kwargs[:request_id].to_s.end_with?(":answer")
         generation_response(text: "No pages about dogs.", run_id: 8)
       else
-        plans += 1
-        tool_only_plan(plans)
+        tool_only_plan(1)
       end
     end
     decide = lambda do |**kwargs|
       ids = kwargs[:questions][:next_action][:criteria].keys.map(&:to_s)
-      if ids.include?("answer")
-        decision(finished: 0.95, choice_id: "answer", candidate_ids: ids)
-      else
-        decision(finished: 0.1, choice_id: "1", candidate_ids: ids)
-      end
+      seen << ids
+      decision(finished: 0.1, choice_id: "1", candidate_ids: ids)
     end
     perform = lambda do |**|
       Performance.new(
@@ -169,9 +174,10 @@ class DurableRuntimeTest < PersistenceTestCase
         RecordingStudioAI.stub(:perform_tool, perform) do
           result = run_librarian("answer-the-list")
 
-          assert_instance_of RecordingStudioAgents::Results::Completed, result
-          assert_equal "No pages about dogs.", result.output.text
-          assert_equal 1, result.run.agent_steps.where(action_type: "tool", status: "completed").count
+          assert_instance_of RecordingStudioAgents::Results::Failed, result
+          assert_equal "maximum_replans", result.failure.code
+          assert_equal [["1"], ["1"], ["1"]], seen
+          refute result.run.agent_steps.exists?(candidate_id: "answer")
         end
       end
     end
@@ -572,7 +578,7 @@ class DurableRuntimeTest < PersistenceTestCase
     refute(menu.index.any? { |entry| entry.key?("arguments") })
   end
 
-  def test_a_dotted_tool_code_candidate_is_admitted_as_the_allowed_tool
+  def test_a_tool_code_or_dotted_key_is_not_admitted
     register_librarian
     program = RecordingStudioAgents::Programs::Compiler.compile(
       definition: RecordingStudioAgents.agents.fetch(:librarian, version: 1)
@@ -582,15 +588,16 @@ class DurableRuntimeTest < PersistenceTestCase
         candidate("list", "pages").merge(
           "type" => "tool_code",
           "tool_key" => "page_lookup.find_page"
-        )
+        ),
+        candidate("dotted", "pages").merge("tool_key" => "page_lookup.find_page")
       ],
       program: program,
       refused_digests: []
     )
 
-    admitted = menu.fetch("list")
-    assert_equal "tool", admitted.type
-    assert_equal "find_page", admitted.tool_key
+    assert_nil menu.fetch("list")
+    assert_nil menu.fetch("dotted")
+    assert_empty menu.actionable
   end
 
   private

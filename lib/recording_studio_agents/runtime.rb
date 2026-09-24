@@ -68,7 +68,6 @@ module RecordingStudioAgents
         if state.criteria_met? && menu.actionable.any?(&:deliver?)
           return finish(request, run, lease_token, state, menu.actionable.find(&:deliver?))
         end
-        return finish(request, run, lease_token, state, menu.actionable.first) if menu.answer_plan
 
         verdict, state = decide(request, run, lease_token, state, menu, steps)
         if verdict.fail?
@@ -108,7 +107,6 @@ module RecordingStudioAgents
         program: @program,
         refused_digests: state.data["refused_digests"]
       )
-      menu = keep_answer_available(menu, state)
       state, compacted = StateDelta.apply(state, {
                                             "replace_plan" => Array(data["plan"]),
                                             "replace_criteria" => Array(data["success_criteria"]),
@@ -504,23 +502,6 @@ module RecordingStudioAgents
 
     def next_sequence(run)
       run.agent_steps.maximum(:sequence).to_i + 1
-    end
-
-    def keep_answer_available(menu, state)
-      return menu unless observations_present?(state)
-      return menu if answer_available?(menu)
-
-      menu.add(
-        ActionMenu::Candidate.new(id: "answer", type: "deliver", purpose: "Answer from the current observations")
-      )
-    end
-
-    def answer_available?(menu)
-      menu.actionable.any?(&:deliver?)
-    end
-
-    def observations_present?(state)
-      Array(state.data["recent_observations"]).any?
     end
 
     def signal_lines(state, run)

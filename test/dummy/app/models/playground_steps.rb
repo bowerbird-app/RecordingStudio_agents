@@ -236,6 +236,11 @@ class PlaygroundSteps
   end
 
   def self.metadata_value(invocation, key)
+    if %w[arguments result].include?(key) && invocation.respond_to?(key)
+      stored = invocation.public_send(key)
+      return stored unless stored.nil?
+    end
+
     metadata = invocation.metadata
     return nil unless metadata.is_a?(Hash) && metadata.key?(key)
 

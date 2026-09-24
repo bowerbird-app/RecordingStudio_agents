@@ -8,10 +8,10 @@ GIT
 
 GIT
   remote: https://github.com/bowerbird-app/RecordingStudio_AI.git
-  revision: 46535af49be8282f514fbac2347c7c2684c30f2e
-  tag: v0.5.0
+  revision: 805c2c310cc3dd8cfd349edf39e73e95c7b69167
+  tag: v0.6.0
   specs:
-    recording_studio_ai (0.5.0)
+    recording_studio_ai (0.6.0)
       csv (>= 3.2)
       flat_pack (~> 0.1)
       json_schemer (~> 2.4)
@@ -466,7 +466,7 @@ CHECKSUMS
   recording_studio_accessible (0.7.0)
   recording_studio_admin (2.0.2)
   recording_studio_agents (0.5.0)
-  recording_studio_ai (0.5.0)
+  recording_studio_ai (0.6.0)
   regexp_parser (2.11.3) sha256=ca13f381a173b7a93450e53459075c9b76a10433caadcb2f1180f2c741fc55a4
   reline (0.6.3) sha256=1198b04973565b36ec0f11542ab3f5cfeeec34823f4e54cebde90968092b1835
   responders (3.2.0) sha256=89c2d6ac0ae16f6458a11524cae4a8efdceba1a3baea164d28ee9046bd3df55a

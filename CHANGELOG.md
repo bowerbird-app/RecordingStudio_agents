@@ -22,12 +22,12 @@ An agent run can keep working across many tool actions. The next model call sees
 - The lease renews on each loop turn and on each checkpoint, only while the same token is current and unexpired. A stale worker cannot checkpoint.
 - A confirmation pause stores `awaiting_confirmation` on the step and the run. The same idempotency key resumes that step.
 - The dummy playground, without a generative key, shows Plan, tool steps, check-ins, and Answer for Page librarian.
-- A tool result that lists pages is kept as those titles. A plan whose only candidate is an answer is written. A `tool_code` candidate whose key ends in an allowed tool is admitted as that tool. A missing `perform_tool` fails the run instead of leaving the tool step running.
+- A tool result that lists pages is kept as those titles. A missing `perform_tool` fails the run instead of leaving the tool step running. A tool candidate must use type `tool` and an allowed tool key. The runtime does not rename another type, split a dotted key, or insert an answer candidate.
 
 ### Upgrade notes
 - Install and run the engine migration that adds `working_state_json` and `recording_studio_agents_agent_steps`.
 - `RecordingStudioAgents.agent(...).run(...)` still works. A generate result with no `action_candidates` still completes from that text.
-- Tool steps call `RecordingStudioAI.perform_tool`. Development and dummy Gemfiles pin Recording Studio AI `v0.5.0`. That published release does not define `perform_tool`. A tool step raises `ConfigurationError` on it. Answer-only agents still finish from `generate`. Hosts that run tool steps need a later AI release that adds `perform_tool` and the migration for operation `tool`.
+- Tool steps call `RecordingStudioAI.perform_tool`. Development and dummy Gemfiles pin Recording Studio AI `v0.6.0`. Run that gem's migration with `bin/rails recording_studio_ai:install:migrations` and `bin/rails db:migrate`. It allows operation `tool` and stores `arguments` and `result` on custom tool invocations. A missing `perform_tool` still fails the tool step with `tool_unavailable`. Answer-only `generate` results still complete.
 - New budget and threshold keys are optional. Omitted keys keep the defaults above. Set them on `RecordingStudioAgents.configuration` or in `recording_studio_agents.yml`.
 - The durable loop does not call the internal handoff tool. A handoff candidate is accepted only when the target is on the run's allowlist. The tool stays registered.
 - Do not expect `maximum_custom_tool_rounds` to cap an agent. Set `maximum_steps` and `maximum_tool_actions` instead.
