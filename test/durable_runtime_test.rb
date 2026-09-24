@@ -89,11 +89,74 @@ class DurableRuntimeTest < PersistenceTestCase
           result = run_librarian("empty-plan")
 
           assert_instance_of RecordingStudioAgents::Results::Completed, result
-          assert_includes prompts.first[:system_instruction], "find_page version 1"
-          assert_includes prompts.first[:system_instruction], "arguments object"
+          plan_calls = prompts.reject { |call| call[:request_id].to_s.end_with?(":answer") }
+          assert_equal 2, plan_calls.length
+          plan_calls.each do |call|
+            assert_includes call[:system_instruction], "find_page version 1"
+            assert_includes call[:system_instruction], "arguments object"
+            assert_includes call[:system_instruction], "Arguments: none."
+            assert_equal [], call[:custom_tools]
+          end
           type_schema = prompts.first[:schema].dig("properties", "action_candidates", "items", "properties", "type")
           assert_equal %w[tool deliver handoff], type_schema["enum"]
           assert(prompts.any? { |call| call[:prompt].to_s.include?("no usable action candidates") })
+        end
+      end
+    end
+  end
+
+  def test_a_plan_lists_each_tools_required_parameters
+    RecordingStudioAgents.agents.register(
+      key: :reviewer, version: 1, name: "Reviewer", description: "Reviews", instructions: "Review."
+    )
+    register_librarian(handoffs: { reviewer: 1 })
+    RecordingStudioAgents::Handoffs::Tool.register!
+    retune_tool(
+      :find_page,
+      description: "Find a page by title.",
+      use_when: "The task names a page.",
+      do_not_use_when: "The task asks to rename a page.",
+      returns: "The page recording id.",
+      parameters: [
+        { name: "title", type: "string", required: true, description: "Title of the page." },
+        { name: "folder", type: "string", required: false, description: "Folder name when the title is shared." }
+      ]
+    )
+    prompts = []
+    plans = 0
+    generate = lambda do |**kwargs|
+      prompts << kwargs
+      if kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "Found it.", run_id: 8)
+      else
+        plans += 1
+        plans == 1 ? rejected_plan(6) : plan_response(candidates: 1, run_id: 7)
+      end
+    end
+    decide = ->(**) { decision(finished: 0.95, choice_id: "deliver", candidate_ids: %w[action_1 deliver]) }
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        result = run_librarian("tool-parameters")
+
+        assert_instance_of RecordingStudioAgents::Results::Completed, result
+        plan_calls = prompts.reject { |call| call[:request_id].to_s.end_with?(":answer") }
+        assert_equal 2, plan_calls.length
+        assert_match(/:reason-/, plan_calls.last[:request_id])
+        plan_calls.each do |call|
+          instruction = call[:system_instruction]
+          assert_includes instruction, "find_page version 1. Find a page by title."
+          assert_includes instruction, "Use when: The task names a page."
+          assert_includes instruction, "Do not use when: The task asks to rename a page."
+          assert_includes instruction, "title (string, required): Title of the page."
+          assert_includes instruction, "folder (string, optional): Folder name when the title is shared."
+          assert_includes instruction, "Returns: The page recording id."
+          refute_includes instruction, "recording_studio_agents_request_handoff"
+          refute_includes instruction, "target_agent_key"
+          assert_equal [], call[:custom_tools]
+          arguments = call[:schema].dig("properties", "action_candidates", "items", "properties", "arguments")
+          assert_equal "object", arguments["type"]
+          refute arguments.key?("oneOf")
         end
       end
     end

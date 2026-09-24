@@ -24,6 +24,7 @@ An agent run can keep working across many tool actions. The next model call sees
 - The dummy playground, without a generative key, shows Plan, tool steps, check-ins, and Answer for Page librarian.
 - A tool result that lists pages is kept as those titles. A missing `perform_tool` fails the run instead of leaving the tool step running. A tool candidate must use type `tool` and an allowed tool key. The runtime does not rename another type, split a dotted key, or insert an answer candidate.
 - When no candidates remain and an observation is stored, the controller is asked whether the goal can be answered from those observations. A finished score at the threshold writes the answer. Success criteria that are already met write the answer even when the menu is empty.
+- The planning note lists each allowed tool's description, when to use it, parameters, and return value. The reasoner fills those arguments on the first plan and on every replan. The internal handoff tool stays off that list.
 
 ### Upgrade notes
 - Install and run the engine migration that adds `working_state_json` and `recording_studio_agents_agent_steps`.

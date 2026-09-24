@@ -182,11 +182,57 @@ module RecordingStudioAgents
     end
 
     def planning_note(invocation)
-      names = invocation.tool_references.map { |reference| "#{reference.key} version #{reference.version}" }
-      allowed = names.empty? ? "No tools are allowed." : "Allowed tools: #{names.join(', ')}."
-      "Plan the work. Put the next actions in action_candidates. " \
-        "A tool candidate needs type tool, tool_key, tool_version, purpose, and an arguments object. " \
-        "#{allowed} Include a deliver candidate when the answer can be written. This step returns the plan only."
+      catalog = tool_catalog(invocation)
+      note = [
+        "Plan the work. Put the next actions in action_candidates.",
+        "A tool candidate needs type tool, tool_key, tool_version, purpose, and an arguments object.",
+        "Fill each arguments object with the parameters listed for that tool.",
+        "Include a deliver candidate when the answer can be written. This step returns the plan only."
+      ].join(" ")
+      return "#{note} No tools are allowed." if catalog.empty?
+
+      "#{note}\n\n#{catalog}"
+    end
+
+    def tool_catalog(invocation)
+      invocation.tool_references.filter_map { |reference| catalog_entry(reference) }.join("\n\n")
+    end
+
+    def catalog_entry(reference)
+      return if handoff_tool?(reference)
+
+      tool = RecordingStudioAI.tools.fetch(reference.key, version: reference.version)
+      return if tool.nil?
+
+      [tool_heading(reference, tool), tool_guidance(tool), argument_line(tool), returns_line(tool)].compact.join("\n")
+    end
+
+    def handoff_tool?(reference)
+      reference.key.to_s == Handoffs::INTERNAL_TOOL_KEY.to_s
+    end
+
+    def tool_heading(reference, tool)
+      "#{reference.key} version #{reference.version}. #{tool.description}"
+    end
+
+    def tool_guidance(tool)
+      "Use when: #{tool.use_when}\nDo not use when: #{tool.do_not_use_when}"
+    end
+
+    def returns_line(tool)
+      "Returns: #{tool.returns}" unless tool.returns.empty?
+    end
+
+    def argument_line(tool)
+      parameters = Array(tool.parameters)
+      return "Arguments: none." if parameters.empty?
+
+      "Arguments: #{parameters.map { |parameter| parameter_phrase(parameter) }.join('; ')}."
+    end
+
+    def parameter_phrase(parameter)
+      requirement = parameter[:required] ? "required" : "optional"
+      "#{parameter[:name]} (#{parameter[:type]}, #{requirement}): #{parameter[:description]}"
     end
 
     def lease_metadata(run, lease_token)
