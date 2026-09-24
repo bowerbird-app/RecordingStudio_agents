@@ -25,17 +25,31 @@ class ListPagesToolTest < ActiveSupport::TestCase
     result = RecordingStudioAI.tools.fetch(:list_pages, version: 1).executor.call({}, context_for(@root))
 
     assert_equal [
+      { "title" => "Agents", "path" => "/admin/sections/agents" },
+      { "title" => "Home", "path" => "/" },
+      { "title" => "Playground", "path" => "/playground" },
+      { "title" => "Staff", "path" => "/admin" },
       { "title" => "Start here", "folder" => "Guides" },
       { "title" => "Welcome" }
     ], result["pages"]
+    refute_includes result["pages"].map { |entry| entry["title"] }, "Elsewhere"
   ensure
     Current.actor = previous
   end
 
-  test "returns no pages when the workspace has none" do
+  test "returns menu pages when the workspace has no content pages" do
     result = RecordingStudioAI.tools.fetch(:list_pages, version: 1).executor.call({}, context_for(@root))
 
-    assert_equal({ "pages" => [] }, result)
+    assert_includes result["pages"], { "title" => "Staff", "path" => "/admin" }
+  end
+
+  test "finds the staff menu page without a case-sensitive title" do
+    result = RecordingStudioAI.tools.fetch(:find_page, version: 1).executor.call(
+      { "title" => "staff" },
+      context_for(@root)
+    )
+
+    assert_equal({ "found" => true, "title" => "Staff", "path" => "/admin" }, result)
   end
 
   private
