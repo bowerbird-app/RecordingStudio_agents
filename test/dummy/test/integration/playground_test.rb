@@ -77,9 +77,13 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Done/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Reply/
-    assert_select "[id^='playground-step-'][id$='-content']", text: /Find the Getting Started page\./
-    assert_select "[id^='playground-step-'][id$='-content']", text: /Finished\./
-    assert_select "#playground-reply-content[hidden]", text: /Finished\./
+    asked = css_select("#playground-step-0-content").text
+    answered = css_select("#playground-step-1-content").text
+    assert_includes asked, "Find the Getting Started page."
+    assert_includes asked, "Getting Started"
+    refute_includes asked, "Finished."
+    assert_includes answered, "Finished."
+    refute_includes answered, "Find the Getting Started page."
     assert_select "h2", text: "Page librarian", count: 0
     assert_select "h2", text: "Skills", count: 0
     assert_select "h2", text: "Reply", count: 0
@@ -140,8 +144,12 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     get path
 
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
-    assert_select "[id^='playground-step-'][id$='-content']", text: /Find the Getting Started page\./
-    assert_select "#playground-reply-content[hidden]", text: /Finished\./
+    asked = css_select("#playground-step-0-content").text
+    answered = css_select("#playground-step-1-content").text
+    assert_includes asked, "Find the Getting Started page."
+    refute_includes asked, "Finished."
+    assert_includes answered, "Finished."
+    refute_includes answered, "Find the Getting Started page."
     run = RecordingStudioAgents::AgentRun.find_by!(
       root_recording_id: @root.id,
       idempotency_key: path.split("/").last

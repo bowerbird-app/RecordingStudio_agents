@@ -39,5 +39,16 @@ class PlaygroundToolArgumentsTest < ActiveSupport::TestCase
     )
 
     assert_equal({ "title" => "Staff handbook" }, invocation.reload.metadata["arguments"])
+
+    invocation.update!(started_at: now)
+    RecordingStudioAI::Orchestration::CustomToolRecords.new.complete!(
+      invocation,
+      { "found" => true, "title" => "Staff handbook" },
+      nil
+    )
+
+    stored = invocation.reload.metadata
+    assert_equal({ "title" => "Staff handbook" }, stored["arguments"])
+    assert_equal({ "found" => true, "title" => "Staff handbook" }, stored["result"])
   end
 end

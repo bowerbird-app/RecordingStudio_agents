@@ -80,8 +80,11 @@ class PlaygroundRunJob < ApplicationJob
 
   def stubbed_response(**kwargs)
     ai_run = persist_stubbed_ai_run(**kwargs)
-    remember_reply(ai_run)
-    remember_find_page(ai_run, kwargs[:custom_tools])
+    if Array(kwargs[:custom_tools]).include?(FIND_PAGE)
+      remember_find_page_turns(ai_run)
+    else
+      remember_reply(ai_run, sequence: 1, kind: "primary", text: "Finished.")
+    end
     RecordingStudioAI::Contracts::GenerationResponse.new(
       operation: "generation",
       purpose: kwargs[:purpose],
@@ -119,32 +122,14 @@ class PlaygroundRunJob < ApplicationJob
     )
   end
 
-  def remember_reply(ai_run)
-    now = Time.current
-    attempt = RecordingStudioAI::Attempt.create!(
-      run: ai_run,
-      sequence: 1,
-      kind: "primary",
-      status: "completed",
-      started_at: now,
-      completed_at: now
-    )
-    RecordingStudioAI::Response.create!(
-      attempt: attempt,
-      response_type: "generation",
-      content_text: "Finished.",
-      content_type: "text/plain",
-      complete: true,
-      expires_at: now + RecordingStudioAI.configuration.response_retention_period
-    )
-  end
-
-  def remember_find_page(ai_run, custom_tools)
-    return unless Array(custom_tools).include?(FIND_PAGE)
-
+  def remember_find_page_turns(ai_run)
+    asked = remember_reply(ai_run, sequence: 1, kind: "primary", text: nil)
+    answered = remember_reply(ai_run, sequence: 2, kind: "continuation", text: "Finished.")
     now = Time.current
     RecordingStudioAI::CustomToolInvocation.create!(
       run: ai_run,
+      requested_by_attempt: asked,
+      continued_by_attempt: answered,
       tool_key: "find_page",
       tool_version: 1,
       tool_name_snapshot: "Find page",
@@ -155,8 +140,35 @@ class PlaygroundRunJob < ApplicationJob
       idempotent: true,
       confirmation_status: "not_required",
       started_at: now,
+      completed_at: now,
+      metadata: {
+        "arguments" => { "title" => "Getting Started" },
+        "result" => { "found" => true, "title" => "Getting Started" }
+      }
+    )
+  end
+
+  def remember_reply(ai_run, sequence:, kind:, text:)
+    now = Time.current
+    attempt = RecordingStudioAI::Attempt.create!(
+      run: ai_run,
+      sequence: sequence,
+      kind: kind,
+      status: "completed",
+      started_at: now,
       completed_at: now
     )
+    return attempt if text.blank?
+
+    RecordingStudioAI::Response.create!(
+      attempt: attempt,
+      response_type: "generation",
+      content_text: text,
+      content_type: "text/plain",
+      complete: true,
+      expires_at: now + RecordingStudioAI.configuration.response_retention_period
+    )
+    attempt
   end
 
   def remember_error(root_recording_id, idempotency_key, error)

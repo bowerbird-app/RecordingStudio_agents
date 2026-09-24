@@ -172,15 +172,7 @@ class PlaygroundController < ApplicationController
   def show_steps
     return [] if @run.nil?
 
-    PlaygroundSteps.for(@run, reply_text: reply_text, context: @form.context)
-  end
-
-  def reply_text
-    return if @run.nil? || @run.recording_studio_ai_run_id.blank?
-
-    ai_run = RecordingStudioAI::Run.find_by(id: @run.recording_studio_ai_run_id)
-    retained = RecordingStudioAgents::Ai.retained_output(ai_run: ai_run, initiator: current_user)
-    retained&.dig(:text)
+    PlaygroundSteps.for(@run, initiator: current_user, context: @form.context)
   end
 
   def refresh?
