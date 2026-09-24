@@ -65,6 +65,32 @@ class HandoffTest < PersistenceTestCase
     assert_equal %w[target_agent_key target_agent_version], activity.data.keys.sort
   end
 
+  def test_handoff_reads_the_lease_after_token_metadata_is_redacted
+    result = nil
+    RecordingStudioAI.stub(:generate, lambda { |**kwargs|
+      lease = kwargs[:metadata]["lease_token"]
+      sanitized = RecordingStudioAI::Metadata.sanitize!(kwargs[:metadata])
+      assert_equal "[REDACTED]", sanitized["lease_token"]
+      assert_equal Digest::SHA256.hexdigest(lease), sanitized["agent_lease_check"]
+      RecordingStudioAgents::Handoffs::Tool.call(
+        { "target_agent_key" => "reviewer", "target_agent_version" => 1 },
+        ai_context_from_generate(kwargs.merge(metadata: sanitized), run_id: 78)
+      )
+      generation_response(text: "Need a reviewer.", run_id: 78)
+    }) do
+      result = RecordingStudioAgents.agent(:librarian, version: 1).run(
+        task: task_input,
+        root_recording: root,
+        initiator: actor,
+        execution_source: :job,
+        idempotency_key: "handoff-redacted"
+      )
+    end
+
+    assert_instance_of RecordingStudioAgents::Results::HandoffRequested, result
+    assert_equal "reviewer", result.run.handoff_agent_key
+  end
+
   def test_handoff_rejects_target_outside_allowlist
     register_run_then_call_tool = lambda do
       RecordingStudioAI.stub(:generate, generation_response) do
