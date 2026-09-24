@@ -11,7 +11,7 @@ This Rails app exists to prove Recording Studio Agents in a real host.
 - Page librarian demo on `/` (`POST /agents/demo`). After a run, home lists what it did. Workspace outline knowledge cites the workspace root. The demo passes the Getting Started page as context inside that workspace. With `GEMINI_API_KEY` or `google_ai_studio` set, that run calls Gemini. Without a generative key, it uses an offline stub.
 - Decisions use TypeSafe Jev through `RecordingStudioAI.decide`. Set `TYPESAFE_API_KEY` or `typesafe`. Profiles keep Gemini on generation and `jev-latest` on decisions.
 - Support clerk registered for optional skill and pack tests (no second home button)
-- Playground at `/playground`. The form sits on the left and the steps on the right. Pick a registered agent, write an instruction, check the tools that agent may use, and choose skills for that run. Model replies are kept. The dummy sets fixture Active Record encryption keys when the host has none, so that reply can be read.
+- Playground at `/playground`. The form sits on the left and the steps on the right. Pick a registered agent, write an instruction, check the tools that agent may use, and search for skills for that run. Model replies are kept. The dummy sets fixture Active Record encryption keys when the host has none, so that reply can be read.
 - Mounted Agents, AI, Accessible, and Admin (`/admin`)
 
 ## Quick start
@@ -28,7 +28,7 @@ Run those commands from the dummy app directory.
 ## Useful routes
 
 - `/` - page librarian demo, with steps after a run
-- `/playground` - pick a registered agent, choose its tools and skills, write an instruction, and watch the steps
+- `/playground` - pick a registered agent, search for skills, choose its tools, write an instruction, and watch the steps
 - `/users/sign_in` - Devise sign-in
 - `/admin` - staff hub, with links to Agents and model calls
 - `/admin/sections/agents` - Agents admin, including Agents, Runs, and Usage by agent. Agent names open a details page. The actions menu on Agents turns an agent on or off. Skills and tools on that page open their own details.

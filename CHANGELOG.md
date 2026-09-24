@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The dummy playground starts a registered agent and watches the attempt.
 
 ### Added
-- Dummy host page `/playground`. Pick a registered agent, write an instruction, choose that agent's tools and any registered skills, and watch the steps beside the form. The dummy keeps the model reply so the page can show it.
+- Dummy host page `/playground`. Pick a registered agent, write an instruction, choose that agent's tools and any registered skills, and watch the steps beside the form. Skills is a searchable select. The dummy keeps the model reply so the page can show it.
 - `Agent#run` accepts `skills:` and `tools:` for one attempt.
 
 ### Upgrade notes

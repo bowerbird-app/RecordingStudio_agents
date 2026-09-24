@@ -24,14 +24,17 @@
     rows: 4
   ) %>
 
-  <%= render FlatPack::Select::Component.new(
-    name: "skills",
-    label: "Skills",
-    options: @skill_options.map { |skill| [ skill.name, skill.token ] },
-    value: @form.skills,
-    multiple: true,
-    placeholder: "No skills"
-  ) %>
+  <div data-playground-skills>
+    <%= render FlatPack::Select::Component.new(
+      name: "skills",
+      label: "Skills",
+      options: @skill_options.map { |skill| [ skill.name, skill.token ] },
+      value: @form.skills,
+      multiple: true,
+      searchable: true,
+      placeholder: "No skills"
+    ) %>
+  </div>
 
   <% @catalog.each do |entry| %>
     <% next if entry.tools.empty? %>
@@ -70,10 +73,12 @@
     if (!resetSkills) return
     var defaults = JSON.parse(document.getElementById("playground-skill-defaults").textContent)
     var wanted = defaults[chosen] || []
-    var select = document.querySelector("select[name='skills[]']")
-    if (!select) return
-    Array.prototype.forEach.call(select.options, function (option) {
-      option.selected = wanted.indexOf(option.value) !== -1
+    var skills = document.querySelector("[data-playground-skills]")
+    if (!skills) return
+    skills.querySelectorAll("[role='option']").forEach(function (option) {
+      var selected = option.getAttribute("aria-selected") === "true"
+      var should = wanted.indexOf(option.getAttribute("data-value")) !== -1
+      if (selected !== should) option.click()
     })
   }
 

@@ -29,7 +29,10 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "md:grid-cols-2"
     assert_includes response.body, "Run it to see the steps."
     assert_select "textarea[name='goal']"
-    assert_select "select[name='skills[]'] option[value='page_lookup@1'][selected]"
+    assert_select "[data-playground-skills] [data-flat-pack--select-searchable-value='true']"
+    assert_select "[data-playground-skills] input[placeholder='Search...']"
+    assert_select "[data-playground-skills] input[name='skills[]'][value='page_lookup@1']"
+    assert_select "select[name='skills[]']", count: 0
     assert_select "input[name='tools[]'][value='find_page@1'][checked]"
     assert_select "input[name='tools[]'][value='retitle_page@1'][checked]"
     assert_select "input[name='choices'][value='1']"
