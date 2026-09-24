@@ -24,6 +24,8 @@ Plans now include each allowed tool's parameters from the Recording Studio AI re
 
 A tool candidate whose arguments fail that tool's schema gets one more generate call for those arguments. The call counts toward `maximum_reasoner_calls`. The tool runs after the arguments validate. No host change.
 
+An explicit empty `action_candidates` list now enters the runtime. A generate result that omits that key still finishes from its text. A failed final answer fails the run with `synthesis_failed`. The compiled instruction names a handoff candidate. A resume keeps a stored tool outcome when Recording Studio AI has one.
+
 ## Current Requirements
 
 - Ruby 3.3 or newer

@@ -358,6 +358,143 @@ class DurableRuntimeTest < PersistenceTestCase
     RecordingStudioAgents.configuration.maximum_replans = previous
   end
 
+  def test_the_same_arguments_for_two_tools_do_not_share_a_digest
+    web = RecordingStudioAgents::ActionMenu::Candidate.new(
+      id: "web", type: "tool", purpose: "Search", tool_key: "web_search", tool_version: 1,
+      arguments: { "query" => "Acme" }
+    )
+    other = RecordingStudioAgents::ActionMenu::Candidate.new(
+      id: "other", type: "tool", purpose: "Search", tool_key: "x_search", tool_version: 1,
+      arguments: { query: "Acme" }
+    )
+
+    refute_equal web.argument_digest, other.argument_digest
+    assert_equal web.argument_digest, RecordingStudioAgents::Digests.of(
+      "tool_key" => "web_search",
+      "tool_version" => 1,
+      "arguments" => { "query" => "Acme" }
+    )
+  end
+
+  def test_an_explicit_empty_candidate_list_enters_the_runtime
+    register_librarian
+    generate = lambda do |**kwargs|
+      if kwargs[:prompt].to_s.include?("no usable action candidates")
+        plan_response(candidates: 0, extra: [deliver_candidate], run_id: 44)
+      elsif kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "The real answer.", run_id: 45)
+      else
+        empty_candidate_plan(43)
+      end
+    end
+
+    decide = ->(**) { decision(finished: 0.95, choice_id: "deliver", candidate_ids: ["deliver"]) }
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        result = run_librarian("empty-candidates")
+
+        assert_instance_of RecordingStudioAgents::Results::Completed, result
+        assert_equal "The real answer.", result.output.text
+      end
+    end
+  end
+
+  def test_a_failed_answer_does_not_succeed_the_run
+    register_librarian
+    error = Struct.new(:message, :category, :code, :retryable?).new(
+      "The model stopped.", "provider_error", "generation_failed", false
+    )
+    generate = lambda do |**kwargs|
+      if kwargs[:request_id].to_s.end_with?(":answer")
+        Struct.new(:text, :error, :run, :structured_data).new("", error, Struct.new(:id).new(46), nil)
+      else
+        deliver_only_plan(47)
+      end
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, ->(**) { decision(finished: 0.95, choice_id: "1", candidate_ids: ["1"]) }) do
+        result = run_librarian("synthesis-failed")
+
+        assert_instance_of RecordingStudioAgents::Results::Failed, result
+        assert_equal "synthesis_failed", result.failure.code
+        assert_equal "failed", result.run.status
+      end
+    end
+  end
+
+  def test_a_stored_tool_outcome_is_kept_after_a_crash
+    register_librarian
+    calls = []
+    generate = ->(**kwargs) { crash_generate(kwargs) }
+    decide = ->(**kwargs) { crash_decide(kwargs, :first, []) }
+    perform = lambda do |**kwargs|
+      calls << kwargs
+      raise "worker died" unless kwargs[:arguments].nil?
+
+      performance(summary: "Stored page.", criteria: ["done"])
+    end
+    find_run = lambda do |request_id:|
+      request_id.to_s.include?(":tool:") ? Struct.new(:id).new(9) : nil
+    end
+
+    RecordingStudioAgents::Ai.stub(:find_run, find_run) do
+      RecordingStudioAI.stub(:generate, generate) do
+        RecordingStudioAI.stub(:decide, decide) do
+          RecordingStudioAI.stub(:perform_tool, perform) do
+            first = run_librarian("stored-replay")
+            second = run_librarian("stored-replay")
+
+            assert_instance_of RecordingStudioAgents::Results::Failed, first
+            assert_instance_of RecordingStudioAgents::Results::Completed, second
+            assert_equal "Recovered.", second.output.text
+            assert_equal "Stored page.", second.run.agent_steps.find_by!(action_type: "tool").observation_summary
+            assert_equal(1, calls.count { |call| call[:arguments].nil? })
+            assert_equal 0, second.run.agent_steps.where(status: "unresolved").count
+            assert second.run.agent_steps.exists?(action_type: "tool", status: "completed")
+          end
+        end
+      end
+    end
+  end
+
+  def test_an_in_progress_tool_stays_unresolved
+    register_librarian
+    phase = :first
+    calls = []
+    generate = ->(**kwargs) { crash_generate(kwargs) }
+    decide = ->(**kwargs) { crash_decide(kwargs, phase, []) }
+    perform = lambda do |**kwargs|
+      calls << kwargs[:arguments]
+      if kwargs[:arguments].nil?
+        raise RecordingStudioAI::Errors::ContractValidationError.new(
+          "tool run is already in progress", code: "invalid_request"
+        )
+      end
+
+      raise "worker died"
+    end
+    find_run = ->(request_id:) { request_id.to_s.include?(":tool:") ? Struct.new(:id).new(9) : nil }
+
+    RecordingStudioAgents::Ai.stub(:find_run, find_run) do
+      RecordingStudioAI.stub(:generate, generate) do
+        RecordingStudioAI.stub(:decide, decide) do
+          RecordingStudioAI.stub(:perform_tool, perform) do
+            first = run_librarian("in-progress-tool")
+            phase = :second
+            second = run_librarian("in-progress-tool")
+
+            assert_instance_of RecordingStudioAgents::Results::Failed, first
+            failure_code = second.respond_to?(:failure) ? second.failure&.code : nil
+            refute_equal "invalid_request", failure_code
+            assert_equal 1, calls.count(nil)
+            assert_equal 1, second.run.agent_steps.where(status: "unresolved").count
+          end
+        end
+      end
+    end
+  end
+
   def test_a_spent_reasoner_budget_drops_a_candidate_with_missing_arguments
     register_librarian
     retune_tool(:find_page, parameters: [required_title])
@@ -992,6 +1129,21 @@ class DurableRuntimeTest < PersistenceTestCase
     { name: "title", type: "string", required: true, description: "Title of the page." }
   end
 
+  def empty_candidate_plan(run_id)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: "Premature.",
+      structured_data: {
+        "plan" => ["Look"],
+        "success_criteria" => [{ "id" => "done", "text" => "Found" }],
+        "current_objective" => "Look",
+        "action_candidates" => []
+      },
+      run: Struct.new(:id, :status).new(run_id, "completed")
+    )
+  end
+
   def empty_arguments_plan(run_id, purpose, extra: [])
     tool_plan(run_id, purpose, "find_page", {}, extra: extra)
   end
@@ -1211,7 +1363,9 @@ class DurableRuntimeTest < PersistenceTestCase
     assert_equal 3, RecordingStudioAI.configuration.maximum_attempts
     assert_equal 21, decided.length
     assert_equal %i[progress_made finished stuck needs_reasoning next_action], decided.first[:questions].keys
-    assert decided.first[:questions][:next_action][:criteria].values.all?(&:nil?)
+    criteria = decided.first[:questions][:next_action][:criteria]
+    assert_includes criteria.fetch("action_1"), "find_page v1. Look note-1"
+    refute(criteria.values.any?(&:nil?))
     refute_includes decided.last[:state], "observation-01"
     refute_includes decided.last[:state], "Look note-1\n"
     refute_includes decided.last[:state], "SECRET-ARGUMENT"
@@ -1315,7 +1469,11 @@ class DurableRuntimeTest < PersistenceTestCase
   end
 
   def digest_for(note)
-    Digest::SHA256.hexdigest(JSON.generate({ "note" => note }))
+    RecordingStudioAgents::Digests.of(
+      "tool_key" => "find_page",
+      "tool_version" => 1,
+      "arguments" => { "note" => note }
+    )
   end
 
   def empty_state

@@ -25,7 +25,7 @@ module RecordingStudioAgents
     end
 
     def self.questions(menu)
-      criteria = menu.actionable.to_h { |candidate| [candidate.id, nil] }
+      criteria = menu.actionable.to_h { |candidate| [candidate.id, choice_text(candidate)] }
       {
         progress_made: {
           type: :noul,
@@ -49,6 +49,15 @@ module RecordingStudioAgents
           criteria: criteria
         }
       }
+    end
+
+    def self.choice_text(candidate)
+      text = if candidate.tool?
+               "#{candidate.tool_key} v#{candidate.tool_version}. #{candidate.purpose}"
+             else
+               candidate.purpose
+             end
+      text.byteslice(0, 240)
     end
 
     def self.completion_questions

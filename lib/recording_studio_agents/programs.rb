@@ -118,7 +118,7 @@ module RecordingStudioAgents
         unless handoff_references.empty?
           allowed = handoff_references.map { |reference| "#{reference.key} v#{reference.version}" }.join(", ")
           parts << "Allowed handoff targets: #{allowed}. " \
-                   "Use the handoff tool to record a request. Do not start another agent."
+                   "Name a handoff candidate with the target key and version. Do not start another agent."
         end
         parts.join("\n\n")
       end

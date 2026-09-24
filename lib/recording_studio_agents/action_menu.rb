@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require "digest"
-require "json"
-
 module RecordingStudioAgents
   class ActionMenu
     class Candidate
@@ -19,7 +16,9 @@ module RecordingStudioAgents
         @arguments = arguments
         @handoff_key = handoff_key&.to_s
         @handoff_version = handoff_version&.to_i
-        @argument_digest = argument_digest.presence || digest_of(arguments)
+        @argument_digest = argument_digest.presence || digest_of(
+          arguments, tool_key: @tool_key, tool_version: @tool_version
+        )
         freeze
       end
 
@@ -62,16 +61,20 @@ module RecordingStudioAgents
         }
       end
 
-      def self.digest_of(arguments)
+      def self.digest_of(arguments, tool_key:, tool_version:)
         return if arguments.nil?
 
-        Digest::SHA256.hexdigest(JSON.generate(arguments))
+        Digests.of(
+          "tool_key" => tool_key.to_s,
+          "tool_version" => tool_version.to_i,
+          "arguments" => arguments
+        )
       end
 
       private
 
-      def digest_of(arguments)
-        self.class.digest_of(arguments)
+      def digest_of(arguments, tool_key:, tool_version:)
+        self.class.digest_of(arguments, tool_key: tool_key, tool_version: tool_version)
       end
     end
 

@@ -304,7 +304,7 @@ module RecordingStudioAgents
 
         data = response.try(:structured_data)
         data = data.stringify_keys if data.respond_to?(:stringify_keys)
-        data.is_a?(Hash) && Array(data["action_candidates"]).any?
+        data.is_a?(Hash) && data.key?("action_candidates") && data["action_candidates"].is_a?(Array)
       end
 
       def blocked?(response)

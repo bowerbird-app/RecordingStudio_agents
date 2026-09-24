@@ -25,6 +25,12 @@ An agent run can keep working across many tool actions. The next model call sees
 - A tool result that lists pages is kept as those titles. A missing `perform_tool` fails the run instead of leaving the tool step running. A tool candidate must use type `tool` and an allowed tool key. The runtime does not rename another type, split a dotted key, or insert an answer candidate.
 - When no candidates remain and an observation is stored, the controller is asked whether the goal can be answered from those observations. A finished score at the threshold writes the answer. Success criteria that are already met write the answer even when the menu is empty.
 - The planning note lists each allowed tool's description, when to use it, parameters, and return value. The reasoner fills those arguments on the first plan and on every replan. The internal handoff tool stays off that list.
+- The action fingerprint includes the tool key, the tool version, and the arguments. Two tools with the same arguments stay distinct.
+- A controller choice includes the candidate purpose. A tool choice also names the tool and version.
+- An explicit empty `action_candidates` list enters the runtime. A generate result with no `action_candidates` key still finishes from its text.
+- A failed final answer fails the run with `synthesis_failed`.
+- The compiled instruction tells the model to name a handoff candidate. It does not tell the planner to call the handoff tool.
+- A resume reads a stored Recording Studio AI tool outcome for a started step. A missing or in-progress tool call is closed as `unresolved` and is not run again.
 - A tool candidate whose arguments fail that tool's schema gets one more generate call. The schema is that tool's parameter schema, and the call counts toward `maximum_reasoner_calls`. The tool runs after the arguments validate. A candidate that still fails is dropped before the tool runs. An empty arguments object stays put when the tool requires nothing.
 
 ### Upgrade notes

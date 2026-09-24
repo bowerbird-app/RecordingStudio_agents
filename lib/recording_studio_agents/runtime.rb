@@ -348,7 +348,27 @@ module RecordingStudioAgents
 
       return unless step.status == "started" && step.action_type == "tool"
 
+      stored = replay_stored_tool(run, step)
+      if stored
+        menu = ActionMenu.new.restore_terminal(state.data["candidate_index"])
+        return apply_performance(
+          request, run, lease_token, state, menu, candidate_from_step(step), step.sequence, stored, nil
+        )
+      end
+
       close_started_step(run, lease_token, state, step)
+    end
+
+    def replay_stored_tool(run, step)
+      request_id = "#{Ai.request_id_for(run)}:tool:#{step.sequence}"
+      return unless Ai.find_run(request_id: request_id)
+
+      Ai.perform_tool(
+        invocation: @invocation, run: run, candidate: candidate_from_step(step),
+        sequence: step.sequence, resume: false
+      )
+    rescue RecordingStudioAI::Errors::ContractValidationError
+      nil
     end
 
     def apply_performance(request, run, lease_token, state, menu, candidate, sequence, performance, verdict)
@@ -438,6 +458,8 @@ module RecordingStudioAgents
 
     def finish(_request, run, lease_token, state, candidate)
       response = Ai.synthesize(invocation: @invocation, run: run, lease_token: lease_token, state: state)
+      return fail_synthesis(run, lease_token, response) if response.respond_to?(:error) && response.error
+
       if response.respond_to?(:run) && response.run
         @ledger.attach_ai_run!(run: run, lease_token: lease_token,
                                ai_run: response.run)
@@ -471,6 +493,18 @@ module RecordingStudioAgents
       )
       @ledger.commit_handoff!(run: run, lease_token: lease_token, target: target)
       Results::HandoffRequested.new(run: run.reload, request: HandoffRequest.new(target: target))
+    end
+
+    def fail_synthesis(run, lease_token, response)
+      error = response.error
+      failure = Failure.new(
+        category: error.respond_to?(:category) && error.category.present? ? error.category : "provider_error",
+        code: "synthesis_failed",
+        message: error.respond_to?(:message) ? error.message.to_s : "The answer could not be written.",
+        retryable: error.respond_to?(:retryable?) ? error.retryable? : false
+      )
+      @ledger.commit_failed!(run: run, lease_token: lease_token, failure: failure)
+      Results::Failed.new(run: run.reload, failure: failure)
     end
 
     def fail_run(run, lease_token, code, retryable)
