@@ -15,6 +15,23 @@ RecordingStudioAdmin.configure do |config|
   config.site_admin_recording_resolver = config.access_recording_resolver
 end
 
+# Admin opens on the staff root, while playground and demo calls are stored on a
+# workspace. Model call screens need both, or a workspace call looks missing.
+module RecordingStudioAdminWorkspaceRuns
+  def runs_scope(context = admin_context)
+    bind_admin_context!(context) if context
+    root_ids = []
+    root_ids << context.root_recording.id if context&.root_recording
+    root_ids.concat(
+      RecordingStudio::Recording.where(recordable_type: "Workspace", trashed_at: nil).pluck(:id)
+    )
+    root_ids.uniq!
+    return RecordingStudioAI::Run.none if root_ids.empty?
+
+    RecordingStudioAI::Run.where(root_recording_id: root_ids)
+  end
+end
+
 module RecordingStudioAdminIgnoreProductRoot
   def current_root_recording
     nil
@@ -39,6 +56,11 @@ Rails.application.config.to_prepare do
   if defined?(RecordingStudioAdmin::ApplicationController) &&
      !RecordingStudioAdmin::ApplicationController.ancestors.include?(RecordingStudioAdminIgnoreProductRoot)
     RecordingStudioAdmin::ApplicationController.prepend(RecordingStudioAdminIgnoreProductRoot)
+  end
+
+  if defined?(AdminScreens::RecordingStudioAIWidgets) &&
+     !AdminScreens::RecordingStudioAIWidgets.singleton_class.ancestors.include?(RecordingStudioAdminWorkspaceRuns)
+    AdminScreens::RecordingStudioAIWidgets.singleton_class.prepend(RecordingStudioAdminWorkspaceRuns)
   end
 
   if defined?(AdminScreens::RootSection)

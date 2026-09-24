@@ -10,7 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The dummy playground starts a registered agent and watches the attempt.
 
 ### Added
-- Dummy host page `/playground`. Pick a registered agent, write an instruction, choose that agent's tools and any registered skills, and watch the steps beside the form. Skills is a searchable select. The dummy keeps the model reply so the page can show it.
+- Dummy host page `/playground`. Pick a registered agent, write an instruction, choose that agent's tools and any registered skills, and watch the steps beside the form. Skills and tools are searchable selects. The dummy keeps the model reply so the page can show it. Open the model call from the steps. Admin model calls include the workspace, so that call is on the list.
+
+### Fixed
+- A handoff requested during a live model call can record the request. Recording Studio AI redacts metadata keys that contain `token`, so the handoff tool matches a digest of the lease instead of the redacted value.
 - `Agent#run` accepts `skills:` and `tools:` for one attempt.
 
 ### Upgrade notes
@@ -18,6 +21,7 @@ The dummy playground starts a registered agent and watches the attempt.
 - Leave `skills:` and `tools:` unset to keep the previous program: required skills, plus `pack:` and `extra_skills:`, and the agent's tools minus tools that belong only to unselected optional skills.
 - `skills:` replaces the required and optional set for that run. The run records that set. Do not pass it together with `pack:` or `extra_skills:`.
 - `tools:` must be a subset of the agent's tools. Each skill on that run still needs its tools in the subset.
+- No host change for the handoff lease. The tool still receives the lease from the model call metadata, including after token keys are redacted.
 
 ## [0.4.9] - 2026-09-23
 
