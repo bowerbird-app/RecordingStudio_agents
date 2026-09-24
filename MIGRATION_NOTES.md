@@ -30,6 +30,8 @@ A long or nested tool result can use one generate call on `controller_profile`. 
 
 A plan now keeps at most three tool actions. Later tools are requested after the current ones finish, and that request does not replace the plan. A stuck run still replans. No host change.
 
+`soft_working_state_bytes` defaults to 6000. Past that size, and after an observation is stored, a low-profile generate call can replace findings, completed work, failed approaches, and recent observations. It does not count toward `maximum_reasoner_calls`. The hard cap remains `maximum_working_state_bytes`. No migration.
+
 ## Current Requirements
 
 - Ruby 3.3 or newer

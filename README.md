@@ -35,7 +35,7 @@ An **agent step** is one transition inside that attempt. The step stores its seq
 
 A **controller** call is one `RecordingStudioAI.decide` request. It asks whether the latest step made progress, whether the success criteria look met, whether the run looks stuck, whether it needs a new plan, and which listed candidate should go next. Each choice includes that candidate's purpose. A tool choice also names the tool and version. When no candidates remain and an observation is already stored, it asks whether the goal can be answered from those observations. The decision model returns probabilities. It does not write tool arguments, queries, or prose.
 
-A **reasoner** call is one `RecordingStudioAI.generate` request on the run profile (`low`, `medium`, or `high`). The first call writes the plan, the success criteria, and the action candidates. Later calls replan, fill tool arguments that failed the tool's own check, write the final answer, or compact state when the document is over its byte cap. The controller uses `controller_profile`, which starts at `:low`. Agents does not name a provider or a model.
+A **reasoner** call is one `RecordingStudioAI.generate` request on the run profile (`low`, `medium`, or `high`). The first call writes the plan, the success criteria, and the action candidates. Later calls replan, fill tool arguments that failed the tool's own check, or write the final answer. The controller uses `controller_profile`, which starts at `:low`. Agents does not name a provider or a model.
 
 A long or nested tool result gets one more `generate` call on `controller_profile`. The call returns a short summary and a state delta. It counts toward `maximum_observation_calls`, not `maximum_reasoner_calls`. A string, a summary field, a page list, a title, and other short fields skip that call. Fields named secret, token, password, or credential stay out of the summary and out of that prompt.
 
@@ -83,11 +83,14 @@ Agent budgets are separate from Recording Studio AI attempt limits. Raising `max
 - `maximum_replans` 3
 - `maximum_observation_calls` 30
 - `maximum_runtime_seconds` 1800
+- `soft_working_state_bytes` 6000
 - `maximum_working_state_bytes` 12000
 
 The controller treats a run as finished when `finished` is at least `finished_probability` (0.8) and `stuck` is below `stuck_probability` (0.7). The same thresholds apply when no candidates remain and an observation is stored. A lower finished score sends that run back to the reasoner. A choice whose top two probabilities differ by less than `choice_margin` (0.15) is uncertain, and the run asks the reasoner. A failed decision is not treated as finished. If another reasoner call is still inside the budget, the run replans. Otherwise the run fails with `decision_failed`. Success criteria that are already met write the answer even when the menu is empty.
 
-Ruby detects an identical tool fingerprint three times, or three steps whose findings, completed work, and criteria did not change. The fingerprint hashes the tool key, the tool version, and the arguments. That streak asks for a new plan. The decision model can also report that the work looks stuck. Replanning stops at `maximum_replans` with failure code `maximum_replans`. Compaction runs only when working state is over `maximum_working_state_bytes`, and at most three times. It keeps the goal, the criteria, the important findings, and the step history.
+Ruby detects an identical tool fingerprint three times, or three steps whose findings, completed work, and criteria did not change. The fingerprint hashes the tool key, the tool version, and the arguments. That streak asks for a new plan. The decision model can also report that the work looks stuck. Replanning stops at `maximum_replans` with failure code `maximum_replans`.
+
+Once an observation is stored and working state is over `soft_working_state_bytes`, one `generate` call on the low profile rewrites findings, completed work, failed approaches, and recent observations. That call does not count toward `maximum_reasoner_calls`. It runs at most three times. The goal, the success criteria, and the step history stay. Past `maximum_working_state_bytes`, Ruby drops the oldest observations and then the oldest findings.
 
 A tool that needs confirmation checkpoints the step as `awaiting_confirmation` and stops. The same idempotency key resumes that step. It does not start the plan over, and it does not repeat tools that already finished.
 

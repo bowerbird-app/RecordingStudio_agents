@@ -34,6 +34,7 @@ An agent run can keep working across many tool actions. The next model call sees
 - A tool candidate whose arguments fail that tool's schema gets one more generate call. The schema is that tool's parameter schema, and the call counts toward `maximum_reasoner_calls`. The tool runs after the arguments validate. A candidate that still fails is dropped before the tool runs. An empty arguments object stays put when the tool requires nothing.
 - A long or nested tool result gets one generate call on `controller_profile`. The call returns a short summary and a state delta, and it counts toward `maximum_observation_calls` (default 30). A page list, a summary, a title, and other short fields skip that call. Secret, token, password, and credential fields stay out of the summary.
 - A plan keeps at most three tool actions. When those tools are finished and the observations do not answer the goal, the next generate call asks for one to three actions. That call counts toward `maximum_reasoner_calls` and does not replace the plan. A stuck run still replans.
+- Working state has a soft cap of 6000 bytes. Once an observation is stored and the document is over that cap, a generate call on the low profile can replace findings, completed work, failed approaches, and recent observations. That call does not count toward `maximum_reasoner_calls`. Ruby still trims the oldest rows past 12000 bytes.
 
 ### Upgrade notes
 - Install and run the engine migration that adds `working_state_json` and `recording_studio_agents_agent_steps`.

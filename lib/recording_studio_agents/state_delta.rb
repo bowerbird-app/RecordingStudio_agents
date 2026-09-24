@@ -5,6 +5,7 @@ module RecordingStudioAgents
     KEYS = %w[
       add_findings add_completed add_failed add_open_questions remove_open_questions
       set_current_objective meet_criteria add_observations replace_plan replace_criteria
+      replace_findings replace_completed replace_failed replace_observations
       replace_candidate_index set_no_progress_streak add_attempted_digest add_refused_digest
       increment set_goal add_constraints
     ].freeze
@@ -39,6 +40,7 @@ module RecordingStudioAgents
       data["open_questions"] = Array(data["open_questions"]).reject { |item| remove.include?(item) }
       data["plan"] = changes["replace_plan"] if changes.key?("replace_plan")
       data["success_criteria"] = criteria_from(changes["replace_criteria"]) if changes.key?("replace_criteria")
+      replace_lists(data, changes)
       data["candidate_index"] = changes["replace_candidate_index"] if changes.key?("replace_candidate_index")
       meet = Array(changes["meet_criteria"]).map(&:to_s)
       data["success_criteria"] = Array(data["success_criteria"]).map do |item|
@@ -77,6 +79,33 @@ module RecordingStudioAgents
       increments.stringify_keys.each do |key, amount|
         data["counters"][key] = data["counters"][key].to_i + Integer(amount)
       end
+    end
+
+    REPLACE_LISTS = {
+      "replace_findings" => "findings",
+      "replace_completed" => "completed_work",
+      "replace_failed" => "failed_work"
+    }.freeze
+
+    def self.replace_lists(data, changes)
+      REPLACE_LISTS.each do |change_key, data_key|
+        next unless changes.key?(change_key)
+
+        data[data_key] = Array(changes[change_key]).filter_map { |item| item.to_s.strip.presence }
+      end
+      return unless changes.key?("replace_observations")
+
+      data["recent_observations"] = Array(changes["replace_observations"]).filter_map do |item|
+        replaced_observation(item)
+      end
+    end
+
+    def self.replaced_observation(item)
+      summary, sequence = observation_from(item)
+      text = summary.to_s.strip
+      return if text.empty?
+
+      { "sequence" => sequence.to_i, "summary" => text }
     end
 
     def self.observation_from(item)

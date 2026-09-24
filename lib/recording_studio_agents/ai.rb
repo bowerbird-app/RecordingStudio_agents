@@ -94,7 +94,11 @@ module RecordingStudioAgents
         "add_findings" => { "type" => "array", "items" => { "type" => "string" } },
         "add_completed" => { "type" => "array", "items" => { "type" => "string" } },
         "add_failed" => { "type" => "array", "items" => { "type" => "string" } },
-        "add_open_questions" => { "type" => "array", "items" => { "type" => "string" } }
+        "add_open_questions" => { "type" => "array", "items" => { "type" => "string" } },
+        "replace_findings" => { "type" => "array", "items" => { "type" => "string" } },
+        "replace_completed" => { "type" => "array", "items" => { "type" => "string" } },
+        "replace_failed" => { "type" => "array", "items" => { "type" => "string" } },
+        "replace_observations" => { "type" => "array", "items" => { "type" => "string" } }
       }
     }.freeze
 

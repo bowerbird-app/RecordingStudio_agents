@@ -1260,6 +1260,123 @@ class DurableRuntimeTest < PersistenceTestCase
                  many.data["recent_observations"].length
   end
 
+  def test_a_compact_delta_replaces_lists
+    state = RecordingStudioAgents::WorkingState.load({
+                                                       "goal" => "Stay",
+                                                       "findings" => ["old finding"],
+                                                       "completed_work" => ["old work"],
+                                                       "failed_work" => ["old failure"],
+                                                       "recent_observations" => [
+                                                         { "sequence" => 1, "summary" => "old note" }
+                                                       ]
+                                                     })
+    updated, = RecordingStudioAgents::StateDelta.apply(state, {
+                                                         "replace_findings" => ["new finding"],
+                                                         "replace_completed" => ["new work"],
+                                                         "replace_failed" => ["new failure"],
+                                                         "replace_observations" => ["new note"]
+                                                       })
+
+    assert_equal ["new finding"], updated.data["findings"]
+    assert_equal ["new work"], updated.data["completed_work"]
+    assert_equal ["new failure"], updated.data["failed_work"]
+    assert_equal(["new note"], updated.data["recent_observations"].map { |item| item["summary"] })
+  end
+
+  def test_a_stored_observation_is_rewritten_before_the_hard_trim
+    register_librarian
+    previous = RecordingStudioAgents.configuration.soft_working_state_bytes
+    RecordingStudioAgents.configuration.soft_working_state_bytes = 1_000
+    calls = []
+    decided = []
+    long = "S" * 400
+    generate = lambda do |**kwargs|
+      calls << kwargs
+      request_id = kwargs[:request_id].to_s
+      if request_id.end_with?(":answer")
+        generation_response(text: "Done.", run_id: 30)
+      elsif request_id.include?(":compact-")
+        observation_response(
+          {
+            "replace_observations" => ["Kept the latest page."],
+            "replace_findings" => ["The page is the one that matters."]
+          },
+          31
+        )
+      else
+        plan_response(candidates: 1, run_id: 32)
+      end
+    end
+
+    decider = page_decisions
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, lambda { |**kwargs|
+        decided << kwargs
+        decider.call(**kwargs)
+      }) do
+        RecordingStudioAI.stub(:perform_tool, ->(**) { performance(summary: long, finding: long) }) do
+          result = run_librarian("soft-compact")
+          state = RecordingStudioAgents::WorkingState.load(result.run.working_state_json)
+          compact = calls.find { |call| call[:request_id].to_s.include?(":compact-") }
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          summaries = state.data["recent_observations"].map { |item| item["summary"] }
+          assert_equal ["Kept the latest page."], summaries
+          assert_equal ["The page is the one that matters."], state.data["findings"]
+          refute_includes state.to_json, long
+          assert_equal 1, state.counter("compactions")
+          assert_equal 1, state.counter("reasoner_calls")
+          assert_equal :low, compact[:profile]
+          assert_equal [], compact[:custom_tools]
+          assert_includes decided.last[:state], "Kept the latest page."
+          refute_includes decided.last[:state], long
+        end
+      end
+    end
+  ensure
+    RecordingStudioAgents.configuration.soft_working_state_bytes = previous
+  end
+
+  def test_a_bad_compact_keeps_the_observation
+    register_librarian
+    previous = RecordingStudioAgents.configuration.soft_working_state_bytes
+    RecordingStudioAgents.configuration.soft_working_state_bytes = 1_000
+    calls = []
+    long = "T" * 400
+    generate = lambda do |**kwargs|
+      calls << kwargs
+      request_id = kwargs[:request_id].to_s
+      if request_id.end_with?(":answer")
+        generation_response(text: "Done.", run_id: 33)
+      elsif request_id.include?(":compact-")
+        observation_response({ "erase_goal" => true }, 34)
+      else
+        plan_response(candidates: 1, run_id: 35)
+      end
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, page_decisions) do
+        RecordingStudioAI.stub(:perform_tool, ->(**) { performance(summary: long) }) do
+          result = run_librarian("bad-compact")
+          state = RecordingStudioAgents::WorkingState.load(result.run.working_state_json)
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          compact_calls = calls.count { |call| call[:request_id].to_s.include?(":compact-") }
+
+          assert_includes state.to_json, long
+          assert_operator state.counter("compactions"), :>=, 1
+          assert_operator state.counter("compactions"), :<=, 3
+          assert_equal 1, state.counter("reasoner_calls")
+          assert_operator compact_calls, :>=, 1
+          assert_operator compact_calls, :<=, 3
+        end
+      end
+    end
+  ensure
+    RecordingStudioAgents.configuration.soft_working_state_bytes = previous
+  end
+
   def test_compaction_waits_for_the_size_limit
     state = RecordingStudioAgents::WorkingState.load({ "goal" => "Stay" })
     _, quiet = RecordingStudioAgents::StateDelta.apply(state, { "add_findings" => ["one"] })

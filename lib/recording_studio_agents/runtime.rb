@@ -606,24 +606,33 @@ module RecordingStudioAgents
     end
 
     def shrink(_request, run, lease_token, state)
-      return state unless state.bytesize > configuration.maximum_working_state_bytes
-      return state if state.counter("compactions") >= 3
+      return state unless semantic_compact?(state)
 
       response = Ai.compact_state(
         invocation: @invocation, run: run, lease_token: lease_token, state: state,
         suffix: "compact-#{state.counter('compactions') + 1}"
       )
       data = response.try(:structured_data)
-      return state unless data.is_a?(Hash)
-
-      updated, changed = StateDelta.apply(state, data.merge("increment" => { "compactions" => 1 }))
-      if changed
-        @ledger.note_activity!(run: run, lease_token: lease_token, kind: "compacted",
-                               data: { "sequence" => run.agent_steps.maximum(:sequence).to_i })
-      end
+      data = { "increment" => { "compactions" => 1 } } unless data.is_a?(Hash)
+      updated, = StateDelta.apply(state, data.merge("increment" => { "compactions" => 1 }))
+      @ledger.note_activity!(run: run, lease_token: lease_token, kind: "compacted",
+                             data: { "sequence" => run.agent_steps.maximum(:sequence).to_i })
       updated
     rescue StandardError
-      state
+      StateDelta.apply(state, { "increment" => { "compactions" => 1 } }).first
+    end
+
+    def semantic_compact?(state)
+      return false if state.counter("compactions") >= 3
+      return false if Array(state.data["recent_observations"]).empty?
+
+      state.bytesize > soft_limit
+    end
+
+    def soft_limit
+      soft = configuration.soft_working_state_bytes
+      hard = configuration.maximum_working_state_bytes
+      [soft, hard].min
     end
 
     def refresh_observation(run, lease_token, state, candidate, result)
