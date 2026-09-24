@@ -115,6 +115,7 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Find the named page with the allowed tool."
     assert_includes response.body, "Page lookup"
     assert_includes response.body, "Find page"
+    assert_includes response.body, "List pages"
     assert_includes response.body, "Retitle page"
     assert_match(/registered_skill\?[^"]*skill_key=page_lookup/, response.body)
     assert_match(/registered_tool\?[^"]*tool_key=find_page/, response.body)
@@ -135,7 +136,7 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     get "/admin/screens/registered_tool", params: { tool_key: "find_page", version: 1 }
     assert_response :success
     assert_includes response.body, "Find page"
-    assert_includes response.body, "Find a page by title inside the current workspace."
+    assert_includes response.body, "Find a workspace page or a menu page by title."
     assert_select "a", text: "Calls"
 
     get "/admin/screens/registered_tool/table", params: { tool_key: "find_page", version: 1 }
@@ -302,5 +303,43 @@ class AdminAgentsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Turn on"
   ensure
     RecordingStudioAgents::AgentEnablement.delete_all
+  end
+
+  test "workspace model calls show on the admin list" do
+    user = User.find_or_create_by!(email: "admin-calls@example.com") do |record|
+      record.password = "Password123!"
+      record.password_confirmation = "Password123!"
+    end
+    admin_root = AdminRoot.find_or_create_by!(name: "Admin")
+    grant_accessible!(recording: RecordingStudio.root_recording_for(admin_root), actor: user)
+    workspace = Workspace.find_or_create_by!(name: "Calls Workspace")
+    workspace_root = RecordingStudio.root_recording_for(workspace)
+    sign_in user
+
+    now = Time.current
+    run = RecordingStudioAI::Run.create!(
+      operation: "generation",
+      purpose: "agent_page_librarian",
+      status: "failed",
+      root_recording_id: workspace_root.id,
+      initiator_type: user.class.name,
+      initiator_id: user.id.to_s,
+      initiator_kind: "user",
+      execution_source: "web",
+      request_id: "recording-studio-agents:workspace-call",
+      started_at: now,
+      completed_at: now,
+      resolved_model: "playground-marker-model",
+      total_tokens: 12,
+      latency_ms: 40
+    )
+
+    get "/admin/screens/ai_calls", params: { search: run.id }
+    assert_response :success
+    assert_includes response.body, "playground-marker-model"
+
+    get "/admin/screens/ai_calls/table", params: { search: run.id }
+    assert_response :success
+    assert_includes response.body, "playground-marker-model"
   end
 end

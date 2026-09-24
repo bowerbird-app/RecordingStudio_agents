@@ -78,7 +78,8 @@ module RecordingStudioAgents
           execution_source: request.execution_source,
           agent_run_id: run.id,
           program_digest: digest,
-          purpose: purpose
+          purpose: purpose,
+          profile: request.profile
         )
       end
 
@@ -211,11 +212,9 @@ module RecordingStudioAgents
     module Compiler
       module_function
 
-      def compile(definition:, selection: SkillSelection.none)
+      def compile(definition:, selection: SkillSelection.none, tools: nil)
         Optional.validate!(definition)
-        required_skills = definition.skills.map { |reference| Fetches.skill(reference) }
-        selected_skills = selection.skill_references.map { |reference| Fetches.skill(reference) }
-        skills = Optional.uniq_skills(required_skills + selected_skills)
+        skills = skills_for(definition, selection)
         knowledge = definition.knowledge.map { |reference| Fetches.knowledge(reference) }
         definition.tools.each { |reference| Fetches.tool(reference) }
         handoffs = definition.handoffs.map { |reference| Fetches.agent(reference) }
@@ -238,7 +237,7 @@ module RecordingStudioAgents
           )
         end
 
-        tool_references = Optional.tools_for(definition, compiled_skills: skills, selection: selection)
+        tool_references = tool_references_for(definition, skills, selection, tools)
         digest = Digests.of(
           "agent" => definition.reference.to_h,
           "instructions" => definition.instructions,
@@ -258,6 +257,39 @@ module RecordingStudioAgents
           handoff_references: definition.handoffs,
           digest: digest
         )
+      end
+
+      def skills_for(definition, selection)
+        picked = selection.skill_references.map { |reference| Fetches.skill(reference) }
+        return Optional.uniq_skills(picked) if selection.explicit?
+
+        required = definition.skills.map { |reference| Fetches.skill(reference) }
+        Optional.uniq_skills(required + picked)
+      end
+
+      def tool_references_for(definition, skills, selection, tools)
+        return Optional.tools_for(definition, compiled_skills: skills, selection: selection) if tools.nil?
+
+        requested = tools.map { |key, version| Reference.new(key: key, version: version) }
+        unknown = requested.reject { |reference| definition.tools.include?(reference) }
+        reference = unknown.first
+        if reference
+          raise ContractError,
+                "tool #{reference.key} version #{reference.version} is not on agent " \
+                "#{definition.key} version #{definition.version}"
+        end
+
+        chosen = definition.tools.select { |reference| requested.include?(reference) }
+        skills.each do |skill|
+          skill.required_tools.each do |reference|
+            next if chosen.include?(reference)
+
+            raise ContractError,
+                  "skill #{skill.key} version #{skill.version} requires tool " \
+                  "#{reference.key} version #{reference.version}"
+          end
+        end
+        chosen
       end
     end
   end

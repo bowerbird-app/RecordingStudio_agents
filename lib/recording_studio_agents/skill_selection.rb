@@ -18,11 +18,22 @@ module RecordingStudioAgents
       new(pack: pack_reference, extra_skills: extras, pack_definition: pack_definition)
     end
 
-    def initialize(pack:, extra_skills:, pack_definition:)
+    def self.explicit(skills:)
+      references = normalize_references(skills || {})
+      references.each { |reference| fetch_skill!(reference) }
+      new(pack: nil, extra_skills: references, pack_definition: nil, explicit: true)
+    end
+
+    def initialize(pack:, extra_skills:, pack_definition:, explicit: false)
       @pack = pack
       @extra_skills = Array(extra_skills)
       @pack_definition = pack_definition
+      @explicit = explicit
       freeze
+    end
+
+    def explicit?
+      @explicit
     end
 
     def skill_references
@@ -48,6 +59,13 @@ module RecordingStudioAgents
       map.to_h.map { |item_key, item_version| Reference.new(key: item_key, version: item_version) }
     end
     private_class_method :normalize_references
+
+    def self.fetch_skill!(reference)
+      RecordingStudioAgents.skills.fetch(reference.key, version: reference.version)
+    rescue ConfigurationError
+      raise ContractError, "#{reference.key} version #{reference.version} is not a registered skill"
+    end
+    private_class_method :fetch_skill!
 
     def self.resolve_pack(definition, pack)
       return [nil, nil] if pack.nil? || (pack.respond_to?(:empty?) && pack.empty?)

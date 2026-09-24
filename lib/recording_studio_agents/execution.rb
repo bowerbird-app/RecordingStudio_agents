@@ -10,7 +10,7 @@ module RecordingStudioAgents
 
       attr_reader :task_input, :root_recording, :context_recording, :initiator,
                   :initiator_kind, :executor, :execution_source, :idempotency_key,
-                  :selection
+                  :selection, :profile
 
       def self.parse(
         task:,
@@ -21,7 +21,8 @@ module RecordingStudioAgents
         context_recording: nil,
         initiator_kind: :user,
         executor: nil,
-        selection: SkillSelection.none
+        selection: SkillSelection.none,
+        profile: nil
       )
         raise ContractError, "task is required" if task.nil?
         raise ContractError, "root_recording is required" if root_recording.nil?
@@ -51,7 +52,8 @@ module RecordingStudioAgents
           executor: executor,
           execution_source: source,
           idempotency_key: idempotency_key.to_s,
-          selection: selection || SkillSelection.none
+          selection: selection || SkillSelection.none,
+          profile: Profiles.resolve(profile, nil)
         )
       end
 
@@ -64,6 +66,7 @@ module RecordingStudioAgents
         executor:,
         execution_source:,
         idempotency_key:,
+        profile:,
         selection: SkillSelection.none
       )
         @task_input = task_input
@@ -75,13 +78,15 @@ module RecordingStudioAgents
         @execution_source = execution_source
         @idempotency_key = idempotency_key
         @selection = selection || SkillSelection.none
+        @profile = profile
       end
     end
 
     class Invocation
       attr_reader :goal, :system_instruction, :knowledge_entries, :tool_references,
                   :root_recording, :context_recording, :initiator, :initiator_kind,
-                  :executor, :execution_source, :agent_run_id, :program_digest, :purpose
+                  :executor, :execution_source, :agent_run_id, :program_digest, :purpose,
+                  :profile
 
       def initialize(
         goal:,
@@ -96,7 +101,8 @@ module RecordingStudioAgents
         execution_source:,
         agent_run_id:,
         program_digest:,
-        purpose:
+        purpose:,
+        profile:
       )
         @goal = goal
         @system_instruction = system_instruction
@@ -111,6 +117,7 @@ module RecordingStudioAgents
         @agent_run_id = agent_run_id
         @program_digest = program_digest
         @purpose = purpose
+        @profile = profile
       end
     end
 

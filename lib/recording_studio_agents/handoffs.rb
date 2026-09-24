@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "digest"
+
 module RecordingStudioAgents
   module Handoffs
     INTERNAL_TOOL_KEY = :recording_studio_agents_request_handoff
@@ -59,7 +61,7 @@ module RecordingStudioAgents
             agent_run_id: run.id,
             ai_run_id: ai_run_id(ai_context),
             target: Reference.new(key: target_key, version: target_version),
-            lease_token: lease_token_for(ai_context)
+            lease_token: lease_token_for(ai_context, run)
           )
         rescue IdempotencyConflict
           raise RecordingStudioAI::Errors::ContractValidationError.new(
@@ -104,11 +106,14 @@ module RecordingStudioAgents
       end
       private_class_method :ai_run_id
 
-      def self.lease_token_for(ai_context)
-        ai_run = ai_context.respond_to?(:run) ? ai_context.run : nil
-        metadata = ai_run.respond_to?(:metadata) ? ai_run.metadata : nil
-        token = metadata&.[]("lease_token") || metadata&.[](:lease_token)
-        return token.to_s if token.to_s.strip.present?
+      def self.lease_token_for(ai_context, run)
+        supplied = metadata_string(ai_context, "lease_token")
+        return supplied if supplied.present? && supplied == run.lease_token.to_s
+
+        current = run.lease_token.to_s
+        check = metadata_string(ai_context, "agent_lease_check")
+        return current if current.present? && lease_check_matches?(current, check)
+        return supplied if supplied.present?
 
         raise RecordingStudioAI::Errors::ContractValidationError.new(
           "handoff tool could not prove a live lease",
@@ -116,6 +121,24 @@ module RecordingStudioAgents
         )
       end
       private_class_method :lease_token_for
+
+      def self.metadata_string(ai_context, key)
+        ai_run = ai_context.respond_to?(:run) ? ai_context.run : nil
+        metadata = ai_run.respond_to?(:metadata) ? ai_run.metadata : nil
+        value = metadata&.[](key) || metadata&.[](key.to_sym)
+        value.to_s.strip
+      end
+      private_class_method :metadata_string
+
+      def self.lease_check_matches?(lease_token, check)
+        return false if check.blank?
+
+        expected = Digest::SHA256.hexdigest(lease_token)
+        return false unless expected.bytesize == check.bytesize
+
+        ActiveSupport::SecurityUtils.secure_compare(expected, check)
+      end
+      private_class_method :lease_check_matches?
     end
   end
 end

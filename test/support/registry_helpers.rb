@@ -107,7 +107,8 @@ module RegistryHelpers
       skills: { support_voice: 1 },
       optional_skills: { billing_help: 1, login_help: 1 },
       packs: { billing_tickets: 1 },
-      tools: { lookup_invoice: 1 }
+      tools: { lookup_invoice: 1 },
+      profile: :low
     )
   end
 end

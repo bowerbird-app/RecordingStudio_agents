@@ -46,6 +46,7 @@ RecordingStudioAI.configure do |config|
     ]
   }
   config.allowed_provider_overrides = %i[gemini typesafe]
+  config.retain_responses = true
   config.authorization_handler = RecordingStudioAI::AccessibleAuthorization.method(:call)
   config.custom_tool_confirmation_handler = lambda do |definition:, **|
     definition.requires_confirmation ? :pending : :approved

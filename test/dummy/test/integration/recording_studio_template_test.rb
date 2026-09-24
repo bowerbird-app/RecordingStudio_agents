@@ -56,6 +56,9 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     assert_equal folder_recording, page_recording.parent_recording
     assert_equal root_recording, page_recording.root_recording
     assert_equal 3, Workspace.count
+    assert_seeded_studio_library(root_recording)
+    assert_empty pages_in(accessible_root_recording)
+    assert_empty pages_in(private_root_recording)
     assert RecordingStudioAgents::AgentRun.exists?(idempotency_key: "seed:page_librarian")
 
     assert_no_difference -> { User.count } do
@@ -86,5 +89,56 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     section_keys = AdminRoot.recording_studio_admin_section_keys_for(admin_root, nil, nil)
     assert_equal [ "root", "agents", "recording_studio_ai" ], section_keys
     assert_equal AdminScreens::RootSection, RecordingStudioAdmin.section_for("root")
+  end
+
+  private
+
+  def assert_seeded_studio_library(root_recording)
+    library = {
+      "Product Docs" => [ "Getting Started", "Invite your team", "Plans and billing" ],
+      "Guides" => [ "Publish a page", "Move a page", "Leave a comment" ],
+      "People" => [ "Staff handbook", "Time off" ]
+    }
+
+    library.each do |folder_name, titles|
+      folder_recording = RecordingStudio::Recording.find_by!(recordable: Folder.find_by!(name: folder_name))
+      assert_equal root_recording, folder_recording.parent_recording
+      titles.each do |title|
+        page_recording = RecordingStudio::Recording.find_by!(recordable: Page.find_by!(title: title))
+        assert_equal folder_recording, page_recording.parent_recording
+        assert_equal root_recording, page_recording.root_recording
+      end
+    end
+
+    overview = RecordingStudio::Recording.find_by!(recordable: Page.find_by!(title: "Studio overview"))
+    assert_equal root_recording, overview.parent_recording
+
+    listed = RecordingStudioAI.tools.fetch(:list_pages, version: 1).executor.call(
+      {},
+      Struct.new(:root_recording).new(root_recording)
+    )
+    assert_equal [
+      { "title" => "Agents", "path" => "/admin/sections/agents" },
+      { "title" => "Getting Started", "folder" => "Product Docs" },
+      { "title" => "Home", "path" => "/" },
+      { "title" => "Invite your team", "folder" => "Product Docs" },
+      { "title" => "Leave a comment", "folder" => "Guides" },
+      { "title" => "Move a page", "folder" => "Guides" },
+      { "title" => "Plans and billing", "folder" => "Product Docs" },
+      { "title" => "Playground", "path" => "/playground" },
+      { "title" => "Publish a page", "folder" => "Guides" },
+      { "title" => "Staff", "path" => "/admin" },
+      { "title" => "Staff handbook", "folder" => "People" },
+      { "title" => "Studio overview" },
+      { "title" => "Time off", "folder" => "People" }
+    ], listed["pages"]
+  end
+
+  def pages_in(root_recording)
+    RecordingStudio::Recording.where(
+      root_recording_id: root_recording.id,
+      recordable_type: "Page",
+      trashed_at: nil
+    )
   end
 end

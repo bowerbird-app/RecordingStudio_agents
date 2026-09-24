@@ -1,0 +1,18 @@
+<% if @steps.any? %>
+  <%= render FlatPack::Grid::Component.new(cols: 1, gap: :md, data: { playground_step_list: true }) do %>
+    <% @steps.each do |step| %>
+      <%= render FlatPack::Collapse::Component.new(
+        id: step.id,
+        title: step.title,
+        open: false,
+        left_slot: render(FlatPack::Badge::Component.new(
+          text: step.badge,
+          style: step.badge_style,
+          size: :sm
+        ))
+      ) do %>
+        <pre><%= step.exchange %></pre>
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>

@@ -60,6 +60,7 @@ class AdminAgentShowTest < Minitest::Test
     assert_equal "librarian", by_label.fetch("Key")
     assert_equal 1, by_label.fetch("Version")
     assert_equal "On", by_label.fetch("Enabled")
+    assert_equal "Medium, from the host", by_label.fetch("Profile")
     assert_equal "Find the named page.", by_label.fetch("Instructions")
     assert_equal "Lookup", by_label.fetch("Skills")
     assert_equal "None", by_label.fetch("Extra skills")
@@ -75,6 +76,7 @@ class AdminAgentShowTest < Minitest::Test
     rows = RecordingStudioAgents::Admin::Queries.agent_detail_rows(agent)
     by_label = rows.to_h { |row| [row.label, row.value] }
 
+    assert_equal "Low", by_label.fetch("Profile")
     assert_equal "Support voice", by_label.fetch("Skills")
     assert_equal "Billing help, Login help", by_label.fetch("Extra skills")
     assert_equal "Billing tickets", by_label.fetch("Skill packs")

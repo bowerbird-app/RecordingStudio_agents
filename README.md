@@ -180,6 +180,38 @@ RecordingStudioAgents.agent(:support, version: 1).run(
 
 `extra_skills: { access_reset: 1 }` can load optional skills without a pack, and can combine with `pack:`.
 
+`skills:` replaces that selection for one run, including the agent's required skills. Pass a hash of registered skills, or `{}` for no skill blocks. It cannot be combined with `pack:` or `extra_skills:`. `tools:` narrows the generate call to a subset of the agent's tools. Omit it to keep the usual allowlist. A skill on that run still needs its required tools in the subset, and a tool the agent does not list is rejected.
+
+## Profile
+
+A profile is the cost and quality tier for the generate call: `low`, `medium`, or `high`. Recording Studio AI maps each name to provider and model candidates. Agents does not name a model.
+
+The host default is `RecordingStudioAgents.configuration.profile`, which starts at `:medium`. An agent can pin `profile:` when it is registered. `Agent#run` can pass `profile:` for that attempt. A run wins, then the agent, then the host default. A replay of the same idempotency key keeps the call that already started.
+
+```ruby
+RecordingStudioAgents.configure do |config|
+  config.profile = :medium
+end
+
+RecordingStudioAgents.agents.register(
+  key: :page_librarian,
+  version: 1,
+  name: "Page librarian",
+  description: "Finds a page in the current workspace.",
+  instructions: "Find the named page with the allowed tool.",
+  profile: :low
+)
+
+RecordingStudioAgents.agent(:page_librarian, version: 1).run(
+  task: task,
+  root_recording: root,
+  initiator: user,
+  execution_source: :job,
+  idempotency_key: job_id,
+  profile: :high
+)
+```
+
 ## Execute a task from a job
 
 A task key identifies one durable goal inside a workspace. An idempotency key identifies one attempt. Use the Active Job `job_id` as that attempt key so retries and duplicate delivery converge on the same `AgentRun`.
@@ -257,5 +289,7 @@ pin_all_from RecordingStudioAdmin::Engine.root.join("app/javascript/recording_st
 ## Dummy app
 
 `test/dummy` is a host that proves the gem. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. The home page runs the page librarian over Workspace, Folder, and Page, then lists what it did. That page uses a sidebar. Gem screens, including Admin and the workspace switcher, stay on Recording Studio's default layout. A support clerk is registered for optional-skill tests and does not appear as a second home action. `/admin` is the staff hub. Agents is `/admin/sections/agents`.
+
+The dummy has a Playground page at `/playground`. The form sits on the left and the steps on the right. The right side is blank until a run has model turns. While a run is going, each turn shows up when that turn starts, and the list updates in place. Each turn is a collapse with a title and a progress badge. Open a turn to see that call as one hash, with input and output. A later call's input is the tool result, not the original instruction again. Pick a registered agent, write an instruction, and search for the tools and skills that run may use. Page librarian can list the workspace pages and the menu pages (Home, Playground, Staff, and Agents) before it looks one up by title. The dummy keeps model replies so that page can show the text. Admin model calls include workspace runs, so that call is listed.
 
 The dummy generates with Gemini and decides with TypeSafe Jev (`RecordingStudioAI.decide`). Set `GEMINI_API_KEY` or `google_ai_studio` for generation, and `TYPESAFE_API_KEY` or `typesafe` for decisions. Without a generative key, the librarian demo uses an offline stub. Tests ignore those variables and do not call a live model provider.

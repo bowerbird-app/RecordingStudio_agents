@@ -32,7 +32,21 @@ class ConfigurationTest < Minitest::Test
     configuration = RecordingStudioAgents::Configuration.new
 
     assert_equal 300, configuration.lease_seconds
+    assert_equal :medium, configuration.profile
     assert_instance_of RecordingStudio::Hooks, configuration.hooks
+  end
+
+  def test_profile_must_be_low_medium_or_high
+    @configuration.profile = "high"
+
+    assert_equal :high, @configuration.profile
+    assert_equal :high, @configuration.to_h.fetch(:profile)
+
+    error = assert_raises(RecordingStudioAgents::ContractError) do
+      @configuration.profile = "turbo"
+    end
+    assert_match(/low, medium, high/, error.message)
+    assert_equal :high, @configuration.profile
   end
 
   def test_merge_accepts_string_keys

@@ -5,7 +5,7 @@ RecordingStudioAI.tools.register(
   key: :find_page,
   version: 1,
   name: "Find page",
-  description: "Find a page by title inside the current workspace.",
+  description: "Find a workspace page or a menu page by title.",
   use_when: "The task names a page to locate.",
   do_not_use_when: "The task asks to change a page.",
   parameters: [
@@ -13,10 +13,10 @@ RecordingStudioAI.tools.register(
       name: "title",
       type: "string",
       required: true,
-      description: "Exact page title to find."
+      description: "Title of a workspace page or a menu page. Case does not matter."
     }
   ],
-  returns: "The page title and whether it was found.",
+  returns: "Whether it was found. A workspace page includes its recording id. A menu page includes its path.",
   cost: :low,
   latency: :fast,
   read_only: true,
@@ -26,13 +26,66 @@ RecordingStudioAI.tools.register(
   executor_label: "Dummy::FindPage",
   executor: lambda do |arguments, context|
     title = arguments.fetch("title")
-    page = Page.find_by(title: title)
-    recording = page && RecordingStudio::Recording.find_by(
-      recordable: page,
+    wanted = title.to_s.strip.downcase
+    recording = RecordingStudio::Recording.where(
       root_recording_id: context.root_recording.id,
+      recordable_type: "Page",
       trashed_at: nil
-    )
-    { "found" => recording.present?, "title" => title, "page_recording_id" => recording&.id }
+    ).includes(:recordable, parent_recording: :recordable).find do |item|
+      item.recordable&.title.to_s.strip.downcase == wanted
+    end
+    screen = MenuPage.find_by_name(title)
+    result = { "found" => recording.present? || screen.present?, "title" => title }
+    if recording
+      result["title"] = recording.recordable.title
+      result["page_recording_id"] = recording.id
+      parent = recording.parent_recording
+      folder = parent.recordable&.name if parent&.recordable_type == "Folder"
+      result["folder"] = folder if folder.present?
+    end
+    if screen
+      result["title"] = screen.name unless recording
+      result["path"] = screen.path
+    end
+    result
+  end
+)
+
+RecordingStudioAI.tools.register(
+  override: true,
+  key: :list_pages,
+  version: 1,
+  name: "List pages",
+  description: "List workspace pages and the pages in the menu.",
+  use_when: "The task names a page loosely, or the exact title is not known yet.",
+  do_not_use_when: "The exact page title is already known.",
+  parameters: [],
+  returns: "Workspace page titles, with a folder when a page sits in one, and menu pages with their paths.",
+  cost: :low,
+  latency: :fast,
+  read_only: true,
+  destructive: false,
+  requires_confirmation: false,
+  idempotent: true,
+  executor_label: "Dummy::ListPages",
+  executor: lambda do |_arguments, context|
+    recordings = RecordingStudio::Recording.where(
+      root_recording_id: context.root_recording.id,
+      recordable_type: "Page",
+      trashed_at: nil
+    ).includes(:recordable, parent_recording: :recordable)
+    pages = recordings.filter_map do |recording|
+      title = recording.recordable&.title
+      next if title.blank?
+
+      parent = recording.parent_recording
+      folder = parent&.recordable&.name if parent&.recordable_type == "Folder"
+      entry = { "title" => title }
+      entry["folder"] = folder if folder.present?
+      entry
+    end
+    pages.concat(MenuPage.all.map { |screen| { "title" => screen.name, "path" => screen.path } })
+    { "pages" => pages.sort_by { |entry| [ entry["title"], entry["folder"].to_s ] } }
   end
 )
 
@@ -116,6 +169,8 @@ RecordingStudioAgents.skills.register(
   description: "Find a named page and stop.",
   instructions: <<~TEXT,
     Use the find page tool when the task names a page.
+    When the name may not be the exact title, list pages first and pick a title from that list.
+    Menu pages include a path. Quote that path.
     Quote the title you found.
     Request a handoff only when the page is missing and a reviewer should decide next.
   TEXT
@@ -177,7 +232,7 @@ RecordingStudioAgents.agents.register(
   description: "Finds a page in the current workspace.",
   instructions: "Find the named page with the allowed tool. Request a review handoff if it is missing.",
   skills: { page_lookup: 1 },
-  tools: { find_page: 1, retitle_page: 1 },
+  tools: { find_page: 1, list_pages: 1, retitle_page: 1 },
   knowledge: { workspace_outline: 1 },
   handoffs: { page_reviewer: 1 },
   enabled: true

@@ -332,6 +332,7 @@ module RecordingStudioAgents
           ["Key", agent.key],
           ["Version", agent.version],
           ["Enabled", Enablement.enabled?(agent) ? "On" : "Off"],
+          ["Profile", profile_label(agent)],
           ["Instructions", agent.instructions.to_s.strip],
           ["Skills", linked_skill_references(agent.skills, context)],
           ["Extra skills", linked_skill_references(agent.optional_skills, context)],
@@ -341,6 +342,14 @@ module RecordingStudioAgents
           ["Can pass to", labeled_references(agent.handoffs, RecordingStudioAgents.agents.all)]
         ].map { |label, value| DetailRow.new(label: label, value: value) }
       end
+
+      def profile_label(agent)
+        name = Profiles.label(agent.profile || RecordingStudioAgents.configuration.profile)
+        return name if agent.profile
+
+        "#{name}, from the host"
+      end
+      private_class_method :profile_label
 
       def skill_detail_rows(skill, context = nil)
         return [] unless skill
