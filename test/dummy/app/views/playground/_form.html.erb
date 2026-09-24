@@ -39,20 +39,19 @@
 
   <% @catalog.each do |entry| %>
     <% next if entry.tools.empty? %>
-    <div data-playground-tools="<%= entry.token %>"<% if entry.token != @form.agent %> hidden<% end %>>
-      <%= render FlatPack::Grid::Component.new(cols: 1, gap: :sm) do %>
-        <%= render FlatPack::PageTitle::Component.new(title: "Tools", variant: :h2) %>
-        <% entry.tools.each do |tool| %>
-          <%= render FlatPack::Checkbox::Component.new(
-            name: "tools[]",
-            value: tool.token,
-            label: tool.name,
-            checked: @form.tools.include?(tool.token),
-            disabled: entry.token != @form.agent
-          ) %>
-        <% end %>
-      <% end %>
-    </div>
+    <% active = entry.token == @form.agent %>
+    <fieldset data-playground-tools="<%= entry.token %>"<% unless active %> disabled hidden<% end %>>
+      <%= render FlatPack::Select::Component.new(
+        name: "tools",
+        label: "Tools",
+        options: entry.tools.map { |tool| [ tool.name, tool.token ] },
+        value: active ? @form.tools : entry.tools.map(&:token),
+        multiple: true,
+        searchable: true,
+        placeholder: "No tools",
+        disabled: !active
+      ) %>
+    </fieldset>
   <% end %>
 
   <%= render FlatPack::Button::Component.new(
@@ -70,9 +69,7 @@
     document.querySelectorAll("[data-playground-tools]").forEach(function (group) {
       var visible = group.getAttribute("data-playground-tools") === chosen
       group.hidden = !visible
-      group.querySelectorAll("input").forEach(function (input) {
-        input.disabled = !visible
-      })
+      group.disabled = !visible
     })
     if (!resetSkills) return
     var defaults = JSON.parse(document.getElementById("playground-skill-defaults").textContent)

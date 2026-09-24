@@ -34,8 +34,11 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_select "[data-playground-skills] input[placeholder='Search...']"
     assert_select "[data-playground-skills] input[name='skills[]'][value='page_lookup@1']"
     assert_select "select[name='skills[]']", count: 0
-    assert_select "input[name='tools[]'][value='find_page@1'][checked]"
-    assert_select "input[name='tools[]'][value='retitle_page@1'][checked]"
+    assert_select "[data-playground-tools='page_librarian@1']:not([disabled]) [data-flat-pack--select-searchable-value='true']"
+    assert_select "[data-playground-tools='page_librarian@1'] input[placeholder='Search...']"
+    assert_select "[data-playground-tools='page_librarian@1'] input[name='tools[]'][value='find_page@1']"
+    assert_select "[data-playground-tools='page_librarian@1'] input[name='tools[]'][value='retitle_page@1']"
+    assert_select "input[name='tools[]'][type='checkbox']", count: 0
     assert_select "input[name='choices'][value='1']"
     assert_includes response.body, "Page librarian"
     assert_includes response.body, "Support clerk"
@@ -157,9 +160,8 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_includes response.body, "Page lookup needs Find page."
     assert_select "textarea[name='goal']"
-    assert_select "input[name='tools[]'][value='retitle_page@1'][checked]"
-    assert_select "input[name='tools[]'][value='find_page@1']"
-    assert_select "input[name='tools[]'][value='find_page@1'][checked]", count: 0
+    assert_select "[data-playground-tools='page_librarian@1'] input[name='tools[]'][value='retitle_page@1']"
+    assert_select "[data-playground-tools='page_librarian@1'] input[name='tools[]'][value='find_page@1']", count: 0
   end
 
   test "page librarian can take a skill it did not declare" do
