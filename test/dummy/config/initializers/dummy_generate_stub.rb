@@ -27,7 +27,7 @@ module DummyGenerateStub
     super
   rescue NoMethodError
     raise RecordingStudioAgents::ConfigurationError,
-          "Tool steps need RecordingStudioAI.perform_tool from Recording Studio AI 0.5.0."
+          "Tool steps need RecordingStudioAI.perform_tool. This Recording Studio AI gem does not provide it."
   end
 
   def self.with_hook(hook)

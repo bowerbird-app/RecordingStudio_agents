@@ -39,7 +39,7 @@ A **reasoner** call is one `RecordingStudioAI.generate` request on the run profi
 
 An **action candidate** is one next action with its arguments already filled in. Kinds are `tool`, `deliver`, and `handoff`. The controller picks an id from that list. A tool the program did not allow is dropped before the controller sees it.
 
-A **tool** stays registered with Recording Studio AI. The runtime calls `RecordingStudioAI.perform_tool` for one candidate. That call keeps validation, authorization, confirmation, timeout, and result-size limits. Agents does not call a tool executor itself. Tool steps need Recording Studio AI 0.5.0, which adds `perform_tool`. Answer-only runs still work on Recording Studio AI 0.4.0.
+A **tool** stays registered with Recording Studio AI. The runtime calls `RecordingStudioAI.perform_tool` for one candidate. That call keeps validation, authorization, confirmation, timeout, and result-size limits. Agents does not call a tool executor itself. The published Recording Studio AI 0.5.0 gem does not define `perform_tool` yet. A tool step raises `ConfigurationError` on that gem. Answer-only runs still finish from `generate`.
 
 A **checkpoint** writes the working state and the current step, then renews the lease when the same worker still holds it. A new worker resumes from the last checkpoint. It does not repeat a finished tool. A non-repeatable tool that was started and then interrupted is closed as `unresolved` and is not run again.
 
