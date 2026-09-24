@@ -12,6 +12,14 @@
         ))
       ) do %>
         <p><%= step.body %></p>
+        <% if step.arguments_text.present? %>
+          <%= render FlatPack::CodeBlock::Component.new(
+            title: "Passed in",
+            code: step.arguments_text,
+            language: "json",
+            wrap: true
+          ) %>
+        <% end %>
       <% end %>
     <% end %>
   <% end %>

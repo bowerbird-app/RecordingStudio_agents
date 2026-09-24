@@ -4,7 +4,7 @@ require "test_helper"
 
 class PlaygroundStepsTest < ActiveSupport::TestCase
   Step = RecordingStudioAgents::Progress::Step
-  Invocation = Struct.new(:error_message, :result_summary, keyword_init: true)
+  Invocation = Struct.new(:error_message, :result_summary, :metadata, keyword_init: true)
 
   test "builds a closed step for each progress row and a reply collapse" do
     steps = [
@@ -66,6 +66,40 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     )
 
     assert_equal "Used Find page.", entries.first.body
+    assert_nil entries.first.arguments_text
+  end
+
+  test "a tool step shows the arguments that were passed in" do
+    steps = [
+      Step.new(kind: :tool, label: "Find page", status: :done, badge: "Done", badge_style: :success)
+    ]
+
+    entries = PlaygroundSteps.build(
+      steps,
+      [ Invocation.new(metadata: { "arguments" => { "title" => "Staff handbook" } }) ],
+      failure_message: nil,
+      reply_text: nil
+    )
+
+    assert_equal "Used Find page.", entries.first.body
+    assert_equal "{\n  \"title\": \"Staff handbook\"\n}", entries.first.arguments_text
+  end
+
+  test "the collapse renders passed-in arguments" do
+    step = PlaygroundSteps::Entry.new(
+      id: "playground-step-1",
+      title: "Find page",
+      badge: "Done",
+      badge_style: :success,
+      body: "Used Find page.",
+      arguments_text: "{\n  \"title\": \"Staff handbook\"\n}"
+    )
+
+    html = ApplicationController.render(partial: "playground/results", assigns: { steps: [ step ] })
+
+    assert_includes html, "Passed in"
+    assert_includes html, "Staff handbook"
+    assert_includes html, "playground-step-1-content"
   end
 
   test "a tool with no summary says which tool ran" do

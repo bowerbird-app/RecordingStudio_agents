@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class PlaygroundSteps
-  Entry = Data.define(:id, :title, :badge, :badge_style, :body)
+  Entry = Data.define(:id, :title, :badge, :badge_style, :body, :arguments_text)
 
   def self.for(run, reply_text: nil)
     build(
@@ -22,7 +22,8 @@ class PlaygroundSteps
         title: title_for(step),
         badge: step.badge,
         badge_style: step.badge_style,
-        body: body_for(step, invocation, failure_message)
+        body: body_for(step, invocation, failure_message),
+        arguments_text: arguments_text(invocation)
       )
     end
     entries << reply_entry(reply_text) if reply_text.present?
@@ -66,13 +67,31 @@ class PlaygroundSteps
     "Used #{step.label}."
   end
 
+  def self.arguments_text(invocation)
+    arguments = read_arguments(invocation)
+    return if arguments.blank?
+
+    JSON.pretty_generate(arguments)
+  end
+
+  def self.read_arguments(invocation)
+    return {} unless invocation.respond_to?(:metadata)
+
+    metadata = invocation.metadata
+    return {} unless metadata.is_a?(Hash)
+
+    arguments = metadata["arguments"] || metadata[:arguments]
+    arguments.is_a?(Hash) ? arguments.deep_stringify_keys : {}
+  end
+
   def self.reply_entry(reply_text)
     Entry.new(
       id: "playground-reply",
       title: "Reply",
       badge: "Done",
       badge_style: :success,
-      body: reply_text
+      body: reply_text,
+      arguments_text: nil
     )
   end
 
@@ -90,5 +109,5 @@ class PlaygroundSteps
     []
   end
 
-  private_class_method :body_for, :title_for, :tool_body, :reply_entry, :invocations_for
+  private_class_method :body_for, :title_for, :tool_body, :arguments_text, :read_arguments, :reply_entry, :invocations_for
 end
