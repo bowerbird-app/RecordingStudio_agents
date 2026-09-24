@@ -40,6 +40,16 @@ module RecordingStudioAgents
         end
 
         if menu.actionable.empty?
+          return finish(request, run, lease_token, state, nil) if state.criteria_met?
+
+          if observations_present?(state)
+            verdict, state = decide_if_answered(request, run, lease_token, state)
+            if verdict.fail?
+              return fail_run(run, lease_token, "decision_failed",
+                              verdict.probabilities["retryable"] == true)
+            end
+            return finish(request, run, lease_token, state, nil) if verdict.finish?
+          end
           if state.counter("replans") >= configuration.maximum_replans
             return fail_run(run, lease_token, "maximum_replans",
                             false)
@@ -154,18 +164,44 @@ module RecordingStudioAgents
       return [Controller.verdict(:reason, nil, "no_candidates", {}), state] if questions.dig(:next_action,
                                                                                              :criteria).blank?
 
-      response = Ai.decide(
+      response = ask_controller(run, lease_token, state, menu, questions)
+      verdict = controller_verdict(response, state) do
+        Controller.interpret(response.answers, menu: menu, state: state, configuration: configuration)
+      end
+      remember_decision(run, lease_token, state, response, verdict)
+    end
+
+    def decide_if_answered(_request, run, lease_token, state)
+      menu = ActionMenu.new
+      response = ask_controller(run, lease_token, state, menu, Controller.completion_questions)
+      verdict = controller_verdict(response, state) do
+        Controller.interpret_completion(response.answers, configuration: configuration)
+      end
+      remember_decision(run, lease_token, state, response, verdict)
+    end
+
+    def ask_controller(run, lease_token, state, menu, questions)
+      Ai.decide(
         invocation: @invocation, run: run, lease_token: lease_token,
         state: ContextBuilder.for_decision(state: state, menu: menu, signals: signal_lines(state, run)),
         questions: questions,
         suffix: "decide-#{state.counter('controller_calls') + 1}"
       )
-      verdict = if response.respond_to?(:success?) && !response.success?
-                  Controller.failure_verdict(response.error, configuration: configuration,
-                                                             reasoner_calls: state.counter("reasoner_calls"))
-                else
-                  Controller.interpret(response.answers, menu: menu, state: state, configuration: configuration)
-                end
+    end
+
+    def controller_verdict(response, state)
+      if response.respond_to?(:success?) && !response.success?
+        return Controller.failure_verdict(
+          response.error,
+          configuration: configuration,
+          reasoner_calls: state.counter("reasoner_calls")
+        )
+      end
+
+      yield
+    end
+
+    def remember_decision(run, lease_token, state, response, verdict)
       state, = StateDelta.apply(state, { "increment" => { "controller_calls" => 1 } })
       @ledger.checkpoint!(
         run: run, lease_token: lease_token, state: state,
@@ -502,6 +538,10 @@ module RecordingStudioAgents
 
     def next_sequence(run)
       run.agent_steps.maximum(:sequence).to_i + 1
+    end
+
+    def observations_present?(state)
+      Array(state.data["recent_observations"]).any?
     end
 
     def signal_lines(state, run)

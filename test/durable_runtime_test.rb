@@ -112,15 +112,19 @@ class DurableRuntimeTest < PersistenceTestCase
         plans == 1 ? tool_only_plan(1) : deliver_only_plan(2)
       end
     end
+    choice_number = 0
     decide = lambda do |**kwargs|
       decisions += 1
-      ids = kwargs[:questions][:next_action][:criteria].keys.map(&:to_s)
-      seen << ids
-      if decisions == 1
-        decision(finished: 0.1, choice_id: "1", candidate_ids: ids)
-      else
-        decision(finished: 0.95, choice_id: "1", candidate_ids: ids)
+      criteria = kwargs[:questions].dig(:next_action, :criteria)
+      if criteria.nil?
+        seen << ["completion"]
+        next decision(finished: 0.1, stuck: 0.05, choice_id: "1", candidate_ids: ["1"])
       end
+
+      ids = criteria.keys.map(&:to_s)
+      seen << ids
+      choice_number += 1
+      decision(finished: choice_number == 1 ? 0.1 : 0.95, choice_id: "1", candidate_ids: ids)
     end
     perform = lambda do |**|
       Performance.new(
@@ -138,8 +142,8 @@ class DurableRuntimeTest < PersistenceTestCase
 
           assert_instance_of RecordingStudioAgents::Results::Completed, result
           assert_equal "No pages about dogs.", result.output.text
-          assert_equal 2, decisions
-          assert_equal [%w[1], %w[1]], seen
+          assert_equal 3, decisions
+          assert_equal [%w[1], ["completion"], %w[1]], seen
         end
       end
     end
@@ -156,7 +160,13 @@ class DurableRuntimeTest < PersistenceTestCase
       end
     end
     decide = lambda do |**kwargs|
-      ids = kwargs[:questions][:next_action][:criteria].keys.map(&:to_s)
+      criteria = kwargs[:questions].dig(:next_action, :criteria)
+      if criteria.nil?
+        seen << ["completion"]
+        next decision(finished: 0.1, stuck: 0.05, choice_id: "1", candidate_ids: ["1"])
+      end
+
+      ids = criteria.keys.map(&:to_s)
       seen << ids
       decision(finished: 0.1, choice_id: "1", candidate_ids: ids)
     end
@@ -176,8 +186,79 @@ class DurableRuntimeTest < PersistenceTestCase
 
           assert_instance_of RecordingStudioAgents::Results::Failed, result
           assert_equal "maximum_replans", result.failure.code
-          assert_equal [["1"], ["1"], ["1"]], seen
+          assert_equal [%w[1], ["completion"], %w[1], ["completion"], %w[1], ["completion"]], seen
           refute result.run.agent_steps.exists?(candidate_id: "answer")
+        end
+      end
+    end
+  end
+
+  def test_observations_can_finish_when_no_candidates_remain
+    register_librarian
+    questions = []
+    generate = lambda do |**kwargs|
+      if kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "No pages about dogs.", run_id: 21)
+      else
+        tool_only_plan(21)
+      end
+    end
+    decide = lambda do |**kwargs|
+      questions << kwargs[:questions]
+      if kwargs[:questions].key?(:next_action)
+        decision(finished: 0.1, choice_id: "1", candidate_ids: ["1"])
+      else
+        decision(finished: 0.9, stuck: 0.1, choice_id: "1", candidate_ids: ["1"])
+      end
+    end
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: { "pages" => [{ "title" => "Guides" }] },
+        error: nil,
+        run: Struct.new(:id).new(22)
+      )
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("observations-finish")
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal "No pages about dogs.", result.output.text
+          assert_equal 1, result.run.agent_steps.where(action_type: "tool", status: "completed").count
+          refute result.run.agent_steps.exists?(candidate_id: "answer")
+          assert_equal %i[finished stuck], questions.last.keys
+          assert_includes questions.last[:finished][:instructions], "current observations"
+        end
+      end
+    end
+  end
+
+  def test_met_criteria_finish_when_the_menu_is_empty
+    register_librarian
+    decided = 0
+    generate = lambda do |**kwargs|
+      if kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "The pages were checked.", run_id: 31)
+      else
+        tool_only_plan(31)
+      end
+    end
+    decide = lambda do |**|
+      decided += 1
+      decision(finished: 0.1, choice_id: "1", candidate_ids: ["1"])
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, ->(**) { performance(summary: "Pages: Guides", criteria: ["done"]) }) do
+          result = run_librarian("criteria-empty-menu")
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal "The pages were checked.", result.output.text
+          assert_equal 1, decided
         end
       end
     end
@@ -439,6 +520,15 @@ class DurableRuntimeTest < PersistenceTestCase
     )
     assert_predicate failure, :fail?
     refute_predicate failure, :finish?
+
+    answered = decision_answers(finished: 0.8, stuck: 0.1, choice_id: "search", candidate_ids: ["search"])
+    completion = RecordingStudioAgents::Controller.interpret_completion(answered, configuration: configuration)
+    assert_predicate completion, :finish?
+    assert_nil completion.candidate_id
+
+    stuck_answer = decision_answers(finished: 0.9, stuck: 0.7, choice_id: "search", candidate_ids: ["search"])
+    withheld = RecordingStudioAgents::Controller.interpret_completion(stuck_answer, configuration: configuration)
+    assert_predicate withheld, :reason?
   end
 
   def test_state_deltas_reject_unknown_keys_and_stay_bounded

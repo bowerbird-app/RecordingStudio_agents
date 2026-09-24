@@ -51,6 +51,30 @@ module RecordingStudioAgents
       }
     end
 
+    def self.completion_questions
+      {
+        finished: {
+          type: :noul,
+          instructions: "Can the goal be answered from the current observations?"
+        },
+        stuck: {
+          type: :noul,
+          instructions: "Does the current state look stuck or repetitive, beyond the mechanical signals listed?"
+        }
+      }
+    end
+
+    def self.interpret_completion(answers, configuration:)
+      finished = probability(answers, :finished)
+      stuck = probability(answers, :stuck)
+      probabilities = { "finished" => finished, "stuck" => stuck }
+      if finished >= configuration.finished_probability && stuck < configuration.stuck_probability
+        return verdict(:finish, nil, "observations_answer_the_goal", probabilities)
+      end
+
+      verdict(:reason, nil, "observations_insufficient", probabilities)
+    end
+
     def self.interpret(answers, menu:, state:, configuration:)
       finished = probability(answers, :finished)
       stuck = probability(answers, :stuck)
