@@ -1,6 +1,7 @@
 <%= form_with url: playground_path, method: :post do %>
   <%= hidden_field_tag :choices, "1" %>
 
+  <%= render FlatPack::Grid::Component.new(cols: 1, gap: :md) do %>
   <%= render FlatPack::Select::Component.new(
     name: "agent",
     label: "Agent",
@@ -39,15 +40,17 @@
   <% @catalog.each do |entry| %>
     <% next if entry.tools.empty? %>
     <div data-playground-tools="<%= entry.token %>"<% if entry.token != @form.agent %> hidden<% end %>>
-      <%= render FlatPack::PageTitle::Component.new(title: "Tools", variant: :h2) %>
-      <% entry.tools.each do |tool| %>
-        <%= render FlatPack::Checkbox::Component.new(
-          name: "tools[]",
-          value: tool.token,
-          label: tool.name,
-          checked: @form.tools.include?(tool.token),
-          disabled: entry.token != @form.agent
-        ) %>
+      <%= render FlatPack::Grid::Component.new(cols: 1, gap: :sm) do %>
+        <%= render FlatPack::PageTitle::Component.new(title: "Tools", variant: :h2) %>
+        <% entry.tools.each do |tool| %>
+          <%= render FlatPack::Checkbox::Component.new(
+            name: "tools[]",
+            value: tool.token,
+            label: tool.name,
+            checked: @form.tools.include?(tool.token),
+            disabled: entry.token != @form.agent
+          ) %>
+        <% end %>
       <% end %>
     </div>
   <% end %>
@@ -58,6 +61,7 @@
     size: :md,
     type: "submit"
   ) %>
+  <% end %>
 <% end %>
 
 <script type="application/json" id="playground-skill-defaults"><%= raw @catalog.to_h { |entry| [ entry.token, entry.required_skills.map(&:token) ] }.to_json %></script>
