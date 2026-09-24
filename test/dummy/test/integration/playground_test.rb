@@ -36,6 +36,9 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Page librarian"
     assert_includes response.body, "Support clerk"
     assert_select "a[href='/playground']", text: /Playground/
+    defaults = JSON.parse(css_select("script#playground-skill-defaults").text)
+    assert_equal [ "page_lookup@1" ], defaults["page_librarian@1"]
+    assert_equal [ "support_voice@1" ], defaults["support_clerk@1"]
   end
 
   test "page librarian run shows steps and the reply" do

@@ -57,7 +57,7 @@
   ) %>
 <% end %>
 
-<script type="application/json" id="playground-skill-defaults"><%= @catalog.to_h { |entry| [ entry.token, entry.required_skills.map(&:token) ] }.to_json %></script>
+<script type="application/json" id="playground-skill-defaults"><%= raw @catalog.to_h { |entry| [ entry.token, entry.required_skills.map(&:token) ] }.to_json %></script>
 <script>
   function playgroundApplyAgent(chosen, resetSkills) {
     document.querySelectorAll("[data-playground-tools]").forEach(function (group) {
