@@ -6,7 +6,9 @@ module RecordingStudioAgents
 
     def self.lines(state:, steps:, configuration:, started_at:)
       lines = []
-      lines << "no_progress_streak #{state.data['no_progress_streak']}" if state.data["no_progress_streak"].to_i.positive?
+      if state.data["no_progress_streak"].to_i.positive?
+        lines << "no_progress_streak #{state.data['no_progress_streak']}"
+      end
       lines << "repeated_action" if repeated_digest?(state)
       lines << "step_budget" if step_budget?(steps, configuration)
       lines << "tool_budget" if tool_budget?(state, configuration)

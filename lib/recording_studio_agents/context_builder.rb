@@ -39,7 +39,7 @@ module RecordingStudioAgents
     end
 
     def self.labeled(title, body)
-      "#{title}\n#{body.to_s.strip.empty? ? "None" : body}"
+      "#{title}\n#{body.to_s.strip.empty? ? 'None' : body}"
     end
 
     def self.lines(values)
@@ -55,10 +55,10 @@ module RecordingStudioAgents
     end
 
     def self.candidates(menu)
-      menu.actionable.map { |candidate|
+      menu.actionable.map do |candidate|
         detail = candidate.tool? ? "#{candidate.tool_key} v#{candidate.tool_version}" : candidate.type
         "#{candidate.id}: #{detail}. #{candidate.purpose}"
-      }.join("\n")
+      end.join("\n")
     end
   end
 end

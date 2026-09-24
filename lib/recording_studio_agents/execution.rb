@@ -202,16 +202,12 @@ module RecordingStudioAgents
         response = adopted || Ai.plan(invocation: invocation, run: run, lease_token: lease_token)
         attach_response_run(run, lease_token, response)
         run.reload
-        if run.handoff_agent_key.present? || !durable_plan?(response)
-          return commit_response(run, lease_token, response)
-        end
+        return commit_response(run, lease_token, response) if run.handoff_agent_key.present? || !durable_plan?(response)
 
         Runtime.new(program: @program, ledger: @ledger, invocation: invocation).call(
           request: request, run: run, lease_token: lease_token, plan: response
         )
-      rescue IdempotencyConflict
-        raise
-      rescue ConfigurationError
+      rescue IdempotencyConflict, ConfigurationError
         raise
       rescue RecordingStudioAI::Errors::ContractValidationError => e
         handle_ai_contract_error(run, lease_token, e)

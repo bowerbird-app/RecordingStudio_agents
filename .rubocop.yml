@@ -25,6 +25,12 @@ Metrics/ClassLength:
     - "test/**/*"
     - "lib/recording_studio_agents/persistence.rb"
     - "lib/recording_studio_agents/execution.rb"
+    - "lib/recording_studio_agents/runtime.rb"
+    - "lib/recording_studio_agents/state_delta.rb"
+    - "lib/recording_studio_agents/working_state.rb"
+    - "lib/recording_studio_agents/controller.rb"
+    - "lib/recording_studio_agents/configuration.rb"
+    - "lib/recording_studio_agents/progress.rb"
     - "lib/recording_studio_agents/admin/**/*"
     - "lib/recording_studio_agents/handoffs.rb"
 
@@ -32,6 +38,7 @@ Metrics/ModuleLength:
   Exclude:
     - "test/**/*"
     - "lib/recording_studio_agents/admin/**/*"
+    - "lib/recording_studio_agents/ai.rb"
 
 Metrics/MethodLength:
   Exclude:
@@ -39,11 +46,19 @@ Metrics/MethodLength:
     - "lib/generators/**/*"
     - "lib/recording_studio_agents/persistence.rb"
     - "lib/recording_studio_agents/execution.rb"
+    - "lib/recording_studio_agents/runtime.rb"
+    - "lib/recording_studio_agents/state_delta.rb"
+    - "lib/recording_studio_agents/working_state.rb"
+    - "lib/recording_studio_agents/controller.rb"
+    - "lib/recording_studio_agents/action_menu.rb"
+    - "lib/recording_studio_agents/context_builder.rb"
+    - "lib/recording_studio_agents/signals.rb"
     - "lib/recording_studio_agents/programs.rb"
     - "lib/recording_studio_agents/handoffs.rb"
     - "lib/recording_studio_agents/agents.rb"
     - "lib/recording_studio_agents/agent.rb"
     - "lib/recording_studio_agents/ai.rb"
+    - "lib/recording_studio_agents/configuration.rb"
     - "lib/recording_studio_agents/skills.rb"
     - "lib/recording_studio_agents/admin/**/*"
     - "app/models/recording_studio_agents/**/*"
@@ -55,9 +70,17 @@ Metrics/AbcSize:
     - "lib/generators/**/*"
     - "lib/recording_studio_agents/persistence.rb"
     - "lib/recording_studio_agents/execution.rb"
+    - "lib/recording_studio_agents/runtime.rb"
+    - "lib/recording_studio_agents/state_delta.rb"
+    - "lib/recording_studio_agents/working_state.rb"
+    - "lib/recording_studio_agents/controller.rb"
+    - "lib/recording_studio_agents/action_menu.rb"
+    - "lib/recording_studio_agents/context_builder.rb"
+    - "lib/recording_studio_agents/signals.rb"
     - "lib/recording_studio_agents/programs.rb"
     - "lib/recording_studio_agents/handoffs.rb"
     - "lib/recording_studio_agents/ai.rb"
+    - "lib/recording_studio_agents/configuration.rb"
     - "lib/recording_studio_agents/admin/**/*"
     - "db/migrate/**/*"
 
@@ -66,6 +89,7 @@ Metrics/BlockLength:
     - "test/**/*"
     - "lib/recording_studio_agents/admin/**/*"
     - "lib/recording_studio_agents/engine.rb"
+    - "lib/recording_studio_agents/runtime.rb"
     - "db/migrate/**/*"
 
 Metrics/CyclomaticComplexity:
@@ -73,12 +97,22 @@ Metrics/CyclomaticComplexity:
     - "test/**/*"
     - "lib/recording_studio_agents/persistence.rb"
     - "lib/recording_studio_agents/execution.rb"
+    - "lib/recording_studio_agents/runtime.rb"
+    - "lib/recording_studio_agents/state_delta.rb"
+    - "lib/recording_studio_agents/working_state.rb"
+    - "lib/recording_studio_agents/controller.rb"
+    - "lib/recording_studio_agents/action_menu.rb"
     - "lib/recording_studio_agents/programs.rb"
 
 Metrics/PerceivedComplexity:
   Exclude:
     - "lib/recording_studio_agents/persistence.rb"
     - "lib/recording_studio_agents/execution.rb"
+    - "lib/recording_studio_agents/runtime.rb"
+    - "lib/recording_studio_agents/state_delta.rb"
+    - "lib/recording_studio_agents/working_state.rb"
+    - "lib/recording_studio_agents/controller.rb"
+    - "lib/recording_studio_agents/action_menu.rb"
     - "lib/recording_studio_agents/programs.rb"
 
 Metrics/ParameterLists:
@@ -90,6 +124,9 @@ Metrics/ParameterLists:
     - "lib/recording_studio_agents/knowledge.rb"
     - "lib/recording_studio_agents/agent.rb"
     - "lib/recording_studio_agents/execution.rb"
+    - "lib/recording_studio_agents/runtime.rb"
+    - "lib/recording_studio_agents/ai.rb"
+    - "lib/recording_studio_agents/action_menu.rb"
     - "app/models/recording_studio_agents/**/*"
 
 Lint/EmptyBlock:

@@ -410,9 +410,7 @@ module RecordingStudioAgents
 
       def token_total(row)
         step_ids = step_ai_run_ids(row)
-        if step_ids.empty?
-          return ai_run_for(row.recording_studio_ai_run_id)&.total_tokens
-        end
+        return ai_run_for(row.recording_studio_ai_run_id)&.total_tokens if step_ids.empty?
 
         (step_ids + [row.recording_studio_ai_run_id]).compact.uniq.sum do |id|
           ai_run_for(id)&.total_tokens.to_i
@@ -458,9 +456,7 @@ module RecordingStudioAgents
 
       def tools_cell(row, context)
         state = working_state_for(row)
-        if state && row.respond_to?(:agent_steps) && row.agent_steps.exists?
-          return state.counter("tool_actions").to_s
-        end
+        return state.counter("tool_actions").to_s if state && row.respond_to?(:agent_steps) && row.agent_steps.exists?
 
         ai_run = ai_run_for(row.recording_studio_ai_run_id)
         return BLANK if ai_run.nil?

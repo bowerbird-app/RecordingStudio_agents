@@ -28,24 +28,38 @@ module RecordingStudioAgents
         state = shrink(request, run, lease_token, state)
         resumed = resume_open_step(request, run, lease_token, state)
         return resumed if resumed.is_a?(Results::Blocked) || resumed.is_a?(Results::Failed)
+
         state, menu = resumed if resumed.is_a?(Array)
 
         steps = run.agent_steps.count
         if Signals.over_budget?(state: state, steps: steps, configuration: configuration, started_at: run.started_at)
-          return fail_run(run, lease_token, Signals.budget_code(state: state, steps: steps, configuration: configuration, started_at: run.started_at), false)
+          code = Signals.budget_code(
+            state: state, steps: steps, configuration: configuration, started_at: run.started_at
+          )
+          return fail_run(run, lease_token, code, false)
         end
 
         if menu.actionable.empty?
-          return fail_run(run, lease_token, "maximum_replans", false) if state.counter("replans") >= configuration.maximum_replans
-          return fail_run(run, lease_token, "maximum_reasoner_calls", false) if state.counter("reasoner_calls") >= configuration.maximum_reasoner_calls
+          if state.counter("replans") >= configuration.maximum_replans
+            return fail_run(run, lease_token, "maximum_replans",
+                            false)
+          end
+          if state.counter("reasoner_calls") >= configuration.maximum_reasoner_calls
+            return fail_run(run, lease_token, "maximum_reasoner_calls",
+                            false)
+          end
 
           state, menu = replan(request, run, lease_token, state, menu)
           next
         end
 
         if Signals.repeated_digest?(state) || state.data["no_progress_streak"].to_i >= Signals::REPEAT_LIMIT
-          @ledger.note_activity!(run: run, lease_token: lease_token, kind: "stuck_detected", data: { "sequence" => steps })
-          return fail_run(run, lease_token, "maximum_replans", false) if state.counter("replans") >= configuration.maximum_replans
+          @ledger.note_activity!(run: run, lease_token: lease_token, kind: "stuck_detected",
+                                 data: { "sequence" => steps })
+          if state.counter("replans") >= configuration.maximum_replans
+            return fail_run(run, lease_token, "maximum_replans",
+                            false)
+          end
 
           state, menu = replan(request, run, lease_token, state, menu)
           next
@@ -56,9 +70,16 @@ module RecordingStudioAgents
         end
 
         verdict, state = decide(request, run, lease_token, state, menu, steps)
-        return fail_run(run, lease_token, "decision_failed", verdict.probabilities["retryable"] == true) if verdict.fail?
+        if verdict.fail?
+          return fail_run(run, lease_token, "decision_failed",
+                          verdict.probabilities["retryable"] == true)
+        end
+
         if verdict.reason?
-          return fail_run(run, lease_token, "maximum_replans", false) if state.counter("replans") >= configuration.maximum_replans
+          if state.counter("replans") >= configuration.maximum_replans
+            return fail_run(run, lease_token, "maximum_replans",
+                            false)
+          end
 
           state, menu = replan(request, run, lease_token, state, menu)
           next
@@ -104,14 +125,21 @@ module RecordingStudioAgents
         ),
         activities: replan ? [%w[replanned reasoner_requested]] : [%w[reasoner_requested]]
       )
-      @ledger.note_activity!(run: run, lease_token: lease_token, kind: "compacted", data: { "sequence" => run.agent_steps.maximum(:sequence).to_i }) if compacted
+      if compacted
+        @ledger.note_activity!(run: run, lease_token: lease_token, kind: "compacted",
+                               data: { "sequence" => run.agent_steps.maximum(:sequence).to_i })
+      end
       [state, menu]
     end
 
     def replan(request, run, lease_token, state, menu)
       prompt = ContextBuilder.for_reasoner(state: state, menu: menu, signals: signal_lines(state, run))
-      response = Ai.plan(invocation: @invocation, run: run, lease_token: lease_token, prompt: prompt, suffix: "reason-#{state.counter('reasoner_calls') + 1}")
-      @ledger.attach_ai_run!(run: run, lease_token: lease_token, ai_run: response.run) if response.respond_to?(:run) && response.run
+      response = Ai.plan(invocation: @invocation, run: run, lease_token: lease_token, prompt: prompt,
+                         suffix: "reason-#{state.counter('reasoner_calls') + 1}")
+      if response.respond_to?(:run) && response.run
+        @ledger.attach_ai_run!(run: run, lease_token: lease_token,
+                               ai_run: response.run)
+      end
       unless response.respond_to?(:error) ? response.error.nil? : true
         raise response.error if response.error.respond_to?(:message)
 
@@ -121,9 +149,10 @@ module RecordingStudioAgents
       accept_plan(request, run, lease_token, state, response, replan: state.counter("reasoner_calls").positive?)
     end
 
-    def decide(request, run, lease_token, state, menu, steps)
+    def decide(_request, run, lease_token, state, menu, _steps)
       questions = Controller.questions(menu)
-      return [Controller.verdict(:reason, nil, "no_candidates", {}), state] if questions.dig(:next_action, :criteria).blank?
+      return [Controller.verdict(:reason, nil, "no_candidates", {}), state] if questions.dig(:next_action,
+                                                                                             :criteria).blank?
 
       response = Ai.decide(
         invocation: @invocation, run: run, lease_token: lease_token,
@@ -132,7 +161,8 @@ module RecordingStudioAgents
         suffix: "decide-#{state.counter('controller_calls') + 1}"
       )
       verdict = if response.respond_to?(:success?) && !response.success?
-                  Controller.failure_verdict(response.error, configuration: configuration, reasoner_calls: state.counter("reasoner_calls"))
+                  Controller.failure_verdict(response.error, configuration: configuration,
+                                                             reasoner_calls: state.counter("reasoner_calls"))
                 else
                   Controller.interpret(response.answers, menu: menu, state: state, configuration: configuration)
                 end
@@ -147,7 +177,10 @@ module RecordingStudioAgents
         ),
         activities: [%w[controller_evaluated]]
       )
-      @ledger.attach_ai_run!(run: run, lease_token: lease_token, ai_run: response.run) if response.respond_to?(:run) && response.run
+      if response.respond_to?(:run) && response.run
+        @ledger.attach_ai_run!(run: run, lease_token: lease_token,
+                               ai_run: response.run)
+      end
       [verdict, state]
     end
 
@@ -203,12 +236,12 @@ module RecordingStudioAgents
       unless performance.success?
         summary = performance.error&.message.to_s
         state, = StateDelta.apply(state, {
-                                     "add_failed" => [summary],
-                                     "add_observations" => [{ "sequence" => sequence, "summary" => summary }],
-                                     "add_attempted_digest" => candidate.argument_digest,
-                                     "add_refused_digest" => (repeatable_tool?(candidate) ? nil : candidate.argument_digest),
-                                     "increment" => { "tool_actions" => 1 }
-                                   })
+                                    "add_failed" => [summary],
+                                    "add_observations" => [{ "sequence" => sequence, "summary" => summary }],
+                                    "add_attempted_digest" => candidate.argument_digest,
+                                    "add_refused_digest" => refused_digest(candidate),
+                                    "increment" => { "tool_actions" => 1 }
+                                  })
         @ledger.checkpoint!(
           run: run, lease_token: lease_token, state: state,
           step: {
@@ -230,7 +263,10 @@ module RecordingStudioAgents
       state, compacted = StateDelta.apply(state, delta)
       streak = state.digest_of_progress == previous ? state.data["no_progress_streak"].to_i + 1 : 0
       state, = StateDelta.apply(state, { "set_no_progress_streak" => streak, "increment" => { "tool_actions" => 1 } })
-      state, = StateDelta.apply(state, { "add_refused_digest" => candidate.argument_digest }) unless repeatable_tool?(candidate)
+      unless repeatable_tool?(candidate)
+        state, = StateDelta.apply(state,
+                                  { "add_refused_digest" => candidate.argument_digest })
+      end
       state = remember_compaction(state, compacted)
       menu.consume(candidate.id)
       state, = StateDelta.apply(state, { "replace_candidate_index" => menu.index })
@@ -247,16 +283,19 @@ module RecordingStudioAgents
         },
         activities: [%w[step_completed state_updated]]
       )
-      @ledger.note_activity!(run: run, lease_token: lease_token, kind: "compacted", data: { "sequence" => sequence }) if compacted
+      if compacted
+        @ledger.note_activity!(run: run, lease_token: lease_token, kind: "compacted",
+                               data: { "sequence" => sequence })
+      end
       [state, menu]
     end
 
     def close_started_step(run, lease_token, state, step)
       state, = StateDelta.apply(state, {
-                                   "add_attempted_digest" => step.argument_digest,
-                                   "add_refused_digest" => (step.repeatable ? nil : step.argument_digest),
-                                   "increment" => { "tool_actions" => 1 }
-                                 })
+                                  "add_attempted_digest" => step.argument_digest,
+                                  "add_refused_digest" => (step.repeatable ? nil : step.argument_digest),
+                                  "increment" => { "tool_actions" => 1 }
+                                })
       @ledger.checkpoint!(
         run: run, lease_token: lease_token, state: state,
         step: {
@@ -268,16 +307,22 @@ module RecordingStudioAgents
       [state, ActionMenu.new.restore_terminal(state.data["candidate_index"])]
     end
 
-    def finish(request, run, lease_token, state, candidate)
+    def finish(_request, run, lease_token, state, candidate)
       response = Ai.synthesize(invocation: @invocation, run: run, lease_token: lease_token, state: state)
-      @ledger.attach_ai_run!(run: run, lease_token: lease_token, ai_run: response.run) if response.respond_to?(:run) && response.run
+      if response.respond_to?(:run) && response.run
+        @ledger.attach_ai_run!(run: run, lease_token: lease_token,
+                               ai_run: response.run)
+      end
       text = response.try(:text).to_s
       digest = Digests.of("text" => text)
       summary = text.strip
       summary = summary.empty? ? "Answered." : summary.byteslice(0, WorkingState::TEXT_LIMIT)
       @ledger.checkpoint!(
         run: run, lease_token: lease_token, state: state,
-        step: step_attributes(run, "completed", "deliver", candidate&.id, observation_summary: summary, ai_run_id: response.try(:run)&.id),
+        step: step_attributes(
+          run, "completed", "deliver", candidate&.id,
+          observation_summary: summary, ai_run_id: response.try(:run)&.id
+        ),
         activities: [%w[step_completed]]
       )
       @ledger.commit_succeeded!(run: run, lease_token: lease_token, digest: digest)
@@ -318,7 +363,7 @@ module RecordingStudioAgents
       updated
     end
 
-    def shrink(request, run, lease_token, state)
+    def shrink(_request, run, lease_token, state)
       return state unless state.bytesize > configuration.maximum_working_state_bytes
       return state if state.counter("compactions") >= 3
 
@@ -330,7 +375,10 @@ module RecordingStudioAgents
       return state unless data.is_a?(Hash)
 
       updated, changed = StateDelta.apply(state, data.merge("increment" => { "compactions" => 1 }))
-      @ledger.note_activity!(run: run, lease_token: lease_token, kind: "compacted", data: { "sequence" => run.agent_steps.maximum(:sequence).to_i }) if changed
+      if changed
+        @ledger.note_activity!(run: run, lease_token: lease_token, kind: "compacted",
+                               data: { "sequence" => run.agent_steps.maximum(:sequence).to_i })
+      end
       updated
     rescue StandardError
       state
@@ -342,6 +390,7 @@ module RecordingStudioAgents
       when Hash
         text = result["summary"] || result[:summary]
         return text.to_s.byteslice(0, WorkingState::TEXT_LIMIT) if text
+
         "keys: #{result.keys.map(&:to_s).sort.join(', ')}"
       else
         result.class.name
@@ -370,6 +419,12 @@ module RecordingStudioAgents
         argument_digest: step.argument_digest,
         arguments: nil
       )
+    end
+
+    def refused_digest(candidate)
+      return if repeatable_tool?(candidate)
+
+      candidate.argument_digest
     end
 
     def repeatable_tool?(candidate)
@@ -406,7 +461,8 @@ module RecordingStudioAgents
     end
 
     def signal_lines(state, run)
-      Signals.lines(state: state, steps: run.agent_steps.count, configuration: configuration, started_at: run.started_at)
+      Signals.lines(state: state, steps: run.agent_steps.count, configuration: configuration,
+                    started_at: run.started_at)
     end
   end
 end

@@ -72,7 +72,7 @@ module RecordingStudioAgents
     end
 
     def self.criteria(value)
-      Array(value).filter_map { |item|
+      rows = Array(value).filter_map do |item|
         next unless item.is_a?(Hash)
 
         text = clip(item["text"] || item[:text])
@@ -80,22 +80,23 @@ module RecordingStudioAgents
 
         id = clip(item["id"] || item[:id]) || text
         { "id" => id, "text" => text, "met" => item["met"] == true || item[:met] == true }
-      }.uniq { |item| item["id"] }.last(LIMITS["success_criteria"])
+      end
+      rows.uniq { |item| item["id"] }.last(LIMITS["success_criteria"])
     end
 
     def self.observations(value)
-      Array(value).filter_map { |item|
+      Array(value).filter_map do |item|
         next unless item.is_a?(Hash)
 
         summary = clip(item["summary"] || item[:summary])
         next if summary.nil?
 
         { "sequence" => integer(item["sequence"] || item[:sequence]), "summary" => summary }
-      }.last(LIMITS["recent_observations"])
+      end.last(LIMITS["recent_observations"])
     end
 
     def self.index(value)
-      Array(value).filter_map { |item|
+      Array(value).filter_map do |item|
         next unless item.is_a?(Hash)
 
         id = clip(item["id"] || item[:id])
@@ -112,7 +113,7 @@ module RecordingStudioAgents
           "handoff_key" => item["handoff_key"]&.to_s,
           "handoff_version" => item["handoff_version"]&.to_i
         }
-      }.last(LIMITS["candidate_index"])
+      end.last(LIMITS["candidate_index"])
     end
 
     def self.counters(value)

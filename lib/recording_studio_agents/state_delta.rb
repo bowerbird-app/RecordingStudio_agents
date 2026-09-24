@@ -20,9 +20,7 @@ module RecordingStudioAgents
     end
 
     def self.coerce(delta)
-      unless delta.is_a?(Hash)
-        raise ContractError, "state delta must be an object"
-      end
+      raise ContractError, "state delta must be an object" unless delta.is_a?(Hash)
 
       changes = delta.stringify_keys
       unknown = changes.keys - KEYS
@@ -43,9 +41,9 @@ module RecordingStudioAgents
       data["success_criteria"] = criteria_from(changes["replace_criteria"]) if changes.key?("replace_criteria")
       data["candidate_index"] = changes["replace_candidate_index"] if changes.key?("replace_candidate_index")
       meet = Array(changes["meet_criteria"]).map(&:to_s)
-      data["success_criteria"] = Array(data["success_criteria"]).map { |item|
+      data["success_criteria"] = Array(data["success_criteria"]).map do |item|
         meet.include?(item["id"].to_s) ? item.merge("met" => true) : item
-      }
+      end
       Array(changes["add_observations"]).each do |item|
         summary, sequence = observation_from(item)
         data["recent_observations"] = Array(data["recent_observations"]) + [
@@ -70,9 +68,7 @@ module RecordingStudioAgents
     end
 
     def self.apply_increment(data, increments)
-      unless increments.is_a?(Hash)
-        raise ContractError, "state delta increment must be an object"
-      end
+      raise ContractError, "state delta increment must be an object" unless increments.is_a?(Hash)
 
       unknown = increments.stringify_keys.keys - WorkingState::COUNTER_KEYS
       raise ContractError, "state delta has unknown counters: #{unknown.join(', ')}" if unknown.any?
@@ -96,11 +92,11 @@ module RecordingStudioAgents
     end
 
     def self.criteria_from(values)
-      Array(values).map.with_index { |item, index|
+      Array(values).map.with_index do |item, index|
         text = item.is_a?(Hash) ? (item["text"] || item[:text]) : item
         id = item.is_a?(Hash) ? (item["id"] || item[:id]) : "criterion_#{index + 1}"
         { "id" => id, "text" => text, "met" => false }
-      }
+      end
     end
 
     def self.compact(state, limit: RecordingStudioAgents.configuration.maximum_working_state_bytes)

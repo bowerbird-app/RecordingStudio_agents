@@ -25,58 +25,15 @@ class DurableRuntimeTest < PersistenceTestCase
     generated = []
     decided = []
     performed = []
-    tool_number = 0
-    choice_number = 0
+    counts = { choice: 0, tool: 0 }
+    generate = ->(**kwargs) { twenty_generate(kwargs, generated) }
+    decide = ->(**kwargs) { twenty_decide(kwargs, decided, counts) }
+    perform = ->(**kwargs) { twenty_perform(kwargs, performed, counts) }
 
-    RecordingStudioAI.stub(:generate, lambda { |**kwargs|
-      generated << kwargs
-      if kwargs[:request_id].to_s.end_with?(":answer")
-        generation_response(text: "The page is ready.", run_id: 50)
-      else
-        plan_response(candidates: 20, run_id: 7)
-      end
-    }) do
-      RecordingStudioAI.stub(:decide, lambda { |**kwargs|
-        decided << kwargs
-        choice_number += 1
-        if choice_number > 20
-          decision(finished: 0.95, choice_id: "deliver", candidate_ids: ["deliver"])
-        else
-          decision(finished: 0.1, choice_id: "action_#{choice_number}", candidate_ids: ["action_#{choice_number}", "deliver"])
-        end
-      }) do
-        RecordingStudioAI.stub(:perform_tool, lambda { |**kwargs|
-          performed << kwargs
-          tool_number += 1
-          performance(summary: format("observation-%02d", tool_number), secret: "SECRET-ARGUMENT", finding: "found #{tool_number}")
-        }) do
-          result = run_librarian("twenty-steps")
-
-          assert_instance_of RecordingStudioAgents::Results::Completed, result
-          assert_equal "The page is ready.", result.output.text
-          assert_equal "The page is ready.", result.run.agent_steps.find_by!(action_type: "deliver").observation_summary
-          assert_operator result.run.agent_steps.where(action_type: "tool", status: "completed").count, :>=, 20
-          assert_equal (1..result.run.agent_steps.maximum(:sequence)).to_a, result.run.agent_steps.order(:sequence).pluck(:sequence)
-          assert_equal 1, generated.count { |call| call[:request_id] == "recording-studio-agents:#{result.run.id}" }
-          assert_equal [], generated.first[:custom_tools]
-          refute generated.any? { |call| call.key?(:maximum_attempts) }
-          assert_equal 3, RecordingStudioAI.configuration.maximum_attempts
-          assert_equal 21, decided.length
-          assert_equal %i[progress_made finished stuck needs_reasoning next_action], decided.first[:questions].keys
-          assert decided.first[:questions][:next_action][:criteria].values.all?(&:nil?)
-          refute_includes decided.last[:state], "observation-01"
-          refute_includes decided.last[:state], "Look note-1\n"
-          refute_includes decided.last[:state], "SECRET-ARGUMENT"
-          assert_includes decided.last[:state], "observation-20"
-          assert_operator decided.last[:state].bytesize, :<, 8_000
-          assert_operator decided.map { |call| call[:state].bytesize }.max, :<, decided.first[:state].bytesize + 4_000
-          answer = generated.find { |call| call[:request_id].to_s.end_with?(":answer") }
-          refute_includes answer[:prompt], "observation-01"
-          refute_includes answer[:prompt], "SECRET-ARGUMENT"
-          stored = result.run.working_state_json.to_json + result.run.agent_steps.map(&:attributes).to_json
-          refute_includes stored, "SECRET-ARGUMENT"
-          refute_includes stored, "chain of thought"
-          assert result.run.agent_steps.where.not(observation_digest: nil).any?
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          assert_bounded_twenty(run_librarian("twenty-steps"), generated, decided)
         end
       end
     end
@@ -88,34 +45,9 @@ class DurableRuntimeTest < PersistenceTestCase
     notes = []
     phase = :first
 
-    generate = lambda { |**kwargs|
-      if kwargs[:request_id].to_s.end_with?(":answer")
-        generation_response(text: "Recovered.", run_id: 90)
-      elsif kwargs[:prompt].to_s.include?("Revise the plan")
-        plan_response(candidates: 0, extra: [candidate("recovery", "recovery")], run_id: 91)
-      else
-        plan_response(candidates: 3, run_id: 92)
-      end
-    }
-    decide = lambda { |**kwargs|
-      if phase == :first
-        number = notes.length + 1
-        decision(finished: 0.1, choice_id: "action_#{number}", candidate_ids: ["action_#{number}", "deliver"])
-      elsif notes.include?("recovery")
-        decision(finished: 0.95, choice_id: "deliver", candidate_ids: ["deliver"])
-      elsif kwargs[:state].include?("recovery:")
-        decision(finished: 0.1, choice_id: "recovery", candidate_ids: ["recovery", "deliver"])
-      else
-        decision(finished: 0.1, stuck: 0.1, needs: 0.9, choice_id: "deliver", candidate_ids: ["deliver"])
-      end
-    }
-    perform = lambda { |**kwargs|
-      note = kwargs[:arguments]["note"]
-      notes << note
-      raise "worker died" if note == "note-3" && notes.count("note-3") == 1
-
-      performance(summary: "obs-#{note}", finding: note == "recovery" ? "recovered" : nil)
-    }
+    generate = ->(**kwargs) { crash_generate(kwargs) }
+    decide = ->(**kwargs) { crash_decide(kwargs, phase, notes) }
+    perform = ->(**kwargs) { crash_perform(kwargs, notes) }
 
     first = nil
     RecordingStudioAI.stub(:generate, generate) do
@@ -198,7 +130,7 @@ class DurableRuntimeTest < PersistenceTestCase
       if kwargs[:state].include?("obs-paused")
         decision(finished: 0.95, choice_id: "deliver", candidate_ids: ["deliver"])
       else
-        decision(finished: 0.1, choice_id: "action_1", candidate_ids: ["action_1", "deliver"])
+        decision(finished: 0.1, choice_id: "action_1", candidate_ids: %w[action_1 deliver])
       end
     }
     perform = lambda { |**kwargs|
@@ -221,7 +153,7 @@ class DurableRuntimeTest < PersistenceTestCase
 
           resumed = run_librarian("confirm-step")
           assert_instance_of RecordingStudioAgents::Results::Completed, resumed
-          assert_equal [false, true], calls.map { |call| call[1] }
+          assert_equal([false, true], calls.map { |call| call[1] })
           assert_equal calls[0][0], calls[1][0]
           assert_nil calls[1][2]
           assert_equal 1, resumed.run.agent_steps.where(action_type: "tool", status: "completed").count
@@ -236,7 +168,7 @@ class DurableRuntimeTest < PersistenceTestCase
     previous = RecordingStudioAgents.configuration.maximum_steps
     generated = 0
     RecordingStudioAgents.configuration.maximum_steps = 1
-    RecordingStudioAI.stub(:generate, lambda { |**kwargs|
+    RecordingStudioAI.stub(:generate, lambda { |**_kwargs|
       generated += 1
       plan_response(candidates: 5, run_id: 70)
     }) do
@@ -309,11 +241,13 @@ class DurableRuntimeTest < PersistenceTestCase
     configuration = RecordingStudioAgents.configuration
     menu = menu_for("deliver" => :deliver, "search" => :tool)
     low = decision_answers(finished: 0.79, choice_id: "deliver", candidate_ids: %w[deliver search])
-    verdict = RecordingStudioAgents::Controller.interpret(low, menu: menu, state: empty_state, configuration: configuration)
+    verdict = RecordingStudioAgents::Controller.interpret(low, menu: menu, state: empty_state,
+                                                               configuration: configuration)
     assert_predicate verdict, :reason?
 
     high = decision_answers(finished: 0.8, choice_id: "deliver", candidate_ids: %w[deliver search])
-    finished = RecordingStudioAgents::Controller.interpret(high, menu: menu, state: empty_state, configuration: configuration)
+    finished = RecordingStudioAgents::Controller.interpret(high, menu: menu, state: empty_state,
+                                                                 configuration: configuration)
     assert_predicate finished, :finish?
 
     tied = decision_answers(
@@ -322,7 +256,8 @@ class DurableRuntimeTest < PersistenceTestCase
       candidate_ids: %w[deliver search],
       probabilities: { "search" => 0.51, "deliver" => 0.49 }
     )
-    uncertain = RecordingStudioAgents::Controller.interpret(tied, menu: menu, state: empty_state, configuration: configuration)
+    uncertain = RecordingStudioAgents::Controller.interpret(tied, menu: menu, state: empty_state,
+                                                                  configuration: configuration)
     assert_predicate uncertain, :reason?
     assert_equal "uncertain", uncertain.reason
 
@@ -343,10 +278,11 @@ class DurableRuntimeTest < PersistenceTestCase
     assert_equal "Stay", state.goal
 
     updated, changed = RecordingStudioAgents::StateDelta.apply(state, {
-                                                                  "add_findings" => ["Same", "Same"],
-                                                                  "add_attempted_digest" => nil,
-                                                                  "add_observations" => [{ "sequence" => 4, "summary" => "Saw it" }]
-                                                                })
+                                                                 "add_findings" => %w[Same Same],
+                                                                 "add_attempted_digest" => nil,
+                                                                 "add_observations" => [{ "sequence" => 4,
+                                                                                          "summary" => "Saw it" }]
+                                                               })
     assert_equal false, changed
     assert_equal ["Same"], updated.data["findings"]
     assert_equal [], updated.data["attempted_digests"]
@@ -354,10 +290,13 @@ class DurableRuntimeTest < PersistenceTestCase
 
     many, = RecordingStudioAgents::StateDelta.apply(state, {
                                                       "add_findings" => Array.new(30) { |index| "finding #{index}" },
-                                                      "add_observations" => Array.new(9) { |index| { "sequence" => index, "summary" => "obs #{index}" } }
+                                                      "add_observations" => Array.new(9) do |index|
+                                                        { "sequence" => index, "summary" => "obs #{index}" }
+                                                      end
                                                     })
     assert_equal RecordingStudioAgents::WorkingState::LIMITS["findings"], many.data["findings"].length
-    assert_equal RecordingStudioAgents::WorkingState::LIMITS["recent_observations"], many.data["recent_observations"].length
+    assert_equal RecordingStudioAgents::WorkingState::LIMITS["recent_observations"],
+                 many.data["recent_observations"].length
   end
 
   def test_compaction_waits_for_the_size_limit
@@ -369,7 +308,9 @@ class DurableRuntimeTest < PersistenceTestCase
     RecordingStudioAgents.configuration.maximum_working_state_bytes = 80
     bulky = RecordingStudioAgents::WorkingState.load({
                                                        "goal" => "Stay",
-                                                       "findings" => Array.new(8) { |index| "finding #{index} #{'x' * 80}" }
+                                                       "findings" => Array.new(8) do |index|
+                                                         "finding #{index} #{'x' * 80}"
+                                                       end
                                                      })
     compacted, changed = RecordingStudioAgents::StateDelta.apply(bulky, { "add_open_questions" => ["still open"] })
     assert_equal true, changed
@@ -393,14 +334,14 @@ class DurableRuntimeTest < PersistenceTestCase
     }) do
       RecordingStudioAI.stub(:decide, lambda { |**|
         decided += 1
-        decision(finished: 0.1, choice_id: "action_1", candidate_ids: ["action_1", "deliver"])
+        decision(finished: 0.1, choice_id: "action_1", candidate_ids: %w[action_1 deliver])
       }) do
         RecordingStudioAI.stub(:perform_tool, ->(**) { performance(summary: "found", criteria: ["done"]) }) do
           result = run_librarian("criteria-done")
           assert_instance_of RecordingStudioAgents::Results::Completed, result
           assert_equal 1, decided
-          assert_equal 1, generated.count { |request_id| request_id.end_with?(":answer") }
-          refute generated.any? { |request_id| request_id.include?(":reason-") }
+          assert_equal(1, generated.count { |request_id| request_id.end_with?(":answer") })
+          refute(generated.any? { |request_id| request_id.include?(":reason-") })
           assert result.run.agent_steps.exists?(action_type: "deliver", status: "completed")
         end
       end
@@ -433,8 +374,12 @@ class DurableRuntimeTest < PersistenceTestCase
       key: :reviewer, version: 1, name: "Reviewer", description: "Reviews", instructions: "Review."
     )
     register_librarian(handoffs: { reviewer: 1 })
-    RecordingStudioAI.stub(:generate, ->(**) { plan_response(candidates: 0, extra: [handoff_candidate("reviewer", 1)], run_id: 85) }) do
-      RecordingStudioAI.stub(:decide, ->(**) { decision(finished: 0.1, choice_id: "handoff_reviewer", candidate_ids: ["handoff_reviewer"]) }) do
+    RecordingStudioAI.stub(:generate, lambda { |**|
+      plan_response(candidates: 0, extra: [handoff_candidate("reviewer", 1)], run_id: 85)
+    }) do
+      RecordingStudioAI.stub(:decide, lambda { |**|
+        decision(finished: 0.1, choice_id: "handoff_reviewer", candidate_ids: ["handoff_reviewer"])
+      }) do
         result = run_librarian("allow-handoff")
         assert_instance_of RecordingStudioAgents::Results::HandoffRequested, result
         assert_equal "reviewer", result.request.target.key
@@ -459,7 +404,7 @@ class DurableRuntimeTest < PersistenceTestCase
     )
 
     assert_equal ["ok"], menu.actionable.map(&:id)
-    refute menu.index.any? { |entry| entry.key?("arguments") }
+    refute(menu.index.any? { |entry| entry.key?("arguments") })
   end
 
   private
@@ -512,19 +457,132 @@ class DurableRuntimeTest < PersistenceTestCase
     }
   end
 
-  def decision(finished:, choice_id:, candidate_ids:, stuck: 0.05, needs: 0.05, progress: 0.8)
+  def twenty_generate(kwargs, generated)
+    generated << kwargs
+    if kwargs[:request_id].to_s.end_with?(":answer")
+      generation_response(text: "The page is ready.", run_id: 50)
+    else
+      plan_response(candidates: 20, run_id: 7)
+    end
+  end
+
+  def twenty_decide(kwargs, decided, counts)
+    decided << kwargs
+    counts[:choice] += 1
+    number = counts[:choice]
+    return decision(finished: 0.95, choice_id: "deliver", candidate_ids: ["deliver"]) if number > 20
+
+    decision(finished: 0.1, choice_id: "action_#{number}", candidate_ids: ["action_#{number}", "deliver"])
+  end
+
+  def twenty_perform(kwargs, performed, counts)
+    performed << kwargs
+    counts[:tool] += 1
+    performance(
+      summary: format("observation-%02d", counts[:tool]),
+      secret: "SECRET-ARGUMENT",
+      finding: "found #{counts[:tool]}"
+    )
+  end
+
+  def assert_bounded_twenty(result, generated, decided)
+    assert_instance_of RecordingStudioAgents::Results::Completed, result
+    assert_equal "The page is ready.", result.output.text
+    assert_equal "The page is ready.", result.run.agent_steps.find_by!(action_type: "deliver").observation_summary
+    assert_operator result.run.agent_steps.where(action_type: "tool", status: "completed").count, :>=, 20
+    assert_equal (1..result.run.agent_steps.maximum(:sequence)).to_a, ordered_sequences(result)
+    assert_equal 1, legacy_plan_calls(generated, result)
+    assert_equal [], generated.first[:custom_tools]
+    refute passes_attempt_limit?(generated)
+    assert_equal 3, RecordingStudioAI.configuration.maximum_attempts
+    assert_equal 21, decided.length
+    assert_equal %i[progress_made finished stuck needs_reasoning next_action], decided.first[:questions].keys
+    assert decided.first[:questions][:next_action][:criteria].values.all?(&:nil?)
+    refute_includes decided.last[:state], "observation-01"
+    refute_includes decided.last[:state], "Look note-1\n"
+    refute_includes decided.last[:state], "SECRET-ARGUMENT"
+    assert_includes decided.last[:state], "observation-20"
+    assert_operator decided.last[:state].bytesize, :<, 8_000
+    assert_operator widest_state(decided), :<, decided.first[:state].bytesize + 4_000
+    answer = answer_call(generated)
+    refute_includes answer[:prompt], "observation-01"
+    refute_includes answer[:prompt], "SECRET-ARGUMENT"
+    stored = result.run.working_state_json.to_json + result.run.agent_steps.map(&:attributes).to_json
+    refute_includes stored, "SECRET-ARGUMENT"
+    refute_includes stored, "chain of thought"
+    assert result.run.agent_steps.where.not(observation_digest: nil).any?
+  end
+
+  def ordered_sequences(result)
+    result.run.agent_steps.order(:sequence).pluck(:sequence)
+  end
+
+  def legacy_plan_calls(generated, result)
+    generated.count { |call| call[:request_id] == "recording-studio-agents:#{result.run.id}" }
+  end
+
+  def passes_attempt_limit?(generated)
+    generated.any? { |call| call.key?(:maximum_attempts) }
+  end
+
+  def widest_state(decided)
+    decided.map { |call| call[:state].bytesize }.max
+  end
+
+  def answer_call(generated)
+    generated.find { |call| call[:request_id].to_s.end_with?(":answer") }
+  end
+
+  def crash_generate(kwargs)
+    if kwargs[:request_id].to_s.end_with?(":answer")
+      generation_response(text: "Recovered.", run_id: 90)
+    elsif kwargs[:prompt].to_s.include?("Revise the plan")
+      plan_response(candidates: 0, extra: [candidate("recovery", "recovery")], run_id: 91)
+    else
+      plan_response(candidates: 3, run_id: 92)
+    end
+  end
+
+  def crash_decide(kwargs, phase, notes)
+    return first_crash_decision(notes) if phase == :first
+    return decision(finished: 0.95, choice_id: "deliver", candidate_ids: ["deliver"]) if notes.include?("recovery")
+    return recovery_decision if kwargs[:state].include?("recovery:")
+
+    decision(finished: 0.1, stuck: 0.1, needs: 0.9, choice_id: "deliver", candidate_ids: ["deliver"])
+  end
+
+  def first_crash_decision(notes)
+    number = notes.length + 1
+    decision(finished: 0.1, choice_id: "action_#{number}", candidate_ids: ["action_#{number}", "deliver"])
+  end
+
+  def recovery_decision
+    decision(finished: 0.1, choice_id: "recovery", candidate_ids: %w[recovery deliver])
+  end
+
+  def crash_perform(kwargs, notes)
+    note = kwargs[:arguments]["note"]
+    notes << note
+    raise "worker died" if note == "note-3" && notes.count("note-3") == 1
+
+    performance(summary: "obs-#{note}", finding: note == "recovery" ? "recovered" : nil)
+  end
+
+  def decision(choice_id:, candidate_ids:, **scores)
+    scores[:progress] = 0.8 unless scores.key?(:progress)
     Decision.new(
-      answers: decision_answers(
-        finished: finished, stuck: stuck, needs: needs, progress: progress,
-        choice_id: choice_id, candidate_ids: candidate_ids
-      ),
+      answers: decision_answers(choice_id: choice_id, candidate_ids: candidate_ids, **scores),
       error: nil,
       run: Struct.new(:id).new(400)
     )
   end
 
-  def decision_answers(finished:, choice_id:, candidate_ids:, stuck: 0.05, needs: 0.05, progress: 0.2, probabilities: nil)
-    probs = probabilities || candidate_ids.to_h { |id| [id, id == choice_id ? 0.9 : 0.05] }
+  def decision_answers(choice_id:, candidate_ids:, **scores)
+    finished = scores.fetch(:finished, 0.1)
+    stuck = scores.fetch(:stuck, 0.05)
+    needs = scores.fetch(:needs, 0.05)
+    progress = scores.fetch(:progress, 0.2)
+    probs = scores[:probabilities] || candidate_ids.to_h { |id| [id, id == choice_id ? 0.9 : 0.05] }
     {
       finished: Answer.new(finished),
       progress_made: Answer.new(progress),
@@ -538,7 +596,8 @@ class DurableRuntimeTest < PersistenceTestCase
     result = { "summary" => summary, "meet_criteria" => criteria }
     result["findings"] = [finding] if finding
     result["secret"] = secret if secret
-    Performance.new(status: "completed", result: result, error: nil, run: Struct.new(:id).new(500), argument_digest: "digest")
+    Performance.new(status: "completed", result: result, error: nil, run: Struct.new(:id).new(500),
+                    argument_digest: "digest")
   end
 
   def digest_for(note)
@@ -552,7 +611,14 @@ class DurableRuntimeTest < PersistenceTestCase
   def menu_for(kinds)
     menu = RecordingStudioAgents::ActionMenu.new
     kinds.each do |id, type|
-      menu.add(RecordingStudioAgents::ActionMenu::Candidate.new(id: id, type: type.to_s, purpose: id.to_s, arguments: type == :tool ? { "q" => "1" } : nil, tool_key: "find_page", tool_version: 1))
+      menu.add(RecordingStudioAgents::ActionMenu::Candidate.new(
+                 id: id,
+                 type: type.to_s,
+                 purpose: id.to_s,
+                 arguments: type == :tool ? { "q" => "1" } : nil,
+                 tool_key: "find_page",
+                 tool_version: 1
+               ))
     end
     menu
   end

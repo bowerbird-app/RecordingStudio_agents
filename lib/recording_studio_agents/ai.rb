@@ -134,7 +134,9 @@ module RecordingStudioAgents
     def compact_state(invocation:, run:, lease_token:, state:, suffix:)
       RecordingStudioAI.generate(
         prompt: ContextBuilder.for_reasoner(state: state, menu: ActionMenu.new, signals: []),
-        system_instruction: "Return only the state delta that keeps the goal, success criteria, important findings, completed work, failed approaches, open questions, and the current objective.",
+        system_instruction: "Return only the state delta that keeps the goal, success criteria, " \
+                            "important findings, completed work, failed approaches, open questions, " \
+                            "and the current objective.",
         custom_tools: [],
         schema: COMPACT_SCHEMA,
         purpose: invocation.purpose,
@@ -179,7 +181,8 @@ module RecordingStudioAgents
     end
 
     def planning_note
-      "Plan the work. Return success criteria and action candidates with complete arguments. Do not call tools from this step."
+      "Plan the work. Return success criteria and action candidates with complete arguments. " \
+        "Do not call tools from this step."
     end
 
     def lease_metadata(run, lease_token)

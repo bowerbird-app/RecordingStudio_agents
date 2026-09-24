@@ -121,7 +121,7 @@ module RecordingStudioAgents
 
     def probability(value, name)
       number = Float(value)
-      return number if number >= 0.0 && number <= 1.0
+      return number if number.between?(0.0, 1.0)
 
       raise ContractError, "#{name} must be between 0 and 1"
     rescue ArgumentError, TypeError
