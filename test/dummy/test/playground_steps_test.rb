@@ -34,6 +34,63 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     assert_equal "Found the Staff handbook.", entries.second.returned
   end
 
+  test "a running model turn is visible before the agent run links it" do
+    workspace = Workspace.create!(name: "Playground Steps #{SecureRandom.hex(4)}")
+    root = RecordingStudio.root_recording_for(workspace)
+    user = User.create!(
+      email: "playground-steps-#{SecureRandom.hex(4)}@example.com",
+      password: "Password123!",
+      password_confirmation: "Password123!"
+    )
+    task = RecordingStudioAgents::Task.create!(
+      root_recording_id: root.id,
+      task_key: "playground-steps:#{SecureRandom.hex(4)}",
+      goal: "Find the staff handbook.",
+      input_digest: "playground-steps"
+    )
+    run = RecordingStudioAgents::AgentRun.create!(
+      task: task,
+      root_recording_id: root.id,
+      agent_key: "page_librarian",
+      agent_version: 1,
+      program_digest: "playground-steps",
+      idempotency_key: "playground-steps:#{SecureRandom.uuid}",
+      status: "running",
+      initiator_type: "User",
+      initiator_id: user.id.to_s,
+      initiator_kind: "user",
+      execution_source: "web"
+    )
+    now = Time.current
+    ai_run = RecordingStudioAI::Run.create!(
+      operation: "generation",
+      purpose: "agent_page_librarian",
+      status: "running",
+      root_recording_id: root.id,
+      initiator_type: "User",
+      initiator_id: user.id.to_s,
+      initiator_kind: "user",
+      execution_source: "web",
+      request_id: RecordingStudioAgents::Ai.request_id_for(run),
+      started_at: now
+    )
+    RecordingStudioAI::Attempt.create!(
+      run: ai_run,
+      sequence: 1,
+      kind: "primary",
+      status: "running",
+      started_at: now
+    )
+
+    entries = PlaygroundSteps.for(run, initiator: user)
+
+    assert_nil run.recording_studio_ai_run_id
+    assert_equal [ "On it" ], entries.map(&:title)
+    assert_equal [ "Working" ], entries.map(&:badge)
+    assert_equal "Find the staff handbook.", entries.first.given
+    assert_equal "Still going.", entries.first.returned
+  end
+
   test "a blank run has no collapses" do
     entries = PlaygroundSteps.build([], instruction: "", status: "running")
 

@@ -10,7 +10,8 @@ export default class extends Controller {
   connect() {
     if (!this.activeValue) return
 
-    this.timer = window.setInterval(() => this.refresh(), 2000)
+    this.refresh()
+    this.timer = window.setInterval(() => this.refresh(), 1000)
   }
 
   disconnect() {

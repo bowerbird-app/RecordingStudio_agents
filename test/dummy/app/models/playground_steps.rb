@@ -45,6 +45,15 @@ class PlaygroundSteps
   end
 
   def self.ai_run_for(run)
+    linked = linked_ai_run(run)
+    return linked if linked
+
+    RecordingStudioAgents::Ai.find_run(
+      request_id: RecordingStudioAgents::Ai.request_id_for(run)
+    )
+  end
+
+  def self.linked_ai_run(run)
     return if run.recording_studio_ai_run_id.blank?
 
     RecordingStudioAI::Run.find_by(id: run.recording_studio_ai_run_id)
@@ -179,7 +188,7 @@ class PlaygroundSteps
     %w[failed cancelled].include?(status.to_s)
   end
 
-  private_class_method :turns_for, :ai_run_for, :visible_invocations, :turn_for, :notes_for,
+  private_class_method :turns_for, :ai_run_for, :linked_ai_run, :visible_invocations, :turn_for, :notes_for,
     :response_text, :entry_for, :failure_entry, :given_for, :returned_for, :title_for,
     :badge_for, :instruction_text, :notes_text, :tool_name, :metadata_body, :format_body, :failed?
 end
