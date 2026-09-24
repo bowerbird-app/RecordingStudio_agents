@@ -85,13 +85,16 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Done/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Reply/
-    asked = css_select("#playground-step-0-content").text
-    answered = css_select("#playground-step-1-content").text
-    assert_includes asked, "Find the Getting Started page."
-    assert_includes asked, "Getting Started"
-    refute_includes asked, "Finished."
-    assert_includes answered, "Finished."
-    refute_includes answered, "Find the Getting Started page."
+    asked = JSON.parse(css_select("#playground-step-0-content pre").text)
+    answered = JSON.parse(css_select("#playground-step-1-content pre").text)
+    assert_equal "Find the Getting Started page.", asked.dig("input", "instruction")
+    assert_equal "Getting Started", asked.dig("output", "find_page", "title")
+    refute_includes asked.to_json, "Finished."
+    assert_equal "Finished.", answered.dig("output", "text")
+    assert_equal "Getting Started", answered.dig("input", "find_page", "title")
+    refute_includes answered.to_json, "Find the Getting Started page."
+    refute_includes response.body, ">Given<"
+    refute_includes response.body, ">Returned<"
     assert_select "h2", text: "Page librarian", count: 0
     assert_select "h2", text: "Skills", count: 0
     assert_select "h2", text: "Reply", count: 0
@@ -161,12 +164,12 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     get path
 
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
-    asked = css_select("#playground-step-0-content").text
-    answered = css_select("#playground-step-1-content").text
-    assert_includes asked, "Find the Getting Started page."
-    refute_includes asked, "Finished."
-    assert_includes answered, "Finished."
-    refute_includes answered, "Find the Getting Started page."
+    asked = JSON.parse(css_select("#playground-step-0-content pre").text)
+    answered = JSON.parse(css_select("#playground-step-1-content pre").text)
+    assert_equal "Find the Getting Started page.", asked.dig("input", "instruction")
+    refute_includes asked.to_json, "Finished."
+    assert_equal "Finished.", answered.dig("output", "text")
+    refute_includes answered.to_json, "Find the Getting Started page."
     run = RecordingStudioAgents::AgentRun.find_by!(
       root_recording_id: @root.id,
       idempotency_key: path.split("/").last

@@ -7,8 +7,8 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
   ToolNote = PlaygroundSteps::ToolNote
 
   test "each turn shows its own input and response" do
-    asked = ToolNote.new(name: "Find page", body: "{\n  \"title\": \"Staff handbook\"\n}")
-    heard = ToolNote.new(name: "Find page", body: "{\n  \"found\": true\n}")
+    asked = ToolNote.new(name: "Find page", key: "find_page", value: { "title" => "Staff handbook" })
+    heard = ToolNote.new(name: "Find page", key: "find_page", value: { "found" => true })
     turns = [
       Turn.new(status: "completed", text: nil, error_message: nil, asked: [ asked ], heard: []),
       Turn.new(status: "completed", text: "Found the Staff handbook.", error_message: nil, asked: [], heard: [ heard ])
@@ -24,14 +24,17 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     assert_equal [ "playground-step-0", "playground-step-1" ], entries.map(&:id)
     assert_equal "Find page", entries.first.title
     assert_equal "Done", entries.first.badge
-    assert_equal "Find the staff handbook.\n\n{\"folder\":\"People\"}", entries.first.given
-    assert_includes entries.first.returned, "\"title\": \"Staff handbook\""
-    refute_includes entries.first.returned, "Found the Staff handbook."
+    first = JSON.parse(entries.first.exchange)
+    assert_equal(
+      { "instruction" => "Find the staff handbook.", "context" => { "folder" => "People" } },
+      first["input"]
+    )
+    assert_equal({ "find_page" => { "title" => "Staff handbook" } }, first["output"])
 
     assert_equal "Reply", entries.second.title
-    assert_includes entries.second.given, "\"found\": true"
-    refute_includes entries.second.given, "Find the staff handbook."
-    assert_equal "Found the Staff handbook.", entries.second.returned
+    second = JSON.parse(entries.second.exchange)
+    assert_equal({ "find_page" => { "found" => true } }, second["input"])
+    assert_equal({ "text" => "Found the Staff handbook." }, second["output"])
   end
 
   test "a running model turn is visible before the agent run links it" do
@@ -87,8 +90,9 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     assert_nil run.recording_studio_ai_run_id
     assert_equal [ "On it" ], entries.map(&:title)
     assert_equal [ "Working" ], entries.map(&:badge)
-    assert_equal "Find the staff handbook.", entries.first.given
-    assert_equal "Still going.", entries.first.returned
+    call = JSON.parse(entries.first.exchange)
+    assert_equal({ "instruction" => "Find the staff handbook." }, call["input"])
+    assert_nil call["output"]
   end
 
   test "a blank run has no collapses" do
@@ -107,8 +111,9 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
 
     assert_equal [ "playground-step-0" ], entries.map(&:id)
     assert_equal "Did not finish", entries.first.title
-    assert_equal "Rename the page.", entries.first.given
-    assert_equal "The title was not saved.", entries.first.returned
+    call = JSON.parse(entries.first.exchange)
+    assert_equal({ "instruction" => "Rename the page." }, call["input"])
+    assert_equal({ "error" => "The title was not saved." }, call["output"])
   end
 
   test "a turn that is still going says so" do
@@ -120,8 +125,9 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
 
     assert_equal "On it", entries.first.title
     assert_equal "Working", entries.first.badge
-    assert_equal "Find the staff handbook.", entries.first.given
-    assert_equal "Still going.", entries.first.returned
+    call = JSON.parse(entries.first.exchange)
+    assert_equal({ "instruction" => "Find the staff handbook." }, call["input"])
+    assert_nil call["output"]
   end
 
   test "a failed turn prefers that turn's error" do
@@ -134,25 +140,30 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
 
     assert_equal "Did not finish", entries.first.title
     assert_equal "Failed", entries.first.badge
-    assert_equal "The model stopped.", entries.first.returned
+    call = JSON.parse(entries.first.exchange)
+    assert_equal({ "error" => "The model stopped." }, call["output"])
   end
 
-  test "the collapse renders given and returned" do
+  test "the collapse renders the call as one hash" do
     step = PlaygroundSteps::Entry.new(
       id: "playground-step-1",
       title: "Find page",
       badge: "Done",
       badge_style: :success,
-      given: "Find the staff handbook.",
-      returned: "Find page\n{\"title\":\"Staff handbook\"}"
+      exchange: JSON.pretty_generate(
+        "input" => { "instruction" => "Find the staff handbook." },
+        "output" => { "find_page" => { "title" => "Staff handbook" } }
+      )
     )
 
     html = ApplicationController.render(partial: "playground/results", assigns: { steps: [ step ] })
 
-    assert_includes html, "Given"
+    assert_includes html, "input"
+    assert_includes html, "output"
     assert_includes html, "Find the staff handbook."
-    assert_includes html, "Returned"
     assert_includes html, "Staff handbook"
+    refute_includes html, "Given"
+    refute_includes html, "Returned"
     assert_includes html, "playground-step-1-content"
   end
 end

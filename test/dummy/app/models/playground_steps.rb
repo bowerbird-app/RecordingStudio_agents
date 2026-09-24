@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 class PlaygroundSteps
-  Entry = Data.define(:id, :title, :badge, :badge_style, :given, :returned)
+  Entry = Data.define(:id, :title, :badge, :badge_style, :exchange)
   Turn = Data.define(:status, :text, :error_message, :asked, :heard)
-  ToolNote = Data.define(:name, :body)
+  ToolNote = Data.define(:name, :key, :value)
 
   HANDOFF_KEY = RecordingStudioAgents::Handoffs::INTERNAL_TOOL_KEY.to_s
   BADGES = {
@@ -76,7 +76,11 @@ class PlaygroundSteps
     invocations.filter_map do |invocation|
       next unless invocation.public_send(link) == attempt_id
 
-      ToolNote.new(name: tool_name(invocation), body: metadata_body(invocation, metadata_key))
+      ToolNote.new(
+        name: tool_name(invocation),
+        key: invocation.tool_key.to_s,
+        value: metadata_value(invocation, metadata_key)
+      )
     end
   end
 
@@ -97,8 +101,7 @@ class PlaygroundSteps
       title: title_for(turn),
       badge: badge,
       badge_style: style,
-      given: given_for(turn, instruction, context),
-      returned: returned_for(turn, failure_message)
+      exchange: exchange_for(turn, instruction, context, failure_message)
     )
   end
 
@@ -109,31 +112,67 @@ class PlaygroundSteps
       title: "Did not finish",
       badge: "Failed",
       badge_style: :danger,
-      given: instruction_text(instruction, context),
-      returned: message.presence || "Did not finish."
+      exchange: dump(
+        "input" => instruction_input(instruction, context),
+        "output" => { "error" => message.presence || "Did not finish." }
+      )
     )
   end
 
-  def self.given_for(turn, instruction, context)
-    heard = notes_text(turn.heard)
-    return heard if heard.present?
-
-    instruction_text(instruction, context)
+  def self.exchange_for(turn, instruction, context, failure_message)
+    dump(
+      "input" => input_for(turn, instruction, context),
+      "output" => output_for(turn, failure_message)
+    )
   end
 
-  def self.returned_for(turn, failure_message)
-    parts = []
+  def self.input_for(turn, instruction, context)
+    heard = tool_hash(turn.heard)
+    return heard if heard.present?
+
+    instruction_input(instruction, context)
+  end
+
+  def self.instruction_input(instruction, context)
+    payload = {}
+    text = instruction.to_s.strip
+    payload["instruction"] = text if text.present?
+    extra = context_value(context)
+    payload["context"] = extra unless extra.nil?
+    payload
+  end
+
+  def self.output_for(turn, failure_message)
+    payload = {}
     reply = turn.text.to_s.strip
-    parts << reply if reply.present?
-    asked = notes_text(turn.asked)
-    parts << asked if asked.present?
-    return parts.join("\n\n") if parts.any?
+    payload["text"] = reply if reply.present?
+    payload.merge!(tool_hash(turn.asked))
+    return payload if payload.present?
 
     message = turn.error_message.to_s.strip
     message = failure_message.to_s.strip if message.blank?
-    return message if message.present? && failed?(turn.status)
+    return { "error" => message } if message.present? && failed?(turn.status)
 
-    "Still going."
+    nil
+  end
+
+  def self.tool_hash(notes)
+    notes.each_with_object({}) do |note, payload|
+      payload[note.key] = note.value.nil? ? {} : note.value
+    end
+  end
+
+  def self.context_value(context)
+    extra = context.to_s.strip
+    return if extra.blank?
+
+    JSON.parse(extra)
+  rescue JSON::ParserError
+    extra
+  end
+
+  def self.dump(payload)
+    JSON.pretty_generate(payload)
   end
 
   def self.title_for(turn)
@@ -149,18 +188,6 @@ class PlaygroundSteps
     BADGES.fetch(status.to_s, [ "Working", :info ])
   end
 
-  def self.instruction_text(instruction, context)
-    text = instruction.to_s.strip
-    extra = context.to_s.strip
-    return text if extra.blank?
-
-    "#{text}\n\n#{extra}"
-  end
-
-  def self.notes_text(notes)
-    notes.filter_map { |note| [ note.name, note.body ].compact_blank.join("\n").presence }.join("\n\n")
-  end
-
   def self.tool_name(invocation)
     snapshot = invocation.tool_name_snapshot
     return snapshot if snapshot.present?
@@ -168,20 +195,11 @@ class PlaygroundSteps
     invocation.tool_key.to_s.tr("_", " ").sub(/\A./, &:upcase)
   end
 
-  def self.metadata_body(invocation, key)
+  def self.metadata_value(invocation, key)
     metadata = invocation.metadata
-    return unless metadata.is_a?(Hash)
+    return nil unless metadata.is_a?(Hash) && metadata.key?(key)
 
-    format_body(metadata[key])
-  end
-
-  def self.format_body(value)
-    return if value.nil?
-    return if value.respond_to?(:empty?) && value.empty?
-
-    return JSON.pretty_generate(value) if value.is_a?(Hash) || value.is_a?(Array)
-
-    value.to_s
+    metadata[key]
   end
 
   def self.failed?(status)
@@ -189,6 +207,7 @@ class PlaygroundSteps
   end
 
   private_class_method :turns_for, :ai_run_for, :linked_ai_run, :visible_invocations, :turn_for, :notes_for,
-    :response_text, :entry_for, :failure_entry, :given_for, :returned_for, :title_for,
-    :badge_for, :instruction_text, :notes_text, :tool_name, :metadata_body, :format_body, :failed?
+    :response_text, :entry_for, :failure_entry, :exchange_for, :input_for, :instruction_input,
+    :output_for, :tool_hash, :context_value, :dump, :title_for, :badge_for, :tool_name,
+    :metadata_value, :failed?
 end

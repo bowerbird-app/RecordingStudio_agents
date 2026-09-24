@@ -15,7 +15,7 @@ The dummy playground starts a registered agent and watches the attempt.
 - Studio Workspace seeds a small library: Product Docs, Guides, People, and a root page named Studio overview. Client Workspace and Private Workspace stay empty. Getting Started stays in Product Docs.
 
 ### Changed
-- Dummy playground results start blank, including when a new run starts. Each model turn is a collapse with a title and a progress badge. Open a turn to see the input that turn received and the response it returned. A later turn is given the tool result, not the original instruction again. The agent name, skills, and model-call link are not repeated on that side.
+- Dummy playground results start blank, including when a new run starts. Each model turn is a collapse with a title and a progress badge. Open a turn to see that call as one hash, with input and output. A later call's input is the tool result, not the original instruction again. The agent name, skills, and model-call link are not repeated on that side.
 
 ### Fixed
 - The dummy playground updates steps in place while a run is going. Each model turn shows up when that turn starts, before the run finishes. The page does not reload for each step.

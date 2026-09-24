@@ -11,10 +11,7 @@
           size: :sm
         ))
       ) do %>
-        <%= render FlatPack::PageTitle::Component.new(title: "Given", variant: :h4) %>
-        <%= simple_format(step.given) %>
-        <%= render FlatPack::PageTitle::Component.new(title: "Returned", variant: :h4) %>
-        <%= simple_format(step.returned) %>
+        <pre><%= step.exchange %></pre>
       <% end %>
     <% end %>
   <% end %>
