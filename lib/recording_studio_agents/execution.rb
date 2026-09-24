@@ -66,8 +66,8 @@ module RecordingStudioAgents
         executor:,
         execution_source:,
         idempotency_key:,
-        selection: SkillSelection.none,
-        profile:
+        profile:,
+        selection: SkillSelection.none
       )
         @task_input = task_input
         @root_recording = root_recording
