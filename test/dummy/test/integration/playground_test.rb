@@ -68,7 +68,15 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "Starting."
     assert_includes response.body, "md:grid-cols-2"
     assert_select "textarea[name='goal']", text: "Find the Getting Started page."
-    assert_includes response.body, "http-equiv=\"refresh\""
+    assert_select "meta[http-equiv=refresh]", count: 0
+    assert_select "[data-controller='playground-watch'][data-playground-watch-active-value='true']"
+    assert_includes response.body, "#{path}?steps=1"
+
+    get "#{path}?steps=1"
+    assert_response :success
+    assert_select "textarea", count: 0
+    assert_select "#playground-steps-frame[data-watching='true']"
+    assert_select "[data-controller='flat-pack--collapse']", count: 0
 
     perform_enqueued_jobs
     get path
@@ -88,7 +96,16 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_select "h2", text: "Skills", count: 0
     assert_select "h2", text: "Reply", count: 0
     refute_includes response.body, "Open the model call"
-    assert_not_includes response.body, "http-equiv=\"refresh\""
+    assert_select "meta[http-equiv=refresh]", count: 0
+    assert_select "[data-controller='playground-watch']", count: 0
+
+    get "#{path}?steps=1"
+    assert_response :success
+    assert_select "textarea", count: 0
+    assert_select "#playground-steps-frame[data-watching='false']"
+    assert_select "[data-playground-step-list]"
+    assert_select "#playground-step-0-content"
+    assert_select "#playground-step-1-content"
 
     run = RecordingStudioAgents::AgentRun.find_by!(
       root_recording_id: @root.id,

@@ -1,5 +1,5 @@
 <% if @steps.any? %>
-  <%= render FlatPack::Grid::Component.new(cols: 1, gap: :md) do %>
+  <%= render FlatPack::Grid::Component.new(cols: 1, gap: :md, data: { playground_step_list: true }) do %>
     <% @steps.each do |step| %>
       <%= render FlatPack::Collapse::Component.new(
         id: step.id,

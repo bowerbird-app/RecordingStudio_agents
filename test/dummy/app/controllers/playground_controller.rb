@@ -47,6 +47,7 @@ class PlaygroundController < ApplicationController
     @form = remembered_form || form_from_run || form_from_params
     @steps = show_steps
     @refresh = refresh?
+    render partial: "steps_frame", layout: false if params[:steps] == "1"
   end
 
   private

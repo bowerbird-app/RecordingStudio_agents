@@ -18,6 +18,7 @@ The dummy playground starts a registered agent and watches the attempt.
 - Dummy playground results start blank, including when a new run starts. Each model turn is a collapse with a title and a progress badge. Open a turn to see the input that turn received and the response it returned. A later turn is given the tool result, not the original instruction again. The agent name, skills, and model-call link are not repeated on that side.
 
 ### Fixed
+- The dummy playground updates steps in place while a run is going. The page does not reload for each step.
 - A handoff requested during a live model call can record the request. Recording Studio AI redacts metadata keys that contain `token`, so the handoff tool matches a digest of the lease instead of the redacted value.
 - `Agent#run` accepts `skills:` and `tools:` for one attempt.
 

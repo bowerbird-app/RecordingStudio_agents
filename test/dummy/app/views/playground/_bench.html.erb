@@ -6,18 +6,22 @@
   variant: :h1
 ) %>
 
-<% if @error.present? && @run.nil? %>
-  <%= render FlatPack::Alert::Component.new(
-    description: @error,
-    style: :danger
-  ) %>
-<% end %>
+<div id="playground-error">
+  <%= render "error" %>
+</div>
 
 <%= render FlatPack::Grid::Component.new(cols: 2, gap: :lg, align: :start) do %>
   <div>
     <%= render "form" %>
   </div>
-  <div>
+  <div
+    id="playground-results"
+    <% if @refresh %>
+      data-controller="playground-watch"
+      data-playground-watch-url-value="<%= playground_run_path(params[:idempotency_key], steps: 1) %>"
+      data-playground-watch-active-value="true"
+    <% end %>
+  >
     <%= render "results" %>
   </div>
 <% end %>
