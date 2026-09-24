@@ -23,7 +23,7 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     assert_equal [
       [ "playground-step-0", "Checked this workspace", "Done", "Looked through this workspace." ],
       [ "playground-step-1", "Find page", "Done", "Getting Started is in Product Docs." ],
-      [ "playground-step-2", "Done", "Done", "All done." ],
+      [ "playground-step-2", "Wrapped up", "Done", "The run finished." ],
       [ "playground-reply", "Reply", "Done", "Found it." ]
     ], entries.map { |entry| [ entry.id, entry.title, entry.badge, entry.body ] }
   end
@@ -50,6 +50,22 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     assert_equal "Waiting for a yes before using Retitle page.", entries.first.body
     assert_equal "The title was not saved.", entries.second.body
     assert_equal 2, entries.length
+  end
+
+  test "a machine summary does not replace the tool sentence" do
+    steps = [
+      Step.new(kind: :tool, label: "Find page", status: :done, badge: "Done", badge_style: :success)
+    ]
+    summary = "{\"type\":\"Hash\",\"byte_size\":116}"
+
+    entries = PlaygroundSteps.build(
+      steps,
+      [ Invocation.new(result_summary: summary) ],
+      failure_message: nil,
+      reply_text: nil
+    )
+
+    assert_equal "Used Find page.", entries.first.body
   end
 
   test "a tool with no summary says which tool ran" do

@@ -19,7 +19,7 @@ class PlaygroundSteps
       tool_index += 1 if step.kind == :tool
       Entry.new(
         id: "playground-step-#{index}",
-        title: step.label,
+        title: title_for(step),
         badge: step.badge,
         badge_style: step.badge_style,
         body: body_for(step, invocation, failure_message)
@@ -42,7 +42,7 @@ class PlaygroundSteps
     when :handoff
       "Asked a reviewer to take it from here."
     when :finished
-      "All done."
+      "The run finished."
     when :failed
       failure_message.presence || "This one stopped."
     else
@@ -50,10 +50,18 @@ class PlaygroundSteps
     end
   end
 
+  def self.title_for(step)
+    return "Wrapped up" if step.kind == :finished
+
+    step.label
+  end
+
   def self.tool_body(step, invocation)
     return "Waiting for a yes before using #{step.label}." if step.status == :waiting
     return invocation.error_message if invocation&.error_message.present?
-    return invocation.result_summary if invocation&.result_summary.present?
+
+    summary = invocation&.result_summary.to_s.strip
+    return summary if summary.present? && !summary.start_with?("{", "[")
 
     "Used #{step.label}."
   end
@@ -82,5 +90,5 @@ class PlaygroundSteps
     []
   end
 
-  private_class_method :body_for, :tool_body, :reply_entry, :invocations_for
+  private_class_method :body_for, :title_for, :tool_body, :reply_entry, :invocations_for
 end
