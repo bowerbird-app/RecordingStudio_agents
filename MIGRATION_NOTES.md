@@ -28,6 +28,8 @@ An explicit empty `action_candidates` list now enters the runtime. A generate re
 
 A long or nested tool result can use one generate call on `controller_profile`. That call counts toward `maximum_observation_calls`, which defaults to 30. It does not count toward `maximum_reasoner_calls`. Set the key on `RecordingStudioAgents.configuration` to change the cap. No migration.
 
+A short tool result keeps every short field. A title by itself is still stored as `Found {title}`. A page list keeps a path or a folder beside each title. The argument fill prompt includes recent observations and findings. No host change.
+
 A plan now keeps at most three tool actions. Later tools are requested after the current ones finish, and that request does not replace the plan. A stuck run still replans. No host change.
 
 `soft_working_state_bytes` defaults to 6000. Past that size, and after an observation is stored, a low-profile generate call can replace findings, completed work, failed approaches, and recent observations. It does not count toward `maximum_reasoner_calls`. The hard cap remains `maximum_working_state_bytes`. No migration.

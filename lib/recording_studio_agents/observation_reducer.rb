@@ -46,10 +46,10 @@ module RecordingStudioAgents
 
       pages = result["pages"] || result[:pages]
       return page_summary(pages) if pages.is_a?(Array)
+      return clip("Found #{string_at(result, 'title')}.") if title_only?(result)
 
-      title = string_at(result, "title")
-      return clip("Found #{title}.") if title
-      return clip(labeled_fields(result)) unless labeled_fields(result).empty?
+      fields = labeled_fields(result)
+      return clip(fields) unless fields.empty?
 
       "No details."
     end
@@ -61,15 +61,37 @@ module RecordingStudioAgents
       result.any? { |key, value| !secret?(key) && dropped?(value) }
     end
 
+    def self.title_only?(result)
+      title = string_at(result, "title")
+      return false if title.nil? || title.strip.empty?
+
+      result.filter_map { |key, value| field_phrase(key, value) } == ["title: #{title}"]
+    end
+
     def self.page_summary(pages)
-      titles = pages.filter_map { |page| page_title(page) }
-      titles.empty? ? "No pages." : "Pages: #{titles.join(', ')}"
+      labels = pages.filter_map { |page| page_label(page) }
+      labels.empty? ? "No pages." : "Pages: #{labels.join(', ')}"
+    end
+
+    def self.page_label(page)
+      title = page_title(page)
+      return if title.nil?
+
+      path = present_text(page, "path")
+      folder = present_text(page, "folder")
+      label = path ? "#{title} (#{path})" : title.to_s
+      folder ? "#{label} in #{folder}" : label
     end
 
     def self.page_title(page)
       return unless page.is_a?(Hash)
 
       page["title"] || page[:title]
+    end
+
+    def self.present_text(result, name)
+      value = string_at(result, name)
+      value if value && !value.strip.empty?
     end
 
     def self.labeled_fields(result)

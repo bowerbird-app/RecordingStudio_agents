@@ -29,13 +29,16 @@ module RecordingStudioAgents
     end
 
     def self.for_arguments(state:, candidate:, tool:)
+      data = state.data
       [
         "Return the arguments for #{candidate.tool_key} version #{candidate.tool_version}.",
         labeled("GOAL", state.goal),
         labeled("PURPOSE", candidate.purpose),
         labeled("TOOL", tool.description),
         "Use when: #{tool.use_when}",
-        "Do not use when: #{tool.do_not_use_when}"
+        "Do not use when: #{tool.do_not_use_when}",
+        labeled("IMPORTANT FINDINGS", lines(data["findings"])),
+        labeled("RECENT OBSERVATIONS", observations(data["recent_observations"]))
       ].join("\n\n")
     end
 

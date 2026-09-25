@@ -829,7 +829,7 @@ class DurableRuntimeTest < PersistenceTestCase
     end
   end
 
-  def test_a_titled_record_stays_a_title
+  def test_a_titled_record_keeps_its_other_fields
     register_librarian
     calls = []
     perform = lambda do |**|
@@ -850,8 +850,134 @@ class DurableRuntimeTest < PersistenceTestCase
           result = run_librarian("titled-record")
           observation = result.run.agent_steps.find_by!(action_type: "tool").observation_summary
 
-          assert_equal "Found Staff handbook.", observation
+          assert_equal "title: Staff handbook. author: Ada", observation
           refute(calls.any? { |call| call[:request_id].to_s.include?(":observe-") })
+        end
+      end
+    end
+  end
+
+  def test_a_missing_page_keeps_the_found_flag
+    register_librarian
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: { "found" => false, "title" => "time off policy" },
+        error: nil,
+        run: Struct.new(:id).new(41)
+      )
+    end
+
+    RecordingStudioAI.stub(:generate, ->(**kwargs) { listed_generate(kwargs) }) do
+      RecordingStudioAI.stub(:decide, page_decisions) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("missing-page")
+          observation = result.run.agent_steps.find_by!(action_type: "tool").observation_summary
+
+          assert_equal "found: false. title: time off policy", observation
+          refute_includes observation, "Found"
+        end
+      end
+    end
+  end
+
+  def test_a_found_page_keeps_its_path_and_recording_id
+    register_librarian
+    calls = []
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: {
+          "found" => true,
+          "title" => "Home",
+          "path" => "/",
+          "page_recording_id" => "fa0c47cb-d34d-4870-94cb-5ca44389ca2c"
+        },
+        error: nil,
+        run: Struct.new(:id).new(42)
+      )
+    end
+
+    RecordingStudioAI.stub(:generate, lambda { |**kwargs|
+      calls << kwargs
+      listed_generate(kwargs)
+    }) do
+      RecordingStudioAI.stub(:decide, page_decisions) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("found-page-fields")
+          observation = result.run.agent_steps.find_by!(action_type: "tool").observation_summary
+          state = RecordingStudioAgents::WorkingState.load(result.run.working_state_json)
+
+          assert_equal "found: true. title: Home. path: /. page_recording_id: fa0c47cb-d34d-4870-94cb-5ca44389ca2c",
+                       observation
+          assert_equal 0, state.counter("observation_calls")
+          refute(calls.any? { |call| call[:request_id].to_s.include?(":observe-") })
+        end
+      end
+    end
+  end
+
+  def test_a_page_list_keeps_a_path_and_a_folder
+    register_librarian
+    perform = lambda do |**|
+      Performance.new(
+        status: "completed",
+        result: {
+          "pages" => [
+            { "title" => "Home", "path" => "/" },
+            { "title" => "Getting Started", "folder" => "Studio" },
+            { "title" => "People" }
+          ]
+        },
+        error: nil,
+        run: Struct.new(:id).new(43)
+      )
+    end
+
+    RecordingStudioAI.stub(:generate, ->(**kwargs) { listed_generate(kwargs) }) do
+      RecordingStudioAI.stub(:decide, page_decisions) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("page-list-path")
+          observation = result.run.agent_steps.find_by!(action_type: "tool").observation_summary
+
+          assert_equal "Pages: Home (/), Getting Started in Studio, People", observation
+        end
+      end
+    end
+  end
+
+  def test_a_later_argument_fill_sees_the_stored_observation
+    register_librarian(tools: { find_page: 1, retitle_page: 1 })
+    register_ai_tool(
+      :retitle_page,
+      parameters: [
+        { name: "page_recording_id", type: "string", required: true, description: "The page to retitle." },
+        { name: "title", type: "string", required: true, description: "The new title." }
+      ],
+      read_only: false
+    )
+    recording_id = "fa0c47cb-d34d-4870-94cb-5ca44389ca2c"
+    calls = []
+    performed = []
+    counter = { choices: 0 }
+
+    RecordingStudioAI.stub(:generate, ->(**kwargs) { observation_fill_generate(kwargs, calls, recording_id) }) do
+      RecordingStudioAI.stub(:decide, ->(**kwargs) { observation_fill_decide(kwargs, counter) }) do
+        RecordingStudioAI.stub(:perform_tool, lambda { |**kwargs|
+          observation_fill_perform(kwargs, performed, recording_id)
+        }) do
+          result = run_librarian("fill-from-observation")
+          fill = calls.find { |call| call[:request_id].to_s.include?(":arguments-") }
+          observation = result.run.agent_steps.where(action_type: "tool").order(:sequence).first.observation_summary
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal "found: true. title: Getting Started. page_recording_id: #{recording_id}", observation
+          assert_includes fill[:prompt], "RECENT OBSERVATIONS"
+          assert_includes fill[:prompt], observation
+          assert_includes fill[:prompt], "IMPORTANT FINDINGS"
+          assert_includes fill[:prompt], "Use recording #{recording_id}."
+          assert_equal recording_id, performed.last[:arguments]["page_recording_id"]
+          assert_equal "Studio welcome", performed.last[:arguments]["title"]
         end
       end
     end
@@ -1508,6 +1634,64 @@ class DurableRuntimeTest < PersistenceTestCase
   end
 
   private
+
+  def observation_fill_generate(kwargs, calls, recording_id)
+    calls << kwargs
+    request_id = kwargs[:request_id].to_s
+    if request_id.include?(":arguments-")
+      return arguments_response({ "page_recording_id" => recording_id, "title" => "Studio welcome" }, 61)
+    end
+    return rename_next_plan if request_id.include?(":next-")
+    return generation_response(text: "The page is ready to rename.", run_id: 63) if request_id.end_with?(":answer")
+
+    titled_plan(60)
+  end
+
+  def rename_next_plan
+    response = tool_plan(62, "Rename the page.", "retitle_page", {})
+    response.structured_data["current_objective"] = "Rename the page"
+    response.structured_data["action_candidates"][0]["id"] = "rename"
+    response
+  end
+
+  def observation_fill_decide(kwargs, counter)
+    counter[:choices] += 1
+    return menu_choice(kwargs) if kwargs[:questions].key?(:next_action)
+
+    finished = counter[:choices] > 2 ? 0.95 : 0.2
+    decision(finished: finished, stuck: 0.1, choice_id: "deliver", candidate_ids: ["deliver"])
+  end
+
+  def menu_choice(kwargs)
+    criteria = kwargs[:questions][:next_action][:criteria]
+    decision(finished: 0.1, choice_id: criteria.keys.first, candidate_ids: criteria.keys)
+  end
+
+  def observation_fill_perform(kwargs, performed, recording_id)
+    performed << kwargs
+    return retitle_performance if kwargs[:tool][:key].to_s == "retitle_page"
+
+    found_page_performance(recording_id)
+  end
+
+  def retitle_performance
+    Performance.new(status: "completed", result: { "title" => "Studio welcome" }, error: nil,
+                    run: Struct.new(:id).new(65))
+  end
+
+  def found_page_performance(recording_id)
+    Performance.new(
+      status: "completed",
+      result: {
+        "found" => true,
+        "title" => "Getting Started",
+        "page_recording_id" => recording_id,
+        "findings" => ["Use recording #{recording_id}."]
+      },
+      error: nil,
+      run: Struct.new(:id).new(64)
+    )
+  end
 
   def run_librarian(idempotency_key)
     RecordingStudioAgents.agent(:librarian, version: 1).run(
