@@ -257,10 +257,12 @@ RecordingStudioAgents.skills.register(
   description: "Answer an open question from the public web.",
   instructions: <<~TEXT,
     Sharpen the question before you search. Name the decision, the constraints, and what counts as an answer.
+    Write success criteria a search snippet can close. A link is not a number. You did not open that page.
     Search more than once. Change the words. Look for the failure, not only the pitch. Check whether the answer has gone stale. One search is one neighborhood.
     Use web search. A snippet is what you actually read. Cite only pages that came back. Do not pretend you opened a page.
     Weigh what you found. Prefer the original source over posts that repeat it. Note who benefits if you believe it. Ten copies of one claim are one claim.
     When results disagree, explain the disagreement. Different conditions, different meanings, one of them is old, or one of them is wrong.
+    When the snippets agree on the names and the count sits behind a link, that list plus the missing number is the answer. Stop searching for the same table.
     Lead with the answer in a few sentences. Then say why, what would flip it, what you rejected, and what is still open. Name the pages you used. If nothing credible came back, say that.
   TEXT
   required_tools: { web_search: 1 },

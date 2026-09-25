@@ -22,6 +22,9 @@ class WebResearchTest < ActionDispatch::IntegrationTest
     assert_equal [ "web_search" ], skill.required_tools.map(&:key)
     assert_includes skill.instructions, "Lead with the answer"
     assert_includes skill.instructions, "Cite only pages that came back"
+    assert_includes skill.instructions, "Write success criteria a search snippet can close"
+    assert_includes skill.instructions, "A link is not a number"
+    assert_includes skill.instructions, "Stop searching for the same table"
 
     agent = RecordingStudioAgents.agents.fetch(:web_researcher, version: 1)
     assert_equal "Web researcher", agent.name
