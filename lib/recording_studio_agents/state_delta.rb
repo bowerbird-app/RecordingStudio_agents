@@ -7,7 +7,7 @@ module RecordingStudioAgents
       set_current_objective meet_criteria add_observations replace_plan replace_criteria
       replace_findings replace_completed replace_failed replace_observations
       replace_candidate_index set_no_progress_streak add_attempted_digest add_refused_digest
-      increment set_goal add_constraints
+      increment set_goal add_constraints set_deliver_followup
     ].freeze
 
     def self.apply(state, delta)
@@ -39,13 +39,12 @@ module RecordingStudioAgents
       remove = Array(changes["remove_open_questions"]).map { |item| item.to_s.strip }
       data["open_questions"] = Array(data["open_questions"]).reject { |item| remove.include?(item) }
       data["plan"] = changes["replace_plan"] if changes.key?("replace_plan")
-      data["success_criteria"] = criteria_from(changes["replace_criteria"]) if changes.key?("replace_criteria")
+      if changes.key?("replace_criteria")
+        data["success_criteria"] = merge_criteria(data["success_criteria"], changes["replace_criteria"])
+      end
       replace_lists(data, changes)
       data["candidate_index"] = changes["replace_candidate_index"] if changes.key?("replace_candidate_index")
-      meet = Array(changes["meet_criteria"]).map(&:to_s)
-      data["success_criteria"] = Array(data["success_criteria"]).map do |item|
-        meet.include?(item["id"].to_s) ? item.merge("met" => true) : item
-      end
+      data["success_criteria"] = close_criteria(data["success_criteria"], changes["meet_criteria"])
       Array(changes["add_observations"]).each do |item|
         summary, sequence = observation_from(item)
         data["recent_observations"] = Array(data["recent_observations"]) + [
@@ -67,6 +66,7 @@ module RecordingStudioAgents
       data["current_objective"] = changes["set_current_objective"] if changes.key?("set_current_objective")
       data["goal"] = changes["set_goal"] if changes.key?("set_goal")
       data["no_progress_streak"] = changes["set_no_progress_streak"] if changes.key?("set_no_progress_streak")
+      data["deliver_followup"] = true if changes["set_deliver_followup"] == true
     end
 
     def self.apply_increment(data, increments)
@@ -120,12 +120,88 @@ module RecordingStudioAgents
       data[key] = Array(data[key]) + Array(values)
     end
 
-    def self.criteria_from(values)
-      Array(values).map.with_index do |item, index|
-        text = item.is_a?(Hash) ? (item["text"] || item[:text]) : item
-        id = item.is_a?(Hash) ? (item["id"] || item[:id]) : "criterion_#{index + 1}"
-        { "id" => id, "text" => text, "met" => false }
+    CONTAINED_TEXT_MINIMUM = 12
+
+    def self.merge_criteria(existing, incoming)
+      rows = criteria_from(incoming)
+      kept = Array(existing).select { |item| item.is_a?(Hash) }
+      return rows if kept.empty?
+
+      merged = kept.map(&:dup)
+      rows.each do |row|
+        next if merged.any? { |item| same_criterion?(item, row) }
+
+        merged << row if merged.length < WorkingState::LIMITS["success_criteria"]
       end
+      merged
+    end
+
+    def self.same_criterion?(existing, row)
+      existing["id"].to_s == row["id"].to_s || existing["text"].to_s == row["text"].to_s
+    end
+
+    def self.close_criteria(criteria, references)
+      rows = Array(criteria)
+      ids = canonical_ids(rows, references)
+      rows.map do |item|
+        next item unless item.is_a?(Hash)
+        next item if item["met"] == true || !ids.include?(item["id"].to_s)
+
+        item.merge("met" => true)
+      end
+    end
+
+    def self.canonical_ids(criteria, references)
+      Array(references).flat_map { |reference| ids_named_by(criteria, reference.to_s.strip) }.uniq
+    end
+
+    def self.ids_named_by(criteria, reference)
+      return [] if reference.empty?
+
+      rows = Array(criteria).select { |item| item.is_a?(Hash) }
+      exact = rows.select { |item| reference == item["id"].to_s || reference == item["text"].to_s }
+      return exact.map { |item| item["id"].to_s } if exact.any?
+
+      ids = rows.filter_map { |item| item["id"].to_s if id_prefix?(reference, item["id"].to_s) }
+      longest = contained_criteria(rows, reference).max_by { |item| item["text"].to_s.length }
+      ids << longest["id"].to_s if longest
+      ids.uniq
+    end
+
+    def self.contained_criteria(rows, reference)
+      rows.select { |item| text_contained?(reference, item["text"].to_s) }
+    end
+
+    def self.text_contained?(reference, text)
+      return false if text.length < CONTAINED_TEXT_MINIMUM
+
+      reference.include?(text)
+    end
+
+    def self.id_prefix?(reference, id)
+      return false if id.empty?
+
+      reference.start_with?("#{id}:")
+    end
+
+    def self.criteria_from(values)
+      Array(values).filter_map.with_index do |item, index|
+        text = criterion_text(item)
+        next if text.empty?
+
+        { "id" => criterion_id(item, index), "text" => text, "met" => false }
+      end
+    end
+
+    def self.criterion_text(item)
+      raw = item.is_a?(Hash) ? (item["text"] || item[:text]) : item
+      raw.to_s.strip
+    end
+
+    def self.criterion_id(item, index)
+      raw = item.is_a?(Hash) ? (item["id"] || item[:id]) : nil
+      id = raw.to_s.strip
+      id.empty? ? "criterion_#{index + 1}" : id
     end
 
     def self.compact(state, limit: RecordingStudioAgents.configuration.maximum_working_state_bytes)

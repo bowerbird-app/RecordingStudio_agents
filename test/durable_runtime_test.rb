@@ -1688,6 +1688,175 @@ class DurableRuntimeTest < PersistenceTestCase
     end
   end
 
+  def test_a_criterion_closes_from_its_id_or_its_text
+    state = research_state
+    updated, = RecordingStudioAgents::StateDelta.apply(state, {
+                                                         "meet_criteria" => [
+                                                           "1",
+                                                           "Success Criterion 2: Name two publications from " \
+                                                           "the snippets."
+                                                         ]
+                                                       })
+    rows = updated.data["success_criteria"]
+
+    assert rows.find { |item| item["id"] == "1" }["met"]
+    assert rows.find { |item| item["id"] == "2" }["met"]
+  end
+
+  def test_a_similar_criterion_stays_open
+    state = research_state
+    updated, = RecordingStudioAgents::StateDelta.apply(state, {
+                                                         "meet_criteria" => [
+                                                           "Note: Name two publications from the snippets."
+                                                         ]
+                                                       })
+    rows = updated.data["success_criteria"]
+
+    refute rows.find { |item| item["id"] == "1" }["met"]
+    assert rows.find { |item| item["id"] == "2" }["met"]
+
+    missed, = RecordingStudioAgents::StateDelta.apply(state, {
+                                                        "meet_criteria" => ["Name some publications"]
+                                                      })
+    refute(missed.data["success_criteria"].any? { |item| item["met"] })
+  end
+
+  def test_a_replan_keeps_met_criteria_and_can_add_one
+    state = research_state
+    met, = RecordingStudioAgents::StateDelta.apply(state, { "meet_criteria" => ["1: the source was found"] })
+    replaced, = RecordingStudioAgents::StateDelta.apply(met, {
+                                                          "replace_criteria" => [
+                                                            { "id" => "fresh",
+                                                              "text" => "Find a credible source that ranks " \
+                                                                        "architecture publications." },
+                                                            { "id" => "2",
+                                                              "text" => "Name two publications from a new year." },
+                                                            { "id" => "3", "text" => "Count the awards." }
+                                                          ]
+                                                        })
+    rows = replaced.data["success_criteria"]
+
+    assert_equal "1", rows[0]["id"]
+    assert rows[0]["met"]
+    assert_equal "Find a credible source that ranks architecture publications.", rows[0]["text"]
+    assert_equal "2", rows[1]["id"]
+    refute rows[1]["met"]
+    assert_equal "Name two publications from the snippets.", rows[1]["text"]
+    assert_equal "3", rows[2]["id"]
+    refute rows[2]["met"]
+  end
+
+  def test_a_criterion_sentence_finishes_when_the_menu_is_empty
+    register_librarian
+    generate = lambda do |**kwargs|
+      if kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: "The page is there.", run_id: 96)
+      else
+        tool_plan(95, "Find the page.", "find_page", { "title" => "Dogs" })
+      end
+    end
+    perform = lambda do |**|
+      performance(summary: "Found Dogs.", criteria: ["done: The page was found"])
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, ->(**) { decision(finished: 0.1, choice_id: "1", candidate_ids: ["1"]) }) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("criterion-sentence")
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal "The page is there.", result.output.text
+          assert_equal 0, result.run.working_state_json.dig("counters", "replans")
+          assert result.run.working_state_json["success_criteria"].first["met"]
+        end
+      end
+    end
+  end
+
+  def test_a_met_criterion_survives_the_next_plan
+    register_librarian
+    generate = lambda do |**kwargs|
+      request_id = kwargs[:request_id].to_s
+      if request_id.end_with?(":answer")
+        generation_response(text: "Two publications.", run_id: 98)
+      elsif request_id.include?(":reason-")
+        research_replan(97)
+      else
+        research_plan(96)
+      end
+    end
+    decisions = 0
+    decide = lambda do |**kwargs|
+      decisions += 1
+      if kwargs[:questions].dig(:next_action, :criteria).nil?
+        next decision(finished: 0.2, stuck: 0.8, choice_id: "1", candidate_ids: ["1"])
+      end
+
+      ids = kwargs[:questions].dig(:next_action, :criteria).keys.map(&:to_s)
+      finished = decisions == 1 ? 0.1 : 0.95
+      decision(finished: finished, choice_id: ids.first, candidate_ids: ids)
+    end
+    perform = lambda do |**|
+      performance(
+        summary: "Found a ranking.",
+        criteria: ["Success Criterion 1: Find a credible source that ranks architecture publications."]
+      )
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        RecordingStudioAI.stub(:perform_tool, perform) do
+          result = run_librarian("criteria-survive")
+          rows = result.run.working_state_json["success_criteria"]
+
+          assert_instance_of RecordingStudioAgents::Results::Completed, result
+          assert_equal 1, result.run.working_state_json.dig("counters", "replans")
+          ids = rows.map { |item| item["id"] }
+          assert_equal %w[1 2 3], ids
+          assert rows[0]["met"]
+          refute rows[1]["met"]
+          refute rows[2]["met"]
+          assert_equal "Name two publications from the snippets.", rows[1]["text"]
+        end
+      end
+    end
+  end
+
+  def test_a_deliver_only_plan_asks_once_then_answers
+    register_librarian
+    prompts = []
+    generate = lambda do |**kwargs|
+      prompts << kwargs[:prompt].to_s
+      request_id = kwargs[:request_id].to_s
+      if request_id.end_with?(":answer")
+        generation_response(text: "Architectural Digest and Dwell.", run_id: 100)
+      elsif request_id.include?(":close-")
+        deliver_only_plan(99)
+      else
+        deliver_only_plan(98)
+      end
+    end
+    decide = lambda do |**|
+      decision(finished: 0.3, stuck: 0.8, choice_id: "1", candidate_ids: ["1"])
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        result = run_librarian("deliver-followup")
+
+        assert_instance_of RecordingStudioAgents::Results::Completed, result
+        assert_equal "Architectural Digest and Dwell.", result.output.text
+        assert_equal 0, result.run.working_state_json.dig("counters", "replans")
+        assert_equal 2, result.run.working_state_json.dig("counters", "reasoner_calls")
+        assert result.run.working_state_json["deliver_followup"]
+        refute result.run.working_state_json["success_criteria"].first["met"]
+        assert(prompts.any? { |prompt| prompt.include?("Do not return a deliver action") })
+        assert(prompts.any? { |prompt| prompt.include?("still open") })
+        refute result.run.run_activities.exists?(kind: "replanned")
+      end
+    end
+  end
+
   private
 
   def observation_fill_generate(kwargs, calls, recording_id)
@@ -1912,6 +2081,69 @@ class DurableRuntimeTest < PersistenceTestCase
     }
   end
 
+  def research_state
+    RecordingStudioAgents::WorkingState.load({
+                                               "goal" => "Research",
+                                               "success_criteria" => [
+                                                 { "id" => "1",
+                                                   "text" => "Find a credible source that ranks " \
+                                                             "architecture publications.",
+                                                   "met" => false },
+                                                 { "id" => "2",
+                                                   "text" => "Name two publications from the snippets.",
+                                                   "met" => false }
+                                               ]
+                                             })
+  end
+
+  def research_plan(run_id)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: nil,
+      structured_data: {
+        "plan" => ["Search"],
+        "success_criteria" => [
+          { "id" => "1", "text" => "Find a credible source that ranks architecture publications." },
+          { "id" => "2", "text" => "Name two publications from the snippets." }
+        ],
+        "current_objective" => "Search",
+        "action_candidates" => [
+          {
+            "id" => "search",
+            "type" => "tool",
+            "purpose" => "Find a ranking.",
+            "tool_key" => "find_page",
+            "tool_version" => 1,
+            "arguments" => { "title" => "Dogs" }
+          }
+        ]
+      },
+      run: Struct.new(:id, :status).new(run_id, "completed")
+    )
+  end
+
+  def research_replan(run_id)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: "agent_librarian",
+      text: nil,
+      structured_data: {
+        "plan" => ["Answer"],
+        "success_criteria" => [
+          { "id" => "fresh", "text" => "Find a credible source that ranks architecture publications." },
+          { "id" => "2", "text" => "Name two publications from a new year." },
+          { "id" => "3", "text" => "Count the awards." }
+        ],
+        "current_objective" => "Answer",
+        "action_candidates" => [
+          { "id" => "answer", "type" => "deliver", "purpose" => "Answer the question" }
+        ]
+      },
+      run: Struct.new(:id, :status).new(run_id, "completed")
+    )
+  end
+
   def deliver_only_plan(run_id)
     RecordingStudioAI::Contracts::GenerationResponse.new(
       operation: "generation",
@@ -2120,7 +2352,8 @@ class DurableRuntimeTest < PersistenceTestCase
   def crash_generate(kwargs)
     if kwargs[:request_id].to_s.end_with?(":answer")
       generation_response(text: "Recovered.", run_id: 90)
-    elsif kwargs[:prompt].to_s.include?("Revise the plan")
+    elsif kwargs[:prompt].to_s.include?("Revise the plan") ||
+          kwargs[:prompt].to_s.include?("Do not return a deliver action")
       plan_response(candidates: 0, extra: [candidate("recovery", "recovery")], run_id: 91)
     else
       plan_response(candidates: 3, run_id: 92)

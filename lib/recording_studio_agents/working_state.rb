@@ -54,7 +54,8 @@ module RecordingStudioAgents
         "candidate_index" => index(data["candidate_index"]),
         "constraints" => string_list(data["constraints"], LIMITS["constraints"]),
         "counters" => counters(data["counters"]),
-        "no_progress_streak" => integer(data["no_progress_streak"])
+        "no_progress_streak" => integer(data["no_progress_streak"]),
+        "deliver_followup" => data["deliver_followup"] == true
       }
     end
 
@@ -131,7 +132,7 @@ module RecordingStudioAgents
     KNOWN_KEYS = %w[
       goal plan current_objective success_criteria findings completed_work failed_work
       open_questions recent_observations attempted_digests refused_digests candidate_index
-      constraints counters no_progress_streak
+      constraints counters no_progress_streak deliver_followup
     ].freeze
     COUNTER_KEYS = %w[
       reasoner_calls controller_calls tool_actions replans compactions observation_calls

@@ -43,6 +43,8 @@ A plan now keeps at most three tool actions. Later tools are requested after the
 
 `soft_working_state_bytes` defaults to 6000. Past that size, and after an observation is stored, a low-profile generate call can replace findings, completed work, failed approaches, and recent observations. It does not count toward `maximum_reasoner_calls`. The hard cap remains `maximum_working_state_bytes`. No migration.
 
+Success criteria now stay for the run. A later plan adds an open criterion and keeps a repeated criterion's id and met state. An observation can close a criterion with its id or its exact text. A deliver-only plan with an open criterion asks once for tools, then writes the answer on the next deliver-only reply. `finished_probability` stays 0.8. `maximum_replans` stays 3. No migration.
+
 ## Current Requirements
 
 - Ruby 3.3 or newer

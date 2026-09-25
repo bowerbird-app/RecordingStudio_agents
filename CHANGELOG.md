@@ -39,6 +39,7 @@ An agent run can keep working across many tool actions. The next model call sees
 - A finished answer is stored in full on the deliver step. Working-state notes stay capped at 500 bytes. The dummy playground shows the full reply, including an answer that was stored before this change.
 - A plan keeps at most three tool actions. When those tools are finished and the observations do not answer the goal, the next generate call asks for one to three actions. That call counts toward `maximum_reasoner_calls` and does not replace the plan. A stuck run still replans.
 - Working state has a soft cap of 6000 bytes. Once an observation is stored and the document is over that cap, a generate call on the low profile can replace findings, completed work, failed approaches, and recent observations. That call does not count toward `maximum_reasoner_calls`. Ruby still trims the oldest rows past 12000 bytes.
+- Success criteria stay for the run. The first plan establishes them. A later plan can add an open criterion, and a repeated criterion keeps its id and its met state. An observation closes a criterion by its id, its exact text, or a note that contains that exact text. A deliver-only plan with an open criterion asks once for tools that close it. A second deliver-only reply writes the answer and names the criteria that are still open. That request does not count as a replan. The 0.8 finish bar and `maximum_replans` stay.
 
 ### Upgrade notes
 - Install and run the engine migration that adds `working_state_json` and `recording_studio_agents_agent_steps`.

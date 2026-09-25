@@ -2,6 +2,8 @@
 
 module RecordingStudioAgents
   class Runtime
+    DELIVER_FOLLOWUP_REASONS = %w[deliver_below_threshold uncertain missing_choice].freeze
+
     def initialize(program:, ledger:, invocation:)
       @program = program
       @ledger = ledger
@@ -70,6 +72,13 @@ module RecordingStudioAgents
         end
 
         if verdict.reason?
+          followed = follow_open_deliver(request, run, lease_token, state, menu, verdict)
+          unless followed.nil?
+            return followed unless followed.is_a?(Array)
+
+            state, menu = followed
+            next
+          end
           if state.counter("replans") >= configuration.maximum_replans
             return fail_run(run, lease_token, "maximum_replans",
                             false)
@@ -255,11 +264,48 @@ module RecordingStudioAgents
       verdict.probabilities["stuck"].to_f < configuration.stuck_probability
     end
 
-    def next_actions(request, run, lease_token, state, menu)
-      prompt = ContextBuilder.for_next_actions(state: state, menu: menu, signals: signal_lines(state, run))
+    def follow_open_deliver(request, run, lease_token, state, menu, verdict)
+      return unless open_deliver?(state, menu, verdict)
+
+      deliver = menu.actionable.find(&:deliver?)
+      return finish(request, run, lease_token, state, deliver) if state.data["deliver_followup"]
+
+      marked, = StateDelta.apply(state, { "set_deliver_followup" => true })
+      ask_to_close(request, run, lease_token, marked)
+    end
+
+    def open_deliver?(state, menu, verdict)
+      return false if state.criteria_met?
+      return false unless DELIVER_FOLLOWUP_REASONS.include?(verdict.reason)
+
+      deliver_only?(menu)
+    end
+
+    def deliver_only?(menu)
+      actions = menu.actionable
+      actions.any?(&:deliver?) && actions.all?(&:deliver?)
+    end
+
+    def ask_to_close(request, run, lease_token, state)
+      if state.counter("reasoner_calls") >= configuration.maximum_reasoner_calls
+        return finish(request, run, lease_token, state, nil)
+      end
+
+      next_actions(
+        request, run, lease_token, state, ActionMenu.new,
+        prompt: ContextBuilder.for_closing_actions(
+          state: state, menu: ActionMenu.new, signals: signal_lines(state, run)
+        ),
+        suffix: "close-#{state.counter('reasoner_calls') + 1}"
+      )
+    end
+
+    def next_actions(request, run, lease_token, state, menu, prompt: nil, suffix: nil)
+      prompt ||= ContextBuilder.for_next_actions(state: state, menu: menu, signals: signal_lines(state, run))
+      suffix ||= "next-#{state.counter('reasoner_calls') + 1}"
       response = Ai.next_actions(
         invocation: @invocation, run: run, lease_token: lease_token, prompt: prompt,
-        suffix: "next-#{state.counter('reasoner_calls') + 1}"
+        suffix: suffix
       )
       if response.respond_to?(:run) && response.run
         @ledger.attach_ai_run!(run: run, lease_token: lease_token, ai_run: response.run)

@@ -19,6 +19,7 @@ module RecordingStudioAgents
     def self.for_reasoner(state:, menu:, signals:)
       lines = [
         "Revise the plan and action candidates from the current state.",
+        "Keep each existing success criterion. Add a criterion only when the goal needs a new one.",
         "A tool candidate needs type tool, tool_key, tool_version, purpose, and an arguments object."
       ]
       if menu.actionable.empty?
@@ -47,7 +48,7 @@ module RecordingStudioAgents
       [
         "Summarize this tool result into a state delta.",
         "Add a finding, completed work, a failed approach, an open question, or a met criterion " \
-        "only when the result supports it.",
+        "only when the result supports it. A met criterion is that criterion's id.",
         labeled("GOAL", data["goal"]),
         labeled("CURRENT OBJECTIVE", data["current_objective"]),
         labeled("SUCCESS CRITERIA", criteria(data["success_criteria"])),
@@ -57,11 +58,18 @@ module RecordingStudioAgents
       ].join("\n\n")
     end
 
+    def self.for_closing_actions(state:, menu:, signals:)
+      intro = "Return one to three tool actions that can close the open success criteria. " \
+              "A tool action needs type tool, tool_key, tool_version, purpose, and an arguments object. " \
+              "Do not return a deliver action. Leave the plan and the success criteria as they are."
+      [intro, sections(state, menu, signals).join("\n\n")].join("\n\n")
+    end
+
     def self.for_synthesis(state:)
-      [
-        "Write the final answer from the current state.",
-        sections(state, ActionMenu.new, [])
-      ].join("\n\n")
+      intro = ["Write the final answer from the current state."]
+      open = Array(state.data["success_criteria"]).any? { |item| item.is_a?(Hash) && item["met"] != true }
+      intro << "Name each success criterion that is still open. Answer from the notes you have." if open
+      (intro + [sections(state, ActionMenu.new, []).join("\n\n")]).join("\n\n")
     end
 
     def self.sections(state, menu, signals)
