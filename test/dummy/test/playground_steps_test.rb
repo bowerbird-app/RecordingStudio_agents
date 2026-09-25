@@ -3,6 +3,7 @@
 require "test_helper"
 
 class PlaygroundStepsTest < ActiveSupport::TestCase
+  include AccessibleTestHelpers
   Turn = PlaygroundSteps::Turn
   ToolNote = PlaygroundSteps::ToolNote
 
@@ -359,7 +360,71 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     assert_includes html, "playground-step-1-content"
   end
 
+  test "a clipped answer still shows the full reply" do
+    workspace = Workspace.create!(name: "Playground Steps #{SecureRandom.hex(4)}")
+    root = RecordingStudio.root_recording_for(workspace)
+    user = User.create!(
+      email: "playground-steps-#{SecureRandom.hex(4)}@example.com",
+      password: "Password123!",
+      password_confirmation: "Password123!"
+    )
+    grant_accessible!(recording: root, actor: user)
+    task = RecordingStudioAgents::Task.create!(
+      root_recording_id: root.id,
+      task_key: "playground-steps:#{SecureRandom.hex(4)}",
+      goal: "Research the question.",
+      input_digest: "playground-steps"
+    )
+    run = RecordingStudioAgents::AgentRun.create!(
+      task: task,
+      root_recording_id: root.id,
+      agent_key: "web_researcher",
+      agent_version: 1,
+      program_digest: "playground-steps",
+      idempotency_key: "playground-steps:#{SecureRandom.uuid}",
+      status: "succeeded",
+      initiator_type: "User",
+      initiator_id: user.id.to_s,
+      initiator_kind: "user",
+      execution_source: "web"
+    )
+    reply = "The public web has an answer. #{'detail ' * 80}Sources stay attached."
+    call = model_call(root, user, "generation", "medium", "gemini-2.5-pro")
+    remember_reply(call, reply)
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 1, status: "completed", action_type: "deliver",
+      observation_summary: reply.byteslice(0, RecordingStudioAgents::WorkingState::TEXT_LIMIT),
+      recording_studio_ai_run_id: call.id
+    )
+
+    exchange = PlaygroundSteps.for(run, initiator: user).first.exchange
+
+    assert_includes exchange, "Sources stay attached."
+    assert_includes exchange, "Medium gemini-2.5-pro"
+    assert_operator exchange.bytesize, :>, RecordingStudioAgents::WorkingState::TEXT_LIMIT
+  end
+
   private
+
+  def remember_reply(ai_run, text)
+    now = Time.current
+    attempt = RecordingStudioAI::Attempt.create!(
+      run: ai_run,
+      sequence: 1,
+      kind: "primary",
+      status: "completed",
+      started_at: now,
+      completed_at: now
+    )
+    RecordingStudioAI::Response.create!(
+      attempt: attempt,
+      response_type: "generation",
+      content_text: text,
+      content_type: "text/plain",
+      complete: true,
+      expires_at: now + RecordingStudioAI.configuration.response_retention_period
+    )
+  end
 
   def model_call(root, user, operation, profile, model)
     RecordingStudioAI::Run.create!(

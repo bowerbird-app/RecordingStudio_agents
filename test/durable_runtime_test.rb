@@ -1661,6 +1661,33 @@ class DurableRuntimeTest < PersistenceTestCase
     assert_empty menu.actionable
   end
 
+  def test_a_long_answer_is_stored_whole
+    register_librarian
+    answer = "The public web has an answer. #{'detail ' * 80}Sources stay attached."
+    generate = lambda do |**kwargs|
+      if kwargs[:request_id].to_s.end_with?(":answer")
+        generation_response(text: answer, run_id: 88)
+      else
+        deliver_only_plan(87)
+      end
+    end
+    decide = lambda do |**|
+      decision(finished: 0.95, choice_id: "1", candidate_ids: ["1"])
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        result = run_librarian("long-answer")
+
+        assert_instance_of RecordingStudioAgents::Results::Completed, result
+        assert_equal answer, result.output.text
+        stored = result.run.agent_steps.find_by!(action_type: "deliver").observation_summary
+        assert_equal answer, stored
+        assert_operator stored.bytesize, :>, RecordingStudioAgents::WorkingState::TEXT_LIMIT
+      end
+    end
+  end
+
   private
 
   def observation_fill_generate(kwargs, calls, recording_id)

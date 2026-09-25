@@ -32,6 +32,8 @@ A short tool result keeps every short field. A title by itself is still stored a
 
 Install the migration that adds `recording_studio_agents_agent_steps.record_json`. A plan step stores the plan written then. Tool arguments stay off the step.
 
+A finished answer is stored in full on the deliver step. Working-state notes stay capped at 500 bytes. No migration.
+
 ```bash
 bin/rails generate recording_studio_agents:migrations
 bin/rails db:migrate

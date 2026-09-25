@@ -546,7 +546,7 @@ module RecordingStudioAgents
       text = response.try(:text).to_s
       digest = Digests.of("text" => text)
       summary = text.strip
-      summary = summary.empty? ? "Answered." : summary.byteslice(0, WorkingState::TEXT_LIMIT)
+      summary = "Answered." if summary.empty?
       @ledger.checkpoint!(
         run: run, lease_token: lease_token, state: state,
         step: step_attributes(

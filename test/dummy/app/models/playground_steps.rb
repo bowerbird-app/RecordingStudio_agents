@@ -13,7 +13,7 @@ class PlaygroundSteps
   }.freeze
 
   def self.for(run, initiator:, context: nil)
-    return entries_for_agent_steps(run) if run.agent_steps.exists?
+    return entries_for_agent_steps(run, initiator) if run.agent_steps.exists?
 
     build(
       turns_for(run, initiator),
@@ -24,7 +24,7 @@ class PlaygroundSteps
     )
   end
 
-  def self.entries_for_agent_steps(run)
+  def self.entries_for_agent_steps(run, initiator)
     steps = run.agent_steps.order(:sequence).to_a
     models = models_for(steps)
     entries = steps.each_with_index.map do |agent_step, index|
@@ -34,7 +34,10 @@ class PlaygroundSteps
         title: title_for_agent_step(agent_step),
         badge: badge,
         badge_style: style,
-        exchange: with_model(audit_for(agent_step, run, steps), models[agent_step.recording_studio_ai_run_id])
+        exchange: with_model(
+          audit_for(agent_step, run, steps, initiator),
+          models[agent_step.recording_studio_ai_run_id]
+        )
       )
     end
     entries << stopped_entry(run, entries.length) if stopped?(run)
@@ -78,14 +81,32 @@ class PlaygroundSteps
     record["actions"].is_a?(Array) || agent_step.observation_summary == "Asked for the next actions."
   end
 
-  def self.audit_for(agent_step, run, steps)
+  def self.audit_for(agent_step, run, steps, initiator)
     case agent_step.action_type
     when "reason" then plan_audit(agent_step)
     when "decide" then decision_audit(agent_step, steps)
     when "handoff" then handoff_audit(agent_step, run)
     when "arguments" then arguments_audit(agent_step)
+    when "deliver" then answer_audit(agent_step, initiator)
     else agent_step.observation_summary.to_s
     end
+  end
+
+  def self.answer_audit(agent_step, initiator)
+    stored = agent_step.observation_summary.to_s.strip
+    full = retained_answer(agent_step, initiator)
+    return full if full.present? && full.bytesize > stored.bytesize
+
+    stored
+  end
+
+  def self.retained_answer(agent_step, initiator)
+    return if initiator.nil? || agent_step.recording_studio_ai_run_id.blank?
+
+    ai_run = RecordingStudioAI::Run.find_by(id: agent_step.recording_studio_ai_run_id)
+    return if ai_run.nil?
+
+    RecordingStudioAgents::Ai.retained_output(ai_run: ai_run, initiator: initiator)&.dig(:text).to_s.strip.presence
   end
 
   def self.plan_audit(agent_step)
