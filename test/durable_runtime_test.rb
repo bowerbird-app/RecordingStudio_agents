@@ -59,6 +59,7 @@ class DurableRuntimeTest < PersistenceTestCase
           refute_includes stored, "note-20"
           assert_equal ["Look it up", "Answer"], result.run.working_state_json["plan"]
           assert_equal ["Look it up", "Answer"], result.run.agent_steps.find_by!(sequence: 1).record_json["plan"]
+          assert_equal "find_page", result.run.agent_steps.find_by!(sequence: 2).record_json["tool"]
           refute(generated.any? { |call| call[:request_id].to_s.include?(":next-") })
         end
       end

@@ -25,14 +25,16 @@ class PlaygroundSteps
   end
 
   def self.entries_for_agent_steps(run)
-    entries = run.agent_steps.order(:sequence).each_with_index.map do |agent_step, index|
+    steps = run.agent_steps.order(:sequence).to_a
+    models = models_for(steps)
+    entries = steps.each_with_index.map do |agent_step, index|
       badge, style = badge_for(agent_step.status == "completed" ? "completed" : agent_step.status)
       Entry.new(
         id: "playground-step-#{index}",
         title: title_for_agent_step(agent_step),
         badge: badge,
         badge_style: style,
-        exchange: audit_for(agent_step, run)
+        exchange: with_model(audit_for(agent_step, run, steps), models[agent_step.recording_studio_ai_run_id])
       )
     end
     entries << stopped_entry(run, entries.length) if stopped?(run)
@@ -56,8 +58,8 @@ class PlaygroundSteps
   def self.title_for_agent_step(agent_step)
     case agent_step.action_type
     when "reason" then plan_title(agent_step)
-    when "decide" then "Checked in"
-    when "tool" then agent_step.tool_key.to_s.tr("_", " ").sub(/\A./, &:upcase)
+    when "decide" then "Decision"
+    when "tool" then human_tool(agent_step.tool_key)
     when "deliver" then "Answer"
     when "handoff" then "Asked for a reviewer"
     when "arguments" then "Filled in"
@@ -76,10 +78,10 @@ class PlaygroundSteps
     record["actions"].is_a?(Array) || agent_step.observation_summary == "Asked for the next actions."
   end
 
-  def self.audit_for(agent_step, run)
+  def self.audit_for(agent_step, run, steps)
     case agent_step.action_type
     when "reason" then plan_audit(agent_step)
-    when "decide" then decision_audit(agent_step)
+    when "decide" then decision_audit(agent_step, steps)
     when "handoff" then handoff_audit(agent_step, run)
     when "arguments" then arguments_audit(agent_step)
     else agent_step.observation_summary.to_s
@@ -105,18 +107,18 @@ class PlaygroundSteps
     lines.join("\n")
   end
 
-  def self.decision_audit(agent_step)
+  def self.decision_audit(agent_step, steps)
     outcome = agent_step.controller_outcome.is_a?(Hash) ? agent_step.controller_outcome : {}
-    lines = [ decision_sentence(outcome) ]
+    lines = [ decision_sentence(outcome, picked_tool(agent_step, steps)) ]
     finished = outcome["finished"]
     stuck = outcome["stuck"]
     lines << "Finished #{score(finished)}. Stuck #{score(stuck)}." if outcome.key?("finished") || outcome.key?("stuck")
     lines.join("\n")
   end
 
-  def self.decision_sentence(outcome)
+  def self.decision_sentence(outcome, tool_name)
     case [ outcome["name"].to_s, outcome["reason"].to_s ]
-    when %w[tool selected] then "Picked a tool."
+    when %w[tool selected] then picked_tool_sentence(tool_name)
     when %w[finish observations_answer_the_goal] then "The notes answer the goal."
     when %w[finish finished], %w[finish deliver] then "Ready to answer."
     when %w[handoff handoff] then "Picked a reviewer."
@@ -124,9 +126,26 @@ class PlaygroundSteps
     when %w[reason uncertain] then "Asked for a new plan."
     when %w[reason missing_choice] then "No action was chosen."
     when %w[reason deliver_below_threshold] then "The answer is not ready yet."
-    when %w[reason decision_failed] then "The check-in failed."
+    when %w[reason decision_failed] then "The decision failed."
     else "Checked the state."
     end
+  end
+
+  def self.picked_tool_sentence(tool_name)
+    name = tool_name.to_s.strip
+    return "Picked a tool." if name.empty?
+
+    "Picked tool: #{name}."
+  end
+
+  def self.picked_tool(agent_step, steps)
+    stored = record_for(agent_step)["tool"].to_s.strip
+    return human_tool(stored) if stored.present?
+
+    follower = steps.find { |step| step.sequence.to_i > agent_step.sequence.to_i }
+    return unless follower&.action_type == "tool" && follower.tool_key.present?
+
+    human_tool(follower.tool_key)
   end
 
   def self.handoff_audit(agent_step, run)
@@ -136,9 +155,44 @@ class PlaygroundSteps
   end
 
   def self.arguments_audit(agent_step)
-    tool = agent_step.tool_key.to_s.tr("_", " ").sub(/\A./, &:upcase)
+    tool = human_tool(agent_step.tool_key)
     note = agent_step.observation_summary.to_s.strip
     [ tool.presence, note.presence ].compact.join(". ")
+  end
+
+  def self.human_tool(key)
+    key.to_s.tr("_", " ").sub(/\A./, &:upcase)
+  end
+
+  def self.models_for(steps)
+    ids = steps.filter_map(&:recording_studio_ai_run_id)
+    return {} if ids.empty?
+
+    RecordingStudioAI::Run.where(id: ids).index_by(&:id)
+  end
+
+  def self.with_model(body, ai_run)
+    line = model_line(ai_run)
+    return body if line.blank?
+    return line if body.blank?
+
+    "#{line}\n\n#{body}"
+  end
+
+  def self.model_line(ai_run)
+    return if ai_run.nil?
+
+    profile = profile_label(ai_run.profile_key)
+    model = ai_run.try(:resolved_model).to_s.strip
+    [ profile, model.presence ].compact.join(" ").presence
+  end
+
+  def self.profile_label(key)
+    return if key.blank?
+
+    RecordingStudioAgents::Profiles.label(key)
+  rescue RecordingStudioAgents::ContractError
+    key.to_s.capitalize
   end
 
   def self.append_section(lines, title, values)
@@ -349,8 +403,9 @@ class PlaygroundSteps
   end
 
   private_class_method :entries_for_agent_steps, :stopped?, :stopped_entry, :title_for_agent_step, :plan_title, :next_actions?,
-    :audit_for, :plan_audit, :next_actions_audit, :decision_audit, :decision_sentence, :handoff_audit,
-    :arguments_audit, :append_section, :record_for, :score,
+    :audit_for, :plan_audit, :next_actions_audit, :decision_audit, :decision_sentence, :picked_tool_sentence,
+    :picked_tool, :handoff_audit, :arguments_audit, :human_tool, :models_for, :with_model, :model_line, :profile_label,
+    :append_section, :record_for, :score,
     :turns_for, :ai_run_for, :linked_ai_run, :visible_invocations, :turn_for, :notes_for,
     :response_text, :entry_for, :failure_entry, :exchange_for, :input_for, :instruction_input,
     :output_for, :tool_hash, :context_value, :dump, :title_for, :badge_for, :tool_name,

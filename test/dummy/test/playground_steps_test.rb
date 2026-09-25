@@ -176,9 +176,12 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
         "goal" => "Find the staff handbook."
       }
     )
+    plan_call = model_call(root, user, "generation", "medium", "gemini-2.5-pro")
+    decision_call = model_call(root, user, "decision", "low", "jev-latest")
     RecordingStudioAgents::AgentStep.create!(
       agent_run: run, sequence: 1, status: "completed", action_type: "reason",
       observation_summary: "Find the named page",
+      recording_studio_ai_run_id: plan_call.id,
       record_json: {
         "objective" => "Find the named page",
         "plan" => [ "Look up the handbook", "Answer" ],
@@ -187,6 +190,7 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     )
     RecordingStudioAgents::AgentStep.create!(
       agent_run: run, sequence: 2, status: "completed", action_type: "decide",
+      recording_studio_ai_run_id: decision_call.id,
       controller_outcome: { "name" => "tool", "reason" => "selected", "finished" => 0.07, "stuck" => 0.16 }
     )
     RecordingStudioAgents::AgentStep.create!(
@@ -214,10 +218,12 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     entries = PlaygroundSteps.for(run, initiator: user)
 
     assert_equal(
-      [ "Plan", "Checked in", "Find page", "Filled in", "Next actions", "Answer", "Asked for a reviewer" ],
+      [ "Plan", "Decision", "Find page", "Filled in", "Next actions", "Answer", "Asked for a reviewer" ],
       entries.map(&:title)
     )
     assert_equal <<~TEXT.chomp, entries.first.exchange
+      Medium gemini-2.5-pro
+
       Find the named page
 
       Plan
@@ -229,7 +235,7 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     TEXT
     refute_includes entries.first.exchange, "Report the later objective"
     refute_includes entries.first.exchange, "This plan was written later"
-    assert_equal "Picked a tool.\nFinished 0.07. Stuck 0.16.", entries.second.exchange
+    assert_equal "Low jev-latest\n\nPicked tool: Find page.\nFinished 0.07. Stuck 0.16.", entries.second.exchange
     refute_includes entries.second.exchange, "Report the later objective"
     assert_equal "Found the page.", entries[2].exchange
     assert_equal "Find page. Filled the required arguments.", entries[3].exchange
@@ -324,7 +330,7 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
 
     entries = PlaygroundSteps.for(run, initiator: user)
 
-    assert_equal [ "Checked in", "Did not finish" ], entries.map(&:title)
+    assert_equal [ "Decision", "Did not finish" ], entries.map(&:title)
     assert_equal "Asked for a new plan.\nFinished 0.36. Stuck 0.73.", entries.first.exchange
     assert_equal [ "Failed", :danger ], [ entries.last.badge, entries.last.badge_style ]
     assert_equal "Agent run stopped at maximum_replans.", entries.last.exchange
@@ -351,5 +357,24 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
     refute_includes html, "Given"
     refute_includes html, "Returned"
     assert_includes html, "playground-step-1-content"
+  end
+
+  private
+
+  def model_call(root, user, operation, profile, model)
+    RecordingStudioAI::Run.create!(
+      operation: operation,
+      purpose: "agent_page_librarian",
+      status: "completed",
+      root_recording_id: root.id,
+      initiator_type: "User",
+      initiator_id: user.id.to_s,
+      initiator_kind: "user",
+      execution_source: "web",
+      request_id: "playground-steps-#{operation}-#{SecureRandom.hex(4)}",
+      profile_key: profile,
+      resolved_model: model,
+      started_at: Time.current
+    )
   end
 end

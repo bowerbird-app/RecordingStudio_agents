@@ -91,15 +91,26 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Plan/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /List pages/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
-    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Checked in/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Decision/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Answer/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Done/
     notes = css_select("[data-playground-step-list] pre").map { |node| node.text.strip }
     assert_includes notes, librarian_plan_note
     assert_includes notes, "Listed the pages."
     assert_includes notes, "Found the page."
-    assert_includes notes, "Found Getting Started."
-    assert_includes notes, "Picked a tool.\nFinished 0.10. Stuck 0.05."
+    assert_includes notes, "Medium gemini-2.5-pro\n\nFound Getting Started."
+    assert_includes notes, <<~TEXT.chomp
+      Low jev-latest
+
+      Picked tool: List pages.
+      Finished 0.10. Stuck 0.05.
+    TEXT
+    assert_includes notes, <<~TEXT.chomp
+      Low jev-latest
+
+      Picked tool: Find page.
+      Finished 0.10. Stuck 0.05.
+    TEXT
     refute_includes notes.reject { |text| text.include?("\nPlan\n") }.join("\n"), "Find the named page"
     refute_includes notes.join("\n"), "arguments"
     refute_includes response.body, "Finished."
@@ -220,7 +231,7 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     notes = css_select("[data-playground-step-list] pre").map { |node| node.text.strip }
     assert_includes notes, librarian_plan_note
     assert_includes notes, "Found the page."
-    assert_includes notes, "Found Getting Started."
+    assert_includes notes, "Medium gemini-2.5-pro\n\nFound Getting Started."
     refute_includes notes, "Listed the pages."
     refute_includes notes.reject { |text| text.include?("\nPlan\n") }.join("\n"), "Find the named page"
     refute_includes notes.join("\n"), "arguments"
@@ -322,6 +333,8 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
 
   def librarian_plan_note
     <<~TEXT.chomp
+      Medium gemini-2.5-pro
+
       Find the named page
 
       Plan

@@ -28,13 +28,14 @@ class PlaygroundDurableStub
   end
 
   def decide(**kwargs)
+    call = persist_run(kwargs, operation: "decision", model: "jev-latest")
     state = kwargs[:state].to_s
     if state.include?("list_pages v")
-      return decision("list", %w[list find deliver])
+      return decision("list", %w[list find deliver], run: call)
     end
-    return decision("find", %w[find deliver]) if state.include?("find_page v")
+    return decision("find", %w[find deliver], run: call) if state.include?("find_page v")
 
-    decision("deliver", ["deliver"], finished: 0.95)
+    decision("deliver", ["deliver"], finished: 0.95, run: call)
   end
 
   def perform_tool(**kwargs)
@@ -95,7 +96,7 @@ class PlaygroundDurableStub
     )
   end
 
-  def decision(choice_id, candidate_ids, finished: 0.1)
+  def decision(choice_id, candidate_ids, finished: 0.1, run: nil)
     probabilities = candidate_ids.to_h { |id| [id, id == choice_id ? 0.9 : 0.05] }
     Decision.new(
       answers: {
@@ -106,16 +107,17 @@ class PlaygroundDurableStub
         next_action: Choice.new(choice_id, probabilities)
       },
       error: nil,
-      run: nil
+      run: run
     )
   end
 
-  def persist_run(kwargs, text: nil)
+  def persist_run(kwargs, text: nil, operation: "generation", model: nil)
     initiator = kwargs.fetch(:initiator)
     root = kwargs.fetch(:root_recording)
     now = Time.current
+    profile = kwargs[:profile]&.to_s
     ai_run = RecordingStudioAI::Run.create!(
-      operation: "generation",
+      operation: operation,
       purpose: kwargs[:purpose],
       status: "completed",
       root_recording_id: root.id,
@@ -125,7 +127,9 @@ class PlaygroundDurableStub
       initiator_kind: (kwargs[:initiator_kind] || :user).to_s,
       execution_source: (kwargs[:execution_source] || :web).to_s,
       request_id: kwargs[:request_id],
-      profile_key: kwargs[:profile]&.to_s,
+      profile_key: profile,
+      resolved_provider: operation == "decision" ? "typesafe" : "gemini",
+      resolved_model: model || (profile == "low" ? "gemini-2.5-flash" : "gemini-2.5-pro"),
       metadata: kwargs[:metadata],
       started_at: now,
       completed_at: now,

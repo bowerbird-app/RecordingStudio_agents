@@ -329,7 +329,7 @@ module RecordingStudioAgents
       verdict = controller_verdict(response, state) do
         Controller.interpret(response.answers, menu: menu, state: state, configuration: configuration)
       end
-      remember_decision(run, lease_token, state, response, verdict)
+      remember_decision(run, lease_token, state, response, verdict, menu)
     end
 
     def decide_if_answered(_request, run, lease_token, state)
@@ -338,7 +338,7 @@ module RecordingStudioAgents
       verdict = controller_verdict(response, state) do
         Controller.interpret_completion(response.answers, configuration: configuration)
       end
-      remember_decision(run, lease_token, state, response, verdict)
+      remember_decision(run, lease_token, state, response, verdict, menu)
     end
 
     def ask_controller(run, lease_token, state, menu, questions)
@@ -362,7 +362,7 @@ module RecordingStudioAgents
       yield
     end
 
-    def remember_decision(run, lease_token, state, response, verdict)
+    def remember_decision(run, lease_token, state, response, verdict, menu)
       state, = StateDelta.apply(state, { "increment" => { "controller_calls" => 1 } })
       @ledger.checkpoint!(
         run: run, lease_token: lease_token, state: state,
@@ -371,7 +371,7 @@ module RecordingStudioAgents
           controller_outcome: verdict.probabilities.merge("reason" => verdict.reason, "name" => verdict.name.to_s),
           ai_run_id: response.try(:run)&.id,
           progress_made: verdict.probabilities["progress_made"].to_f >= configuration.progress_probability
-        ),
+        ).merge(record_json: decision_record(verdict, menu)),
         activities: [%w[controller_evaluated]]
       )
       if response.respond_to?(:run) && response.run
@@ -751,6 +751,15 @@ module RecordingStudioAgents
 
     def next_sequence(run)
       run.agent_steps.maximum(:sequence).to_i + 1
+    end
+
+    def decision_record(verdict, menu)
+      return {} unless verdict.tool?
+
+      candidate = menu.fetch(verdict.candidate_id)
+      return {} unless candidate&.tool?
+
+      { "tool" => candidate.tool_key.to_s }
     end
 
     def plan_record(data)
