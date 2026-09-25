@@ -161,6 +161,18 @@ class ProgressTest < PersistenceTestCase
     end
   end
 
+  def test_an_argument_step_is_labeled_filled_in
+    run = create_run(status: "succeeded")
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 1, status: "completed", action_type: "arguments",
+      tool_key: "find_page", tool_version: 1, observation_summary: "Filled in the missing details."
+    )
+
+    labels = RecordingStudioAgents::Progress.for(run).map(&:label)
+
+    assert_equal ["Filled in", "Done"], labels
+  end
+
   def test_agent_run_progress_helper
     run = create_run(status: "succeeded")
     RecordingStudioAgents::Ai.stub(:find_run, nil) do

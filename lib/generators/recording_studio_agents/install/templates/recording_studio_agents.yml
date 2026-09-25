@@ -1,5 +1,15 @@
 development:
   lease_seconds: 300
+  maximum_steps: 80
+  maximum_tool_actions: 30
+  maximum_reasoner_calls: 8
+  maximum_replans: 3
+  maximum_runtime_seconds: 1800
 
 production:
   lease_seconds: 300
+  maximum_steps: 80
+  maximum_tool_actions: 30
+  maximum_reasoner_calls: 8
+  maximum_replans: 3
+  maximum_runtime_seconds: 1800

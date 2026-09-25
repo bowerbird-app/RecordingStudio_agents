@@ -1,11 +1,56 @@
 # Migration Notes
 
+## 0.5.0
+
+Run the engine migration that adds `recording_studio_agents_agent_runs.working_state_json` and `recording_studio_agents_agent_steps`.
+
+```bash
+bin/rails generate recording_studio_agents:migrations
+bin/rails db:migrate
+```
+
+Development and dummy Gemfiles pin Recording Studio AI `v0.6.0`. Tool steps call `RecordingStudioAI.perform_tool`. Install that gem's migration and run it.
+
+```bash
+bin/rails recording_studio_ai:install:migrations
+bin/rails db:migrate
+```
+
+The migration allows operation `tool` and adds `arguments` and `result` on custom tool invocations. No Agents configuration change. A missing `perform_tool` still fails the run with `tool_unavailable`, and the tool step is marked failed. Answer-only `generate` results still complete.
+
+Existing `Agent#run` calls, skills, packs, knowledge loaders, and handoff allowlists stay valid. A generate result without `action_candidates` still finishes from that text. Agent budgets are separate from `maximum_attempts` and `maximum_custom_tool_rounds`.
+
+Plans now include each allowed tool's parameters from the Recording Studio AI registry. No host change. Put required fields on the tool registration. The internal handoff tool is not listed there. A handoff candidate still names an allowlisted target.
+
+A tool candidate whose arguments fail that tool's schema gets one more generate call for those arguments. The call counts toward `maximum_reasoner_calls`. The tool runs after the arguments validate. No host change.
+
+An explicit empty `action_candidates` list now enters the runtime. A generate result that omits that key still finishes from its text. A failed final answer fails the run with `synthesis_failed`. The compiled instruction names a handoff candidate. A resume keeps a stored tool outcome when Recording Studio AI has one.
+
+A long or nested tool result can use one generate call on `controller_profile`. That call counts toward `maximum_observation_calls`, which defaults to 30. It does not count toward `maximum_reasoner_calls`. Set the key on `RecordingStudioAgents.configuration` to change the cap. No migration.
+
+A short tool result keeps every short field. A title by itself is still stored as `Found {title}`. A page list keeps a path or a folder beside each title. The argument fill prompt includes recent observations and findings. No host change.
+
+Install the migration that adds `recording_studio_agents_agent_steps.record_json`. A plan step stores the plan written then. Tool arguments stay off the step.
+
+A finished answer is stored in full on the deliver step. Working-state notes stay capped at 500 bytes. No migration.
+
+```bash
+bin/rails generate recording_studio_agents:migrations
+bin/rails db:migrate
+```
+
+A plan now keeps at most three tool actions. Later tools are requested after the current ones finish, and that request does not replace the plan. A stuck run still replans. No host change.
+
+`soft_working_state_bytes` defaults to 6000. Past that size, and after an observation is stored, a low-profile generate call can replace findings, completed work, failed approaches, and recent observations. It does not count toward `maximum_reasoner_calls`. The hard cap remains `maximum_working_state_bytes`. No migration.
+
+Success criteria now stay for the run. A later plan adds an open criterion and keeps a repeated criterion's id and met state. An observation can close a criterion with its id or its exact text. A deliver-only plan with an open criterion asks once for tools, then writes the answer on the next deliver-only reply. `finished_probability` stays 0.8. `maximum_replans` stays 3. No migration.
+
 ## Current Requirements
 
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `~> 4.2` (dummy GitHub tag `v4.2.0`)
-- Recording Studio AI `~> 0.3` (dummy and development tag `v0.4.0`)
+- Recording Studio AI `~> 0.3` (dummy and development tag `v0.6.0`)
 - Recording Studio Admin `~> 2.0` (dummy tag `v2.0.2`)
 - Accessible `~> 0.6` (dummy tag `v0.7.0`)
 - Root Switchable dummy tag `v0.5.0`

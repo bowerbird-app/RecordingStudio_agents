@@ -8,6 +8,7 @@ ENV.delete("google_ai_studio")
 ENV.delete("TYPESAFE_API_KEY")
 ENV.delete("TYPESAFE")
 ENV.delete("typesafe")
+ENV.delete("brave_search")
 
 require_relative "../config/environment"
 require "rails/test_help"

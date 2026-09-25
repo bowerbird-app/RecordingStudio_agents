@@ -120,7 +120,7 @@ class ExecutionTest < PersistenceTestCase
     )
     refute_includes captured[:system_instruction], "Task context"
     assert_equal "agent_librarian", captured[:purpose]
-    assert_equal [{ key: :find_page, version: 1 }], captured[:custom_tools]
+    assert_equal [], captured[:custom_tools]
   end
 
   def test_blocked_retry_does_not_start_another_model_call
@@ -582,7 +582,7 @@ class ExecutionTest < PersistenceTestCase
     assert_instance_of RecordingStudioAgents::Results::Completed, result
     assert_match(/refund window/, captured[:system_instruction])
     refute_match(/reset link/, captured[:system_instruction])
-    assert_includes captured[:custom_tools], { key: :lookup_invoice, version: 1 }
+    assert_equal [], captured[:custom_tools]
     assert_equal [{ "key" => "billing_help", "version" => 1 }], result.run.selected_skills_json
     assert_equal "billing_tickets", result.run.skill_pack_key
     assert_equal 1, result.run.skill_pack_version

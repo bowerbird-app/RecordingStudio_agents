@@ -44,10 +44,14 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_select "input[name='choices'][value='1']"
     assert_includes response.body, "Page librarian"
     assert_includes response.body, "Support clerk"
+    assert_includes response.body, "Web researcher"
+    assert_select "[data-playground-skills] [role='option'][data-value='web_research@1']"
+    assert_select "[data-playground-tools='web_researcher@1'] input[name='tools[]'][value='web_search@1']"
     assert_select "a[href='/playground']", text: /Playground/
     defaults = JSON.parse(css_select("script#playground-skill-defaults").text)
     assert_equal [ "page_lookup@1" ], defaults["page_librarian@1"]
     assert_equal [ "support_voice@1" ], defaults["support_clerk@1"]
+    assert_equal [ "web_research@1" ], defaults["web_researcher@1"]
     assert_select "select[name='profile'] option[value='low']", text: "Low"
     assert_select "select[name='profile'] option[value='medium']", text: "Medium"
     assert_select "select[name='profile'] option[value='high']", text: "High"
@@ -88,17 +92,32 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     get path
     assert_response :success
     assert_select "textarea[name='goal']", text: "Find the Getting Started page."
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Plan/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /List pages/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Decision/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Answer/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Done/
-    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Reply/
-    asked = JSON.parse(css_select("#playground-step-0-content pre").text)
-    answered = JSON.parse(css_select("#playground-step-1-content pre").text)
-    assert_equal "Find the Getting Started page.", asked.dig("input", "instruction")
-    assert_equal "Getting Started", asked.dig("output", "find_page", "title")
-    refute_includes asked.to_json, "Finished."
-    assert_equal "Finished.", answered.dig("output", "text")
-    assert_equal "Getting Started", answered.dig("input", "find_page", "title")
-    refute_includes answered.to_json, "Find the Getting Started page."
+    notes = css_select("[data-playground-step-list] pre").map { |node| node.text.strip }
+    assert_includes notes, librarian_plan_note
+    assert_includes notes, "Listed the pages."
+    assert_includes notes, "Found the page."
+    assert_includes notes, "Medium gemini-2.5-pro\n\nFound Getting Started."
+    assert_includes notes, <<~TEXT.chomp
+      Low jev-latest
+
+      Picked tool: List pages.
+      Finished 0.10. Stuck 0.05.
+    TEXT
+    assert_includes notes, <<~TEXT.chomp
+      Low jev-latest
+
+      Picked tool: Find page.
+      Finished 0.10. Stuck 0.05.
+    TEXT
+    refute_includes notes.reject { |text| text.include?("\nPlan\n") }.join("\n"), "Find the named page"
+    refute_includes notes.join("\n"), "arguments"
+    refute_includes response.body, "Finished."
     refute_includes response.body, ">Given<"
     refute_includes response.body, ">Returned<"
     assert_select "h2", text: "Page librarian", count: 0
@@ -209,13 +228,17 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     path = redirected_playground_path
     get path
 
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Plan/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
-    asked = JSON.parse(css_select("#playground-step-0-content pre").text)
-    answered = JSON.parse(css_select("#playground-step-1-content pre").text)
-    assert_equal "Find the Getting Started page.", asked.dig("input", "instruction")
-    refute_includes asked.to_json, "Finished."
-    assert_equal "Finished.", answered.dig("output", "text")
-    refute_includes answered.to_json, "Find the Getting Started page."
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Answer/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /List pages/, count: 0
+    notes = css_select("[data-playground-step-list] pre").map { |node| node.text.strip }
+    assert_includes notes, librarian_plan_note
+    assert_includes notes, "Found the page."
+    assert_includes notes, "Medium gemini-2.5-pro\n\nFound Getting Started."
+    refute_includes notes, "Listed the pages."
+    refute_includes notes.reject { |text| text.include?("\nPlan\n") }.join("\n"), "Find the named page"
+    refute_includes notes.join("\n"), "arguments"
     run = RecordingStudioAgents::AgentRun.find_by!(
       root_recording_id: @root.id,
       idempotency_key: path.split("/").last
@@ -310,5 +333,77 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
   def redirected_playground_path
     location = URI.parse(response.location)
     URI.decode_www_form_component(location.path)
+  end
+
+  test "web researcher run searches and answers" do
+    assert_enqueued_jobs 1, only: PlaygroundRunJob do
+      post "/playground", params: {
+        choices: "1",
+        agent: "web_researcher@1",
+        goal: "What is the public web?",
+        skills: [ "web_research@1" ],
+        tools: [ "web_search@1" ],
+        profile: "medium"
+      }
+    end
+
+    assert_response :redirect
+    perform_enqueued_jobs
+    path = redirected_playground_path
+    get path
+
+    assert_response :success
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Plan/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Web search/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Decision/
+    assert_select "[data-flat-pack--collapse-target='trigger']", text: /Answer/
+    notes = css_select("[data-playground-step-list] pre").map { |node| node.text.strip }
+    assert_includes notes, research_plan_note
+    assert_includes notes, "Searched the web."
+    assert_includes notes, "Medium gemini-2.5-pro\n\nThe public web has an answer."
+    assert_includes notes, <<~TEXT.chomp
+      Low jev-latest
+
+      Picked tool: Web search.
+      Finished 0.10. Stuck 0.05.
+    TEXT
+
+    run = RecordingStudioAgents::AgentRun.find_by!(
+      root_recording_id: @root.id,
+      idempotency_key: path.split("/").last
+    )
+    assert_equal "web_researcher", run.agent_key
+    assert_equal "succeeded", run.status
+  end
+
+  def research_plan_note
+    <<~TEXT.chomp
+      Medium gemini-2.5-pro
+
+      Answer from the public web
+
+      Plan
+      Search the public web
+      Answer
+
+      Done when
+      The question has an answer with sources
+    TEXT
+  end
+
+  def librarian_plan_note
+    <<~TEXT.chomp
+      Medium gemini-2.5-pro
+
+      Find the named page
+
+      Plan
+      List the pages
+      Find the named page
+      Answer
+
+      Done when
+      The named page was found
+    TEXT
   end
 end

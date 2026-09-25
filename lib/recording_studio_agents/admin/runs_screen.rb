@@ -6,7 +6,7 @@ module RecordingStudioAgents
       key "agent_runs"
       icon :play
       title "Runs"
-      subtitle "One attempt each. Tokens and tools come from the linked model call."
+      subtitle "One attempt each. Steps lists the work in order."
 
       query do |context|
         Queries.runs(context: context)
@@ -72,12 +72,24 @@ module RecordingStudioAgents
         column :steps, title: "Steps", sortable: false,
                        value: ->(row, _context) { Progress.for(row).map(&:label).join(", ").presence || "None" }
         column :tokens, title: "Tokens", sortable: false,
-                        header_tooltip: "Tokens on the linked model call. A dash means that history was cleaned.",
+                        header_tooltip: "Tokens across this attempt's model calls. A dash means that history was cleaned.",
                         value: lambda { |row, _context|
-                          Queries.format_tokens(Queries.ai_run_for(row.recording_studio_ai_run_id)&.total_tokens)
+                          Queries.format_tokens(Queries.token_total(row))
                         }
+        column :objective, title: "Now", sortable: false,
+                           value: ->(row, _context) { Queries.objective_cell(row) }
+        column :plans, title: "Plans", sortable: false,
+                       header_tooltip: "How many times this attempt wrote or rewrote a plan.",
+                       value: ->(row, _context) { Queries.counter_cell(row, "reasoner_calls") }
+        column :check_ins, title: "Check-ins", sortable: false,
+                           header_tooltip: "How many times the cheap checker looked at the work.",
+                           value: ->(row, _context) { Queries.counter_cell(row, "controller_calls") }
+        column :replans, title: "New plans", sortable: false,
+                         value: ->(row, _context) { Queries.counter_cell(row, "replans") }
+        column :stuck, title: "Stuck", sortable: false,
+                       value: ->(row, _context) { Queries.stuck_cell(row) }
         column :tools, title: "Tools", sortable: false,
-                       header_tooltip: "Custom tools on the linked model call.",
+                       header_tooltip: "Tools this attempt has run.",
                        value: ->(row, context) { Queries.tools_cell(row, context) }
         column :idempotency_key, title: "Attempt key"
         column :recording_studio_ai_run_id, title: "AI run", sortable: false,

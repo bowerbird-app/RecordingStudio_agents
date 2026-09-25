@@ -13,6 +13,8 @@ class PlaygroundSteps
   }.freeze
 
   def self.for(run, initiator:, context: nil)
+    return entries_for_agent_steps(run, initiator) if run.agent_steps.exists?
+
     build(
       turns_for(run, initiator),
       instruction: run.task.goal,
@@ -20,6 +22,216 @@ class PlaygroundSteps
       failure_message: run.failure_message,
       status: run.status
     )
+  end
+
+  def self.entries_for_agent_steps(run, initiator)
+    steps = run.agent_steps.order(:sequence).to_a
+    models = models_for(steps)
+    entries = steps.each_with_index.map do |agent_step, index|
+      badge, style = badge_for(agent_step.status == "completed" ? "completed" : agent_step.status)
+      Entry.new(
+        id: "playground-step-#{index}",
+        title: title_for_agent_step(agent_step),
+        badge: badge,
+        badge_style: style,
+        exchange: with_model(
+          audit_for(agent_step, run, steps, initiator),
+          models[agent_step.recording_studio_ai_run_id]
+        )
+      )
+    end
+    entries << stopped_entry(run, entries.length) if stopped?(run)
+    entries
+  end
+
+  def self.stopped?(run)
+    failed?(run.status) && run.failure_message.to_s.strip.present?
+  end
+
+  def self.stopped_entry(run, index)
+    Entry.new(
+      id: "playground-step-#{index}",
+      title: "Did not finish",
+      badge: "Failed",
+      badge_style: :danger,
+      exchange: run.failure_message.to_s.strip
+    )
+  end
+
+  def self.title_for_agent_step(agent_step)
+    case agent_step.action_type
+    when "reason" then plan_title(agent_step)
+    when "decide" then "Decision"
+    when "tool" then human_tool(agent_step.tool_key)
+    when "deliver" then "Answer"
+    when "handoff" then "Asked for a reviewer"
+    when "arguments" then "Filled in"
+    else "On it"
+    end
+  end
+
+  def self.plan_title(agent_step)
+    return "Next actions" if next_actions?(agent_step)
+
+    agent_step.sequence.to_i > 1 ? "New plan" : "Plan"
+  end
+
+  def self.next_actions?(agent_step)
+    record = record_for(agent_step)
+    record["actions"].is_a?(Array) || agent_step.observation_summary == "Asked for the next actions."
+  end
+
+  def self.audit_for(agent_step, run, steps, initiator)
+    case agent_step.action_type
+    when "reason" then plan_audit(agent_step)
+    when "decide" then decision_audit(agent_step, steps)
+    when "handoff" then handoff_audit(agent_step, run)
+    when "arguments" then arguments_audit(agent_step)
+    when "deliver" then answer_audit(agent_step, initiator)
+    else agent_step.observation_summary.to_s
+    end
+  end
+
+  def self.answer_audit(agent_step, initiator)
+    stored = agent_step.observation_summary.to_s.strip
+    full = retained_answer(agent_step, initiator)
+    return full if full.present? && full.bytesize > stored.bytesize
+
+    stored
+  end
+
+  def self.retained_answer(agent_step, initiator)
+    return if initiator.nil? || agent_step.recording_studio_ai_run_id.blank?
+
+    ai_run = RecordingStudioAI::Run.find_by(id: agent_step.recording_studio_ai_run_id)
+    return if ai_run.nil?
+
+    RecordingStudioAgents::Ai.retained_output(ai_run: ai_run, initiator: initiator)&.dig(:text).to_s.strip.presence
+  end
+
+  def self.plan_audit(agent_step)
+    record = record_for(agent_step)
+    return next_actions_audit(agent_step, record) if record["actions"].is_a?(Array)
+
+    lines = []
+    objective = record["objective"].to_s.strip
+    objective = agent_step.observation_summary.to_s.strip if objective.empty?
+    lines << objective unless objective.empty?
+    append_section(lines, "Plan", record["plan"])
+    append_section(lines, "Done when", record["criteria"])
+    lines.join("\n")
+  end
+
+  def self.next_actions_audit(agent_step, record)
+    lines = [ agent_step.observation_summary.presence || "Asked for the next actions." ]
+    append_section(lines, nil, record["actions"])
+    lines.join("\n")
+  end
+
+  def self.decision_audit(agent_step, steps)
+    outcome = agent_step.controller_outcome.is_a?(Hash) ? agent_step.controller_outcome : {}
+    lines = [ decision_sentence(outcome, picked_tool(agent_step, steps)) ]
+    finished = outcome["finished"]
+    stuck = outcome["stuck"]
+    lines << "Finished #{score(finished)}. Stuck #{score(stuck)}." if outcome.key?("finished") || outcome.key?("stuck")
+    lines.join("\n")
+  end
+
+  def self.decision_sentence(outcome, tool_name)
+    case [ outcome["name"].to_s, outcome["reason"].to_s ]
+    when %w[tool selected] then picked_tool_sentence(tool_name)
+    when %w[finish observations_answer_the_goal] then "The notes answer the goal."
+    when %w[finish finished], %w[finish deliver] then "Ready to answer."
+    when %w[handoff handoff] then "Picked a reviewer."
+    when %w[reason observations_insufficient] then "The notes do not answer the goal yet."
+    when %w[reason uncertain] then "Asked for a new plan."
+    when %w[reason missing_choice] then "No action was chosen."
+    when %w[reason deliver_below_threshold] then "The answer is not ready yet."
+    when %w[reason decision_failed] then "The decision failed."
+    else "Checked the state."
+    end
+  end
+
+  def self.picked_tool_sentence(tool_name)
+    name = tool_name.to_s.strip
+    return "Picked a tool." if name.empty?
+
+    "Picked tool: #{name}."
+  end
+
+  def self.picked_tool(agent_step, steps)
+    stored = record_for(agent_step)["tool"].to_s.strip
+    return human_tool(stored) if stored.present?
+
+    follower = steps.find { |step| step.sequence.to_i > agent_step.sequence.to_i }
+    return unless follower&.action_type == "tool" && follower.tool_key.present?
+
+    human_tool(follower.tool_key)
+  end
+
+  def self.handoff_audit(agent_step, run)
+    reviewer = record_for(agent_step)["reviewer"].to_s.strip
+    reviewer = "#{run.handoff_agent_key} v#{run.handoff_agent_version}" if reviewer.empty? && run.handoff_agent_key.present?
+    reviewer.present? ? "Asked #{reviewer}." : "Asked for a reviewer."
+  end
+
+  def self.arguments_audit(agent_step)
+    tool = human_tool(agent_step.tool_key)
+    note = agent_step.observation_summary.to_s.strip
+    [ tool.presence, note.presence ].compact.join(". ")
+  end
+
+  def self.human_tool(key)
+    key.to_s.tr("_", " ").sub(/\A./, &:upcase)
+  end
+
+  def self.models_for(steps)
+    ids = steps.filter_map(&:recording_studio_ai_run_id)
+    return {} if ids.empty?
+
+    RecordingStudioAI::Run.where(id: ids).index_by(&:id)
+  end
+
+  def self.with_model(body, ai_run)
+    line = model_line(ai_run)
+    return body if line.blank?
+    return line if body.blank?
+
+    "#{line}\n\n#{body}"
+  end
+
+  def self.model_line(ai_run)
+    return if ai_run.nil?
+
+    profile = profile_label(ai_run.profile_key)
+    model = ai_run.try(:resolved_model).to_s.strip
+    [ profile, model.presence ].compact.join(" ").presence
+  end
+
+  def self.profile_label(key)
+    return if key.blank?
+
+    RecordingStudioAgents::Profiles.label(key)
+  rescue RecordingStudioAgents::ContractError
+    key.to_s.capitalize
+  end
+
+  def self.append_section(lines, title, values)
+    rows = Array(values).map { |item| item.to_s.strip }.reject(&:empty?)
+    return if rows.empty?
+
+    lines << "" unless lines.empty? || lines.last.empty?
+    lines << title if title
+    rows.each { |row| lines << row }
+  end
+
+  def self.record_for(agent_step)
+    record = agent_step.try(:record_json)
+    record.is_a?(Hash) ? record : {}
+  end
+
+  def self.score(value)
+    format("%.2f", value.to_f)
   end
 
   def self.build(turns, instruction:, context: nil, failure_message: nil, status: nil)
@@ -196,6 +408,11 @@ class PlaygroundSteps
   end
 
   def self.metadata_value(invocation, key)
+    if %w[arguments result].include?(key) && invocation.respond_to?(key)
+      stored = invocation.public_send(key)
+      return stored unless stored.nil?
+    end
+
     metadata = invocation.metadata
     return nil unless metadata.is_a?(Hash) && metadata.key?(key)
 
@@ -206,7 +423,11 @@ class PlaygroundSteps
     %w[failed cancelled].include?(status.to_s)
   end
 
-  private_class_method :turns_for, :ai_run_for, :linked_ai_run, :visible_invocations, :turn_for, :notes_for,
+  private_class_method :entries_for_agent_steps, :stopped?, :stopped_entry, :title_for_agent_step, :plan_title, :next_actions?,
+    :audit_for, :plan_audit, :next_actions_audit, :decision_audit, :decision_sentence, :picked_tool_sentence,
+    :picked_tool, :handoff_audit, :arguments_audit, :human_tool, :models_for, :with_model, :model_line, :profile_label,
+    :append_section, :record_for, :score,
+    :turns_for, :ai_run_for, :linked_ai_run, :visible_invocations, :turn_for, :notes_for,
     :response_text, :entry_for, :failure_entry, :exchange_for, :input_for, :instruction_input,
     :output_for, :tool_hash, :context_value, :dump, :title_for, :badge_for, :tool_name,
     :metadata_value, :failed?

@@ -142,6 +142,8 @@ class CompilerTest < Minitest::Test
     assert_match(/Application data/, invocation.system_instruction)
     assert_match(/Getting Started/, invocation.system_instruction)
     assert_match(/Allowed handoff targets: reviewer v1/, invocation.system_instruction)
+    assert_includes invocation.system_instruction, "Name a handoff candidate with the target key and version."
+    refute_includes invocation.system_instruction, "Use the handoff tool"
     assert program.allows_handoff?(:reviewer, 1)
     refute program.allows_handoff?(:stranger, 1)
     assert_includes program.effective_tool_references.map(&:key), "recording_studio_agents_request_handoff"

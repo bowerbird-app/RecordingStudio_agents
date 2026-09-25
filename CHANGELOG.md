@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-09-24
+
+An agent run can keep working across many tool actions. The next model call sees the current state, not the whole transcript.
+
+### Added
+- `AgentStep` rows and `working_state_json` on `AgentRun`. A checkpoint after each completed step is enough to resume. A new worker does not repeat a finished tool. A non-repeatable tool that was interrupted is closed as `unresolved` and refused for the rest of the attempt.
+- A runtime loop. The reasoner (`RecordingStudioAI.generate`) writes a plan, success criteria, and action candidates with complete arguments. The controller (`RecordingStudioAI.decide`) picks among those candidates using probabilities. One tool runs through `RecordingStudioAI.perform_tool`.
+- Host budgets that are separate from Recording Studio AI attempt limits. Defaults are 80 steps, 30 tool actions, 8 reasoner calls, 3 replans, 30 observation calls, and 1800 seconds. Working state is capped at 12000 bytes. Recent observations stay in a short window. Compaction runs only after that byte cap, and at most three times.
+- Controller thresholds. `finished_probability` defaults to 0.8, `stuck_probability` to 0.7, and `choice_margin` to 0.15. A failed or uncertain decision does not count as finished.
+- Activity kinds `step_started`, `step_completed`, `state_updated`, `controller_evaluated`, `reasoner_requested`, `replanned`, `stuck_detected`, and `compacted`.
+- Admin columns for the current objective, plan count, check-in count, replan count, and stuck state. The Steps column lists durable labels when steps exist. Token totals include the model calls linked from those steps.
+
+### Changed
+- `Progress.for` reads agent steps when the run has any. Older runs with no steps still read the single linked model call.
+- The lease renews on each loop turn and on each checkpoint, only while the same token is current and unexpired. A stale worker cannot checkpoint.
+- A confirmation pause stores `awaiting_confirmation` on the step and the run. The same idempotency key resumes that step.
+- The dummy playground, without a generative key, shows Plan, tool steps, check-ins, and Answer for Page librarian.
+- A tool result that lists pages is kept as those titles. A missing `perform_tool` fails the run instead of leaving the tool step running. A tool candidate must use type `tool` and an allowed tool key. The runtime does not rename another type, split a dotted key, or insert an answer candidate.
+- When no candidates remain and an observation is stored, the controller is asked whether the goal can be answered from those observations. A finished score at the threshold writes the answer. Success criteria that are already met write the answer even when the menu is empty.
+- The planning note lists each allowed tool's description, when to use it, parameters, and return value. The reasoner fills those arguments on the first plan and on every replan. The internal handoff tool stays off that list.
+- The action fingerprint includes the tool key, the tool version, and the arguments. Two tools with the same arguments stay distinct.
+- A controller choice includes the candidate purpose. A tool choice also names the tool and version.
+- An explicit empty `action_candidates` list enters the runtime. A generate result with no `action_candidates` key still finishes from its text.
+- A failed final answer fails the run with `synthesis_failed`.
+- The compiled instruction tells the model to name a handoff candidate. It does not tell the planner to call the handoff tool.
+- A resume reads a stored Recording Studio AI tool outcome for a started step. A missing or in-progress tool call is closed as `unresolved` and is not run again.
+- A tool candidate whose arguments fail that tool's schema gets one more generate call. The schema is that tool's parameter schema, and the call counts toward `maximum_reasoner_calls`. The tool runs after the arguments validate. A candidate that still fails is dropped before the tool runs. An empty arguments object stays put when the tool requires nothing.
+- A long or nested tool result gets one generate call on `controller_profile`. The call returns a short summary and a state delta, and it counts toward `maximum_observation_calls` (default 30). A page list, a summary, a title, and other short fields skip that call. Secret, token, password, and credential fields stay out of the summary.
+- A tool result keeps its short fields. A title by itself is stored as `Found {title}`. A false found flag, a path, a folder, and an id stay in the observation. A page list keeps a path or a folder beside each title. The argument fill prompt includes the recent observations and the findings.
+- Each plan step stores the plan, objective, and success criteria written at that step in `record_json`. A later plan does not replace that record. A next-actions step stores the action lines written then. A handoff step stores the reviewer. The dummy playground shows that step record instead of the run's latest objective. A decision is labeled Decision and names the tool when one was picked. A step that called a model shows that call's profile and model. A failed run adds a last step with the reason it stopped.
+- The dummy installs Recording Studio Web Search `v0.2.0` and registers a Web researcher agent with a Web research skill. Brave reads `brave_search`. Tests leave that variable unread. The skill writes success criteria a search snippet can close. A sourced list is the answer when a count only comes back as a link.
+- A finished answer is stored in full on the deliver step. Working-state notes stay capped at 500 bytes. The dummy playground shows the full reply, including an answer that was stored before this change.
+- A plan keeps at most three tool actions. When those tools are finished and the observations do not answer the goal, the next generate call asks for one to three actions. That call counts toward `maximum_reasoner_calls` and does not replace the plan. A stuck run still replans.
+- Working state has a soft cap of 6000 bytes. Once an observation is stored and the document is over that cap, a generate call on the low profile can replace findings, completed work, failed approaches, and recent observations. That call does not count toward `maximum_reasoner_calls`. Ruby still trims the oldest rows past 12000 bytes.
+- Success criteria stay for the run. The first plan establishes them. A later plan can add an open criterion, and a repeated criterion keeps its id and its met state. An observation closes a criterion by its id, its exact text, or a note that contains that exact text. A deliver-only plan with an open criterion asks once for tools that close it. A second deliver-only reply writes the answer and names the criteria that are still open. That request does not count as a replan. The 0.8 finish bar and `maximum_replans` stay.
+
+### Upgrade notes
+- Install and run the engine migration that adds `working_state_json` and `recording_studio_agents_agent_steps`.
+- `RecordingStudioAgents.agent(...).run(...)` still works. A generate result with no `action_candidates` still completes from that text.
+- Tool steps call `RecordingStudioAI.perform_tool`. Development and dummy Gemfiles pin Recording Studio AI `v0.6.0`. Run that gem's migration with `bin/rails recording_studio_ai:install:migrations` and `bin/rails db:migrate`. It allows operation `tool` and stores `arguments` and `result` on custom tool invocations. A missing `perform_tool` still fails the tool step with `tool_unavailable`. Answer-only `generate` results still complete.
+- New budget and threshold keys are optional. Omitted keys keep the defaults above. Set them on `RecordingStudioAgents.configuration` or in `recording_studio_agents.yml`.
+- The durable loop does not call the internal handoff tool. A handoff candidate is accepted only when the target is on the run's allowlist. The tool stays registered.
+- Do not expect `maximum_custom_tool_rounds` to cap an agent. Set `maximum_steps` and `maximum_tool_actions` instead.
+
 ## [0.4.11] - 2026-09-23
 
 The dummy playground starts a registered agent and watches the attempt.

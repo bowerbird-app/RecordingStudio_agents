@@ -408,7 +408,56 @@ module RecordingStudioAgents
         STATUS_BADGES.fetch(status.to_s) { { text: status.to_s.humanize, style: :default } }.merge(size: :sm)
       end
 
+      def token_total(row)
+        step_ids = step_ai_run_ids(row)
+        return ai_run_for(row.recording_studio_ai_run_id)&.total_tokens if step_ids.empty?
+
+        (step_ids + [row.recording_studio_ai_run_id]).compact.uniq.sum do |id|
+          ai_run_for(id)&.total_tokens.to_i
+        end
+      end
+
+      def objective_cell(row)
+        text = working_state_for(row)&.current_objective
+        text.presence || BLANK
+      end
+
+      def counter_cell(row, name)
+        state = working_state_for(row)
+        return BLANK unless state
+
+        state.counter(name).to_s
+      end
+
+      def stuck_cell(row)
+        state = working_state_for(row)
+        return BLANK unless state
+
+        state.data["no_progress_streak"].to_i >= Signals::REPEAT_LIMIT ? "Stuck" : "Moving"
+      end
+
+      def working_state_for(row)
+        return unless row.respond_to?(:has_attribute?) && row.has_attribute?(:working_state_json)
+        return if row.working_state_json.blank?
+
+        WorkingState.load(row.working_state_json)
+      rescue StandardError
+        nil
+      end
+
+      def step_ai_run_ids(row)
+        return [] unless row.respond_to?(:agent_steps)
+        return [] unless row.agent_steps.exists?
+
+        row.agent_steps.pluck(:recording_studio_ai_run_id).compact
+      rescue StandardError
+        []
+      end
+
       def tools_cell(row, context)
+        state = working_state_for(row)
+        return state.counter("tool_actions").to_s if state && row.respond_to?(:agent_steps) && row.agent_steps.exists?
+
         ai_run = ai_run_for(row.recording_studio_ai_run_id)
         return BLANK if ai_run.nil?
 
