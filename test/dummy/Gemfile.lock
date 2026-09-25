@@ -50,6 +50,15 @@ GIT
       recording_studio_accessible (~> 0.6)
 
 GIT
+  remote: https://github.com/bowerbird-app/RecordingStudio_web_search.git
+  revision: 18678a30cfe35a2b097da1f40897b6c2d98aa0ba
+  tag: v0.2.0
+  specs:
+    recording_studio_web_search (0.2.0)
+      rails (~> 8.1.0)
+      recording_studio (~> 4.2)
+
+GIT
   remote: https://github.com/bowerbird-app/flatpack.git
   revision: 3654913a87f3d72556223b81e0d8140a292e3c2e
   tag: v0.1.143
@@ -507,6 +516,7 @@ DEPENDENCIES
   recording_studio_agents!
   recording_studio_ai!
   recording_studio_root_switchable!
+  recording_studio_web_search!
   rubocop-rails-omakase
   solid_cable
   solid_cache
@@ -641,6 +651,7 @@ CHECKSUMS
   recording_studio_agents (0.5.0)
   recording_studio_ai (0.6.0)
   recording_studio_root_switchable (0.5.0)
+  recording_studio_web_search (0.2.0)
   regexp_parser (2.11.3) sha256=ca13f381a173b7a93450e53459075c9b76a10433caadcb2f1180f2c741fc55a4
   reline (0.6.3) sha256=1198b04973565b36ec0f11542ab3f5cfeeec34823f4e54cebde90968092b1835
   responders (3.2.0) sha256=89c2d6ac0ae16f6458a11524cae4a8efdceba1a3baea164d28ee9046bd3df55a

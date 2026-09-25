@@ -11,5 +11,6 @@ class AdminRoot < ApplicationRecord
     section :root
     section :agents
     section :recording_studio_ai
+    section :web_search
   end
 end

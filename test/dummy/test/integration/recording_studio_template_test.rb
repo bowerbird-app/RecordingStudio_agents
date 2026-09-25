@@ -87,7 +87,7 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
 
     admin_root = AdminRoot.new(name: "Admin")
     section_keys = AdminRoot.recording_studio_admin_section_keys_for(admin_root, nil, nil)
-    assert_equal [ "root", "agents", "recording_studio_ai" ], section_keys
+    assert_equal [ "root", "agents", "recording_studio_ai", "web_search" ], section_keys
     assert_equal AdminScreens::RootSection, RecordingStudioAdmin.section_for("root")
   end
 

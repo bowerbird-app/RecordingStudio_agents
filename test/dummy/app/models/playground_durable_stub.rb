@@ -20,8 +20,10 @@ class PlaygroundDurableStub
 
   def generate(**kwargs)
     if kwargs[:request_id].to_s.end_with?(":answer")
-      return text_response(kwargs, "Found Getting Started.")
+      text = kwargs[:purpose].to_s.include?("web_researcher") ? "The public web has an answer." : "Found Getting Started."
+      return text_response(kwargs, text)
     end
+    return research_response(kwargs) if kwargs[:purpose].to_s.include?("web_researcher")
     return plan_response(kwargs) if kwargs[:purpose].to_s.include?("page_librarian")
 
     text_response(kwargs, "Finished.")
@@ -34,14 +36,15 @@ class PlaygroundDurableStub
       return decision("list", %w[list find deliver], run: call)
     end
     return decision("find", %w[find deliver], run: call) if state.include?("find_page v")
+    return decision("search", %w[search deliver], run: call) if state.include?("web_search v")
 
     decision("deliver", ["deliver"], finished: 0.95, run: call)
   end
 
   def perform_tool(**kwargs)
     key = kwargs[:tool].to_h[:key] || kwargs[:tool].to_h["key"]
-    summary = key.to_s == "list_pages" ? "Listed the pages." : "Found the page."
-    criteria = key.to_s == "find_page" ? ["found"] : []
+    summary = tool_summary(key)
+    criteria = tool_criteria(key)
     Performance.new(
       status: "completed",
       result: { "summary" => summary, "findings" => [summary], "meet_criteria" => criteria },
@@ -51,6 +54,48 @@ class PlaygroundDurableStub
   end
 
   private
+
+  def tool_summary(key)
+    case key.to_s
+    when "list_pages" then "Listed the pages."
+    when "web_search" then "Searched the web."
+    else "Found the page."
+    end
+  end
+
+  def tool_criteria(key)
+    case key.to_s
+    when "find_page" then [ "found" ]
+    when "web_search" then [ "answered" ]
+    else []
+    end
+  end
+
+  def research_response(kwargs)
+    ai_run = persist_run(kwargs)
+    RecordingStudioAI::Contracts::GenerationResponse.new(
+      operation: "generation",
+      purpose: kwargs[:purpose],
+      text: nil,
+      structured_data: {
+        "plan" => [ "Search the public web", "Answer" ],
+        "success_criteria" => [ { "id" => "answered", "text" => "The question has an answer with sources" } ],
+        "current_objective" => "Answer from the public web",
+        "action_candidates" => [
+          {
+            "id" => "search",
+            "type" => "tool",
+            "purpose" => "Search the public web",
+            "tool_key" => "web_search",
+            "tool_version" => 1,
+            "arguments" => { "query" => "public web" }
+          },
+          { "id" => "deliver", "type" => "deliver", "purpose" => "Answer the question" }
+        ]
+      },
+      run: ai_run
+    )
+  end
 
   def plan_response(kwargs)
     ai_run = persist_run(kwargs)

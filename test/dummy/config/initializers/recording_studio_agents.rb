@@ -249,3 +249,37 @@ RecordingStudioAgents.agents.register(
   packs: { billing_tickets: 1 },
   enabled: true
 )
+
+RecordingStudioAgents.skills.register(
+  key: :web_research,
+  version: 1,
+  name: "Web research",
+  description: "Answer an open question from the public web.",
+  instructions: <<~TEXT,
+    Sharpen the question before you search. Name the decision, the constraints, and what counts as an answer.
+    Search more than once. Change the words. Look for the failure, not only the pitch. Check whether the answer has gone stale. One search is one neighborhood.
+    Use web search. A snippet is what you actually read. Cite only pages that came back. Do not pretend you opened a page.
+    Weigh what you found. Prefer the original source over posts that repeat it. Note who benefits if you believe it. Ten copies of one claim are one claim.
+    When results disagree, explain the disagreement. Different conditions, different meanings, one of them is old, or one of them is wrong.
+    Lead with the answer in a few sentences. Then say why, what would flip it, what you rejected, and what is still open. Name the pages you used. If nothing credible came back, say that.
+  TEXT
+  required_tools: { web_search: 1 },
+  use_when: "The question needs the public web.",
+  do_not_use_when: "The answer is already in this workspace."
+)
+
+RecordingStudioAgents.agents.register(
+  key: :web_researcher,
+  version: 1,
+  name: "Web researcher",
+  description: "Researches a question on the public web.",
+  instructions: <<~TEXT,
+    Research the question on the public web.
+    Follow the web research skill.
+    Search before you answer.
+    Say what is still unknown.
+  TEXT
+  skills: { web_research: 1 },
+  tools: { web_search: 1 },
+  enabled: true
+)

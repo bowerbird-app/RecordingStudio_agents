@@ -523,6 +523,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
     t.index ["root_recording_id"], name: "idx_rs_root_switchable_root_recording"
   end
 
+  create_table "recording_studio_web_search_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.decimal "estimated_cost_usd", precision: 12, scale: 6, default: "0.0", null: false
+    t.string "outcome", null: false
+    t.jsonb "parameters", default: {}, null: false
+    t.string "provider", null: false
+    t.string "query", null: false
+    t.integer "result_count"
+    t.jsonb "results", default: [], null: false
+    t.string "status", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_recording_studio_web_search_runs_on_created_at"
+    t.index ["provider"], name: "index_recording_studio_web_search_runs_on_provider"
+    t.index ["status"], name: "index_recording_studio_web_search_runs_on_status"
+  end
+
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email", default: "", null: false
