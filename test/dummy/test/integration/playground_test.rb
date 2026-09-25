@@ -94,14 +94,14 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Checked in/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Answer/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Done/
-    exchanges = css_select("[data-playground-step-list] pre").map { |node| JSON.parse(node.text) }
-    listed = exchanges.find { |item| item["observation"] == "Listed the pages." }
-    found = exchanges.find { |item| item["observation"] == "Found the page." }
-    answer = exchanges.find { |item| item["action"] == "deliver" }
-    assert_equal "tool", listed["action"]
-    assert_equal "Find the named page", found["now"]
-    assert_equal "Found Getting Started.", answer["observation"]
-    refute exchanges.any? { |item| item.key?("arguments") }
+    notes = css_select("[data-playground-step-list] pre").map { |node| node.text.strip }
+    assert_includes notes, librarian_plan_note
+    assert_includes notes, "Listed the pages."
+    assert_includes notes, "Found the page."
+    assert_includes notes, "Found Getting Started."
+    assert_includes notes, "Picked a tool.\nFinished 0.10. Stuck 0.05."
+    refute_includes notes.reject { |text| text.include?("\nPlan\n") }.join("\n"), "Find the named page"
+    refute_includes notes.join("\n"), "arguments"
     refute_includes response.body, "Finished."
     refute_includes response.body, ">Given<"
     refute_includes response.body, ">Returned<"
@@ -217,12 +217,13 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Find page/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /Answer/
     assert_select "[data-flat-pack--collapse-target='trigger']", text: /List pages/, count: 0
-    exchanges = css_select("[data-playground-step-list] pre").map { |node| JSON.parse(node.text) }
-    found = exchanges.find { |item| item["observation"] == "Found the page." }
-    answer = exchanges.find { |item| item["action"] == "deliver" }
-    assert_equal "tool", found["action"]
-    assert_equal "Found Getting Started.", answer["observation"]
-    refute exchanges.any? { |item| item.key?("arguments") }
+    notes = css_select("[data-playground-step-list] pre").map { |node| node.text.strip }
+    assert_includes notes, librarian_plan_note
+    assert_includes notes, "Found the page."
+    assert_includes notes, "Found Getting Started."
+    refute_includes notes, "Listed the pages."
+    refute_includes notes.reject { |text| text.include?("\nPlan\n") }.join("\n"), "Find the named page"
+    refute_includes notes.join("\n"), "arguments"
     run = RecordingStudioAgents::AgentRun.find_by!(
       root_recording_id: @root.id,
       idempotency_key: path.split("/").last
@@ -317,5 +318,19 @@ class PlaygroundTest < ActionDispatch::IntegrationTest
   def redirected_playground_path
     location = URI.parse(response.location)
     URI.decode_www_form_component(location.path)
+  end
+
+  def librarian_plan_note
+    <<~TEXT.chomp
+      Find the named page
+
+      Plan
+      List the pages
+      Find the named page
+      Answer
+
+      Done when
+      The named page was found
+    TEXT
   end
 end

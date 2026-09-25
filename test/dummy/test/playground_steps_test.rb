@@ -170,33 +170,164 @@ class PlaygroundStepsTest < ActiveSupport::TestCase
       initiator_id: user.id.to_s,
       initiator_kind: "user",
       execution_source: "web",
-      working_state_json: { "current_objective" => "Find the named page", "goal" => "Find the staff handbook." }
+      working_state_json: {
+        "current_objective" => "Report the later objective",
+        "plan" => [ "This plan was written later" ],
+        "goal" => "Find the staff handbook."
+      }
     )
     RecordingStudioAgents::AgentStep.create!(
       agent_run: run, sequence: 1, status: "completed", action_type: "reason",
-      observation_summary: "Find the named page"
+      observation_summary: "Find the named page",
+      record_json: {
+        "objective" => "Find the named page",
+        "plan" => [ "Look up the handbook", "Answer" ],
+        "criteria" => [ "The handbook title is quoted" ]
+      }
     )
     RecordingStudioAgents::AgentStep.create!(
-      agent_run: run, sequence: 2, status: "completed", action_type: "tool",
+      agent_run: run, sequence: 2, status: "completed", action_type: "decide",
+      controller_outcome: { "name" => "tool", "reason" => "selected", "finished" => 0.07, "stuck" => 0.16 }
+    )
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 3, status: "completed", action_type: "tool",
       tool_key: "find_page", tool_version: 1, observation_summary: "Found the page.", progress_made: true
     )
     RecordingStudioAgents::AgentStep.create!(
-      agent_run: run, sequence: 3, status: "completed", action_type: "arguments",
+      agent_run: run, sequence: 4, status: "completed", action_type: "arguments",
       tool_key: "find_page", tool_version: 1, observation_summary: "Filled the required arguments."
     )
     RecordingStudioAgents::AgentStep.create!(
-      agent_run: run, sequence: 4, status: "completed", action_type: "deliver",
+      agent_run: run, sequence: 5, status: "completed", action_type: "reason",
+      observation_summary: "Asked for the next actions.",
+      record_json: { "actions" => [ "find_page v1. Look up the next page" ] }
+    )
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 6, status: "completed", action_type: "deliver",
       observation_summary: "Found the Staff handbook."
+    )
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 7, status: "completed", action_type: "handoff",
+      record_json: { "reviewer" => "page_reviewer v1" }
     )
 
     entries = PlaygroundSteps.for(run, initiator: user)
 
-    assert_equal [ "Plan", "Find page", "Filled in", "Answer" ], entries.map(&:title)
-    answer = JSON.parse(entries.last.exchange)
-    assert_equal "deliver", answer["action"]
-    assert_equal "Find the named page", answer["now"]
-    assert_equal "Found the Staff handbook.", answer["observation"]
-    refute_includes entries.last.exchange, "arguments"
+    assert_equal(
+      [ "Plan", "Checked in", "Find page", "Filled in", "Next actions", "Answer", "Asked for a reviewer" ],
+      entries.map(&:title)
+    )
+    assert_equal <<~TEXT.chomp, entries.first.exchange
+      Find the named page
+
+      Plan
+      Look up the handbook
+      Answer
+
+      Done when
+      The handbook title is quoted
+    TEXT
+    refute_includes entries.first.exchange, "Report the later objective"
+    refute_includes entries.first.exchange, "This plan was written later"
+    assert_equal "Picked a tool.\nFinished 0.07. Stuck 0.16.", entries.second.exchange
+    refute_includes entries.second.exchange, "Report the later objective"
+    assert_equal "Found the page.", entries[2].exchange
+    assert_equal "Find page. Filled the required arguments.", entries[3].exchange
+    assert_equal "Asked for the next actions.\n\nfind_page v1. Look up the next page", entries[4].exchange
+    assert_equal "Found the Staff handbook.", entries[5].exchange
+    assert_equal "Asked page_reviewer v1.", entries[6].exchange
+    refute_includes entries.map(&:exchange).join, "{"
+  end
+
+  test "an older plan step shows the note written then" do
+    workspace = Workspace.create!(name: "Playground Steps #{SecureRandom.hex(4)}")
+    root = RecordingStudio.root_recording_for(workspace)
+    user = User.create!(
+      email: "playground-steps-#{SecureRandom.hex(4)}@example.com",
+      password: "Password123!",
+      password_confirmation: "Password123!"
+    )
+    task = RecordingStudioAgents::Task.create!(
+      root_recording_id: root.id,
+      task_key: "playground-steps:#{SecureRandom.hex(4)}",
+      goal: "Pages about cats",
+      input_digest: "playground-steps"
+    )
+    run = RecordingStudioAgents::AgentRun.create!(
+      task: task,
+      root_recording_id: root.id,
+      agent_key: "page_librarian",
+      agent_version: 1,
+      program_digest: "playground-steps",
+      idempotency_key: "playground-steps:#{SecureRandom.uuid}",
+      status: "handoff_requested",
+      initiator_type: "User",
+      initiator_id: user.id.to_s,
+      initiator_kind: "user",
+      execution_source: "web",
+      handoff_agent_key: "page_reviewer",
+      handoff_agent_version: 1,
+      working_state_json: {
+        "current_objective" => "Report that no pages about cats were found and request a handoff.",
+        "plan" => [ "This plan was written later" ]
+      }
+    )
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 1, status: "completed", action_type: "reason",
+      observation_summary: "Find pages about cats."
+    )
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 2, status: "completed", action_type: "handoff"
+    )
+
+    entries = PlaygroundSteps.for(run, initiator: user)
+
+    assert_equal [ "Plan", "Asked for a reviewer" ], entries.map(&:title)
+    assert_equal "Find pages about cats.", entries.first.exchange
+    refute_includes entries.first.exchange, "Report that no pages about cats were found"
+    assert_equal "Asked page_reviewer v1.", entries.second.exchange
+  end
+
+  test "a failed run shows why it stopped" do
+    workspace = Workspace.create!(name: "Playground Steps #{SecureRandom.hex(4)}")
+    root = RecordingStudio.root_recording_for(workspace)
+    user = User.create!(
+      email: "playground-steps-#{SecureRandom.hex(4)}@example.com",
+      password: "Password123!",
+      password_confirmation: "Password123!"
+    )
+    task = RecordingStudioAgents::Task.create!(
+      root_recording_id: root.id,
+      task_key: "playground-steps:#{SecureRandom.hex(4)}",
+      goal: "Pages about cats",
+      input_digest: "playground-steps"
+    )
+    run = RecordingStudioAgents::AgentRun.create!(
+      task: task,
+      root_recording_id: root.id,
+      agent_key: "page_librarian",
+      agent_version: 1,
+      program_digest: "playground-steps",
+      idempotency_key: "playground-steps:#{SecureRandom.uuid}",
+      status: "failed",
+      failure_code: "maximum_replans",
+      failure_message: "Agent run stopped at maximum_replans.",
+      initiator_type: "User",
+      initiator_id: user.id.to_s,
+      initiator_kind: "user",
+      execution_source: "web"
+    )
+    RecordingStudioAgents::AgentStep.create!(
+      agent_run: run, sequence: 1, status: "completed", action_type: "decide",
+      controller_outcome: { "name" => "reason", "reason" => "uncertain", "finished" => 0.36, "stuck" => 0.73 }
+    )
+
+    entries = PlaygroundSteps.for(run, initiator: user)
+
+    assert_equal [ "Checked in", "Did not finish" ], entries.map(&:title)
+    assert_equal "Asked for a new plan.\nFinished 0.36. Stuck 0.73.", entries.first.exchange
+    assert_equal [ "Failed", :danger ], [ entries.last.badge, entries.last.badge_style ]
+    assert_equal "Agent run stopped at maximum_replans.", entries.last.exchange
   end
 
   test "the collapse renders the call as one hash" do

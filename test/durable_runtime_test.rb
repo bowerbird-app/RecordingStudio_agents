@@ -58,8 +58,35 @@ class DurableRuntimeTest < PersistenceTestCase
           refute_includes decided.first[:state], "Look note-20"
           refute_includes stored, "note-20"
           assert_equal ["Look it up", "Answer"], result.run.working_state_json["plan"]
+          assert_equal ["Look it up", "Answer"], result.run.agent_steps.find_by!(sequence: 1).record_json["plan"]
           refute(generated.any? { |call| call[:request_id].to_s.include?(":next-") })
         end
+      end
+    end
+  end
+
+  def test_a_later_plan_leaves_the_first_step_record
+    register_librarian
+    calls = 0
+    decides = 0
+    generate = lambda do |**kwargs|
+      return generation_response(text: "Done.", run_id: 93) if kwargs[:request_id].to_s.end_with?(":answer")
+
+      calls += 1
+      line = calls == 1 ? "First look" : "Second look"
+      plan_response(candidates: 1, run_id: 80 + calls, plan: [line], objective: line)
+    end
+    decide = lambda do |**kwargs|
+      decides += 1
+      ids = kwargs[:questions].dig(:next_action, :criteria)&.keys || ["deliver"]
+      return decision(finished: 0.1, needs: 0.95, choice_id: ids.first, candidate_ids: ids) if decides == 1
+
+      decision(finished: 0.95, choice_id: "deliver", candidate_ids: ids)
+    end
+
+    RecordingStudioAI.stub(:generate, generate) do
+      RecordingStudioAI.stub(:decide, decide) do
+        assert_kept_plans(run_librarian("two-plans"))
       end
     end
   end
@@ -1819,7 +1846,7 @@ class DurableRuntimeTest < PersistenceTestCase
     )
   end
 
-  def plan_response(candidates:, run_id:, extra: [])
+  def plan_response(candidates:, run_id:, extra: [], plan: ["Look it up", "Answer"], objective: "Look it up")
     listed = Array.new(candidates) { |index| candidate("action_#{index + 1}", "note-#{index + 1}") }
     listed << { "id" => "deliver", "type" => "deliver", "purpose" => "Answer the goal" }
     RecordingStudioAI::Contracts::GenerationResponse.new(
@@ -1827,9 +1854,9 @@ class DurableRuntimeTest < PersistenceTestCase
       purpose: "agent_librarian",
       text: nil,
       structured_data: {
-        "plan" => ["Look it up", "Answer"],
+        "plan" => plan,
         "success_criteria" => [{ "id" => "done", "text" => "The page was found" }],
-        "current_objective" => "Look it up",
+        "current_objective" => objective,
         "action_candidates" => listed + extra
       },
       run: Struct.new(:id, :status).new(run_id, "completed")
@@ -2001,6 +2028,18 @@ class DurableRuntimeTest < PersistenceTestCase
       },
       run: Struct.new(:id, :status).new(run_id, "completed")
     )
+  end
+
+  def assert_kept_plans(result)
+    reasons = result.run.agent_steps.where(action_type: "reason").order(:sequence)
+
+    assert_instance_of RecordingStudioAgents::Results::Completed, result
+    assert_equal ["First look"], reasons.first.record_json["plan"]
+    assert_equal "First look", reasons.first.record_json["objective"]
+    assert_equal ["The page was found"], reasons.first.record_json["criteria"]
+    assert_equal ["Second look"], reasons.second.record_json["plan"]
+    assert_equal ["Second look"], result.run.working_state_json["plan"]
+    assert_equal "Second look", result.run.working_state_json["current_objective"]
   end
 
   def assert_bounded_chain(result, generated, decided, performed)

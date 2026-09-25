@@ -74,6 +74,7 @@ module PersistenceSupport
       t.string :observation_digest
       t.boolean :progress_made
       t.json :controller_outcome
+      t.json :record_json, null: false, default: {}
       t.integer :recording_studio_ai_run_id
       t.boolean :repeatable, null: false, default: false
       t.datetime :started_at

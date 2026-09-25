@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_24_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -125,6 +125,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_130000) do
     t.string "observation_digest"
     t.text "observation_summary"
     t.boolean "progress_made"
+    t.json "record_json", default: {}, null: false
     t.bigint "recording_studio_ai_run_id"
     t.boolean "repeatable", default: false, null: false
     t.integer "sequence", null: false
