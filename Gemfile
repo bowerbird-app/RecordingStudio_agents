@@ -4,7 +4,7 @@ source "https://rubygems.org"
 
 gemspec
 
-gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.143"
+gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.196"
 gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v4.2.0"
 gem "recording_studio_accessible", github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.7.0"
 gem "recording_studio_admin", github: "bowerbird-app/RecordingStudio_admin", tag: "v2.0.2"
