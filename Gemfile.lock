@@ -40,7 +40,7 @@ GIT
 
 GIT
   remote: https://github.com/bowerbird-app/flatpack.git
-  revision: 20a17d7dcb76686ea5e5964dd6483a455b2a32d6
+  revision: 83a866fc3399c888614d7140ec63dd37f2d9bc35
   tag: v0.1.198
   specs:
     flat_pack (0.1.198)
