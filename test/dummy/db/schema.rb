@@ -10,36 +10,36 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_02_000012) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
 
   create_table "admin_audit_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "access_recording_id"
+    t.string "event_id", null: false
+    t.string "resource_key", null: false
     t.string "action_key", null: false
-    t.string "actor_id"
+    t.string "outcome", null: false
     t.string "actor_type"
-    t.string "blast_radius"
-    t.datetime "created_at", null: false
+    t.string "actor_id"
+    t.string "record_type"
+    t.string "record_id"
+    t.uuid "access_recording_id"
+    t.string "surface_key"
+    t.string "http_method"
     t.boolean "destructive"
+    t.string "required_role"
+    t.string "blast_radius"
+    t.string "request_id"
+    t.string "ip_address"
+    t.string "user_agent"
+    t.jsonb "metadata", default: {}, null: false
     t.string "error_class"
     t.text "error_message"
-    t.string "event_id", null: false
-    t.string "http_method"
-    t.string "ip_address"
-    t.jsonb "metadata", default: {}, null: false
-    t.datetime "occurred_at", null: false
-    t.string "outcome", null: false
-    t.string "record_id"
-    t.string "record_type"
     t.string "recording_studio_event_id"
-    t.string "request_id"
-    t.string "required_role"
-    t.string "resource_key", null: false
-    t.string "surface_key"
+    t.datetime "occurred_at", null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "user_agent"
     t.index ["event_id"], name: "index_admin_audit_logs_on_event_id", unique: true
     t.index ["occurred_at"], name: "index_admin_audit_logs_on_occurred_at"
     t.index ["outcome"], name: "index_admin_audit_logs_on_outcome"
@@ -47,65 +47,88 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
   end
 
   create_table "admin_roots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "created_at", null: false
     t.string "name", default: "Admin", null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
 
   create_table "folders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "created_at", null: false
     t.string "name"
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
 
   create_table "pages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "created_at", null: false
     t.string "title"
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
 
-  create_table "recording_studio_accesses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "actor_id", null: false
-    t.string "actor_type", null: false
+  create_table "recording_studio_access_invitations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "recording_id", null: false
+    t.string "email", null: false
+    t.string "role", null: false
+    t.string "token_digest", limit: 64, null: false
+    t.string "manager_actor_type", null: false
+    t.uuid "manager_actor_id", null: false
+    t.string "accepted_by_actor_type"
+    t.uuid "accepted_by_actor_id"
+    t.datetime "expires_at", null: false
+    t.datetime "last_sent_at", null: false
+    t.datetime "accepted_at"
+    t.datetime "revoked_at"
     t.datetime "created_at", null: false
-    t.integer "role", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["recording_id", "email"], name: "idx_rs_access_invitations_one_active", unique: true, where: "((accepted_at IS NULL) AND (revoked_at IS NULL))"
+    t.index ["recording_id"], name: "index_recording_studio_access_invitations_on_recording_id"
+    t.index ["token_digest"], name: "idx_rs_access_invitations_token_digest", unique: true
+    t.check_constraint "accepted_at IS NULL OR revoked_at IS NULL", name: "access_invitations_not_accepted_and_revoked"
+  end
+
+  create_table "recording_studio_accesses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "actor_type", null: false
+    t.uuid "actor_id", null: false
+    t.string "role", default: "view", null: false
+    t.datetime "created_at", null: false
+    t.uuid "depends_on_recording_id"
     t.index ["actor_type", "actor_id", "role"], name: "index_recording_studio_accesses_on_actor_and_role"
     t.index ["actor_type", "actor_id"], name: "index_recording_studio_accesses_on_actor"
+    t.index ["depends_on_recording_id"], name: "index_recording_studio_accesses_on_depends_on_recording_id"
   end
 
   create_table "recording_studio_agents_agent_runs", force: :cascade do |t|
+    t.bigint "task_id", null: false
+    t.uuid "root_recording_id", null: false
+    t.uuid "context_recording_id"
     t.string "agent_key", null: false
     t.integer "agent_version", null: false
-    t.datetime "completed_at"
-    t.uuid "context_recording_id"
-    t.datetime "created_at", null: false
-    t.string "execution_source", null: false
-    t.string "executor_id"
+    t.string "program_digest", null: false
+    t.string "idempotency_key", null: false
+    t.string "status", default: "pending", null: false
+    t.bigint "recording_studio_ai_run_id"
+    t.string "initiator_type", null: false
+    t.string "initiator_id", null: false
+    t.string "initiator_kind", null: false
     t.string "executor_type"
+    t.string "executor_id"
+    t.string "execution_source", null: false
+    t.string "lease_token"
+    t.datetime "lease_expires_at"
+    t.string "handoff_agent_key"
+    t.integer "handoff_agent_version"
     t.string "failure_category"
     t.string "failure_code"
     t.text "failure_message"
     t.boolean "failure_retryable"
-    t.string "handoff_agent_key"
-    t.integer "handoff_agent_version"
-    t.json "handoff_allowlist_json", default: [], null: false
-    t.string "idempotency_key", null: false
-    t.string "initiator_id", null: false
-    t.string "initiator_kind", null: false
-    t.string "initiator_type", null: false
-    t.datetime "lease_expires_at"
-    t.string "lease_token"
     t.string "output_digest"
-    t.string "program_digest", null: false
-    t.bigint "recording_studio_ai_run_id"
-    t.uuid "root_recording_id", null: false
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.json "selected_skills_json", default: [], null: false
     t.string "skill_pack_key"
     t.integer "skill_pack_version"
-    t.datetime "started_at"
-    t.string "status", default: "pending", null: false
-    t.bigint "task_id", null: false
-    t.datetime "updated_at", null: false
+    t.json "handoff_allowlist_json", default: [], null: false
     t.json "working_state_json", default: {}, null: false
     t.index ["recording_studio_ai_run_id"], name: "index_rsa_runs_on_ai_run_id", unique: true, where: "(recording_studio_ai_run_id IS NOT NULL)"
     t.index ["root_recording_id", "agent_key", "agent_version", "idempotency_key"], name: "index_rsa_runs_on_root_agent_idempotency", unique: true
@@ -115,108 +138,108 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
   end
 
   create_table "recording_studio_agents_agent_steps", force: :cascade do |t|
-    t.string "action_type", null: false
     t.bigint "agent_run_id", null: false
-    t.string "argument_digest"
-    t.string "candidate_id"
-    t.datetime "completed_at"
-    t.json "controller_outcome"
-    t.datetime "created_at", null: false
-    t.string "observation_digest"
-    t.text "observation_summary"
-    t.boolean "progress_made"
-    t.json "record_json", default: {}, null: false
-    t.bigint "recording_studio_ai_run_id"
-    t.boolean "repeatable", default: false, null: false
     t.integer "sequence", null: false
-    t.datetime "started_at"
     t.string "status", null: false
+    t.string "action_type", null: false
+    t.string "candidate_id"
     t.string "tool_key"
     t.integer "tool_version"
+    t.string "argument_digest"
+    t.text "observation_summary"
+    t.string "observation_digest"
+    t.boolean "progress_made"
+    t.json "controller_outcome"
+    t.bigint "recording_studio_ai_run_id"
+    t.boolean "repeatable", default: false, null: false
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.json "record_json", default: {}, null: false
     t.index ["agent_run_id", "sequence"], name: "index_rsa_steps_on_run_and_sequence", unique: true
   end
 
   create_table "recording_studio_agents_enablements", force: :cascade do |t|
     t.string "agent_key", null: false
     t.integer "agent_version", null: false
-    t.datetime "created_at", null: false
     t.boolean "enabled", null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["agent_key", "agent_version"], name: "index_rsa_enablements_on_agent", unique: true
   end
 
   create_table "recording_studio_agents_evaluations", force: :cascade do |t|
     t.bigint "agent_run_id", null: false
-    t.datetime "created_at", null: false
+    t.string "evaluator_type"
     t.string "evaluator_id"
     t.string "evaluator_key", null: false
-    t.string "evaluator_type"
     t.integer "evaluator_version", null: false
     t.string "idempotency_key", null: false
-    t.json "metadata", default: {}, null: false
-    t.text "notes"
-    t.decimal "score", precision: 4, scale: 3
-    t.datetime "updated_at", null: false
     t.string "verdict", null: false
+    t.decimal "score", precision: 4, scale: 3
+    t.text "notes"
+    t.json "metadata", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["agent_run_id", "evaluator_key", "evaluator_version", "idempotency_key"], name: "index_rsa_evaluations_on_run_evaluator_idempotency", unique: true
   end
 
   create_table "recording_studio_agents_run_activities", force: :cascade do |t|
     t.bigint "agent_run_id", null: false
-    t.datetime "created_at", null: false
-    t.json "data", default: {}, null: false
-    t.string "kind", null: false
-    t.datetime "occurred_at", null: false
     t.integer "sequence", null: false
+    t.string "kind", null: false
+    t.json "data", default: {}, null: false
+    t.datetime "occurred_at", null: false
+    t.datetime "created_at", null: false
     t.index ["agent_run_id", "sequence"], name: "index_rsa_activities_on_run_and_sequence", unique: true
   end
 
   create_table "recording_studio_agents_tasks", force: :cascade do |t|
+    t.uuid "root_recording_id", null: false
     t.uuid "context_recording_id"
-    t.datetime "created_at", null: false
+    t.string "task_key", null: false
     t.text "goal", null: false
     t.string "input_digest", null: false
-    t.uuid "root_recording_id", null: false
-    t.string "task_key", null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["root_recording_id", "task_key"], name: "index_rsa_tasks_on_root_and_key", unique: true
   end
 
   create_table "recording_studio_ai_attempts", force: :cascade do |t|
-    t.json "attachment_content_types"
+    t.bigint "run_id", null: false
+    t.integer "sequence", null: false
+    t.string "kind", null: false
+    t.string "status", default: "pending", null: false
+    t.string "profile_key"
+    t.string "provider"
+    t.string "model"
+    t.string "provider_request_id"
+    t.boolean "streaming", default: false, null: false
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.bigint "latency_ms"
+    t.bigint "input_tokens"
+    t.bigint "output_tokens"
+    t.bigint "total_tokens"
+    t.bigint "cached_input_tokens"
+    t.bigint "reasoning_tokens"
+    t.string "finish_reason"
+    t.boolean "retryable"
+    t.boolean "web_search_requested", default: false, null: false
+    t.boolean "web_search_used", default: false, null: false
+    t.integer "citation_count", default: 0, null: false
     t.integer "attachment_count", default: 0, null: false
     t.bigint "attachment_total_bytes", default: 0, null: false
-    t.bigint "cached_input_tokens"
-    t.integer "citation_count", default: 0, null: false
-    t.datetime "completed_at"
-    t.datetime "created_at", null: false
+    t.json "attachment_content_types"
+    t.integer "provider_file_count"
     t.string "error_category"
     t.string "error_code"
     t.string "error_message"
-    t.string "finish_reason"
-    t.bigint "input_tokens"
-    t.string "kind", null: false
-    t.bigint "latency_ms"
-    t.integer "lock_version", default: 0, null: false
     t.json "metadata"
-    t.string "model"
-    t.bigint "output_tokens"
-    t.string "profile_key"
-    t.string "provider"
-    t.integer "provider_file_count"
-    t.string "provider_request_id"
-    t.bigint "reasoning_tokens"
-    t.boolean "retryable"
-    t.bigint "run_id", null: false
-    t.integer "sequence", null: false
-    t.datetime "started_at"
-    t.string "status", default: "pending", null: false
-    t.boolean "streaming", default: false, null: false
-    t.bigint "total_tokens"
+    t.integer "lock_version", default: 0, null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.boolean "web_search_requested", default: false, null: false
-    t.boolean "web_search_used", default: false, null: false
     t.index ["provider", "model", "created_at"], name: "idx_rsai_attempts_provider_model_created_at"
     t.index ["provider_request_id"], name: "index_recording_studio_ai_attempts_on_provider_request_id"
     t.index ["run_id", "sequence"], name: "index_recording_studio_ai_attempts_on_run_id_and_sequence", unique: true
@@ -224,32 +247,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
     t.index ["status", "created_at"], name: "index_recording_studio_ai_attempts_on_status_and_created_at"
     t.check_constraint "(latency_ms IS NULL OR latency_ms >= 0) AND (input_tokens IS NULL OR input_tokens >= 0) AND (output_tokens IS NULL OR output_tokens >= 0) AND (total_tokens IS NULL OR total_tokens >= 0) AND (cached_input_tokens IS NULL OR cached_input_tokens >= 0) AND (reasoning_tokens IS NULL OR reasoning_tokens >= 0) AND (latency_ms IS NULL OR latency_ms >= 0)", name: "chk_rsai_attempts_nonnegative_metrics"
     t.check_constraint "completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at", name: "chk_rsai_attempts_timeline"
-    t.check_constraint "kind::text = ANY (ARRAY['primary'::character varying::text, 'retry'::character varying::text, 'fallback'::character varying::text, 'continuation'::character varying::text])", name: "chk_rsai_attempts_kind"
+    t.check_constraint "kind::text = ANY (ARRAY['primary'::character varying, 'retry'::character varying, 'fallback'::character varying, 'continuation'::character varying]::text[])", name: "chk_rsai_attempts_kind"
     t.check_constraint "sequence > 0 AND citation_count >= 0 AND attachment_count >= 0 AND attachment_total_bytes >= 0 AND (provider_file_count IS NULL OR provider_file_count >= 0)", name: "chk_rsai_attempts_nonnegative_counts"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "chk_rsai_attempts_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "chk_rsai_attempts_status"
   end
 
   create_table "recording_studio_ai_batch_items", force: :cascade do |t|
     t.bigint "batch_id", null: false
-    t.bigint "cached_input_tokens"
+    t.bigint "run_id", null: false
+    t.integer "position", null: false
+    t.string "reference", null: false
+    t.string "status", null: false
+    t.string "provider_item_id"
+    t.datetime "started_at"
     t.datetime "completed_at"
-    t.datetime "created_at", null: false
+    t.bigint "input_tokens"
+    t.bigint "output_tokens"
+    t.bigint "total_tokens"
+    t.bigint "cached_input_tokens"
+    t.bigint "reasoning_tokens"
+    t.string "finish_reason"
     t.string "error_category"
     t.string "error_code"
     t.string "error_message"
-    t.string "finish_reason"
-    t.bigint "input_tokens"
-    t.integer "lock_version", default: 0, null: false
     t.json "metadata"
-    t.bigint "output_tokens"
-    t.integer "position", null: false
-    t.string "provider_item_id"
-    t.bigint "reasoning_tokens"
-    t.string "reference", null: false
-    t.bigint "run_id", null: false
-    t.datetime "started_at"
-    t.string "status", null: false
-    t.bigint "total_tokens"
+    t.integer "lock_version", default: 0, null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["batch_id", "position"], name: "index_recording_studio_ai_batch_items_on_batch_id_and_position", unique: true
     t.index ["batch_id", "reference"], name: "idx_on_batch_id_reference_41f755821b", unique: true
@@ -259,47 +282,47 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
     t.check_constraint "(input_tokens IS NULL OR input_tokens >= 0) AND (output_tokens IS NULL OR output_tokens >= 0) AND (total_tokens IS NULL OR total_tokens >= 0) AND (cached_input_tokens IS NULL OR cached_input_tokens >= 0) AND (reasoning_tokens IS NULL OR reasoning_tokens >= 0)", name: "chk_rsai_batch_items_nonnegative_metrics"
     t.check_constraint "\"position\" >= 0", name: "chk_rsai_batch_items_position"
     t.check_constraint "completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at", name: "chk_rsai_batch_items_timeline"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'expired'::character varying::text])", name: "chk_rsai_batch_items_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'expired'::character varying]::text[])", name: "chk_rsai_batch_items_status"
   end
 
   create_table "recording_studio_ai_batches", force: :cascade do |t|
-    t.bigint "cached_input_tokens"
-    t.integer "cancelled_item_count", default: 0, null: false
-    t.datetime "completed_at"
-    t.integer "completed_item_count", default: 0, null: false
+    t.string "status", null: false
+    t.string "profile_key"
+    t.string "provider"
+    t.string "model"
+    t.string "provider_batch_id"
+    t.uuid "root_recording_id", null: false
     t.uuid "context_recording_id"
-    t.datetime "created_at", null: false
+    t.string "initiator_type", null: false
+    t.string "initiator_id", null: false
+    t.string "initiator_kind", null: false
+    t.string "executor_type"
+    t.string "executor_id"
+    t.string "executor_kind"
+    t.string "execution_source"
+    t.string "request_id"
+    t.string "job_id"
+    t.integer "item_count", default: 0, null: false
+    t.integer "completed_item_count", default: 0, null: false
+    t.integer "failed_item_count", default: 0, null: false
+    t.integer "cancelled_item_count", default: 0, null: false
+    t.bigint "input_tokens"
+    t.bigint "output_tokens"
+    t.bigint "total_tokens"
+    t.bigint "cached_input_tokens"
+    t.bigint "reasoning_tokens"
+    t.datetime "submitted_at"
+    t.datetime "completed_at"
+    t.datetime "expires_at"
     t.string "error_category"
     t.string "error_code"
     t.string "error_message"
-    t.string "execution_source"
-    t.string "executor_id"
-    t.string "executor_kind"
-    t.string "executor_type"
-    t.datetime "expires_at"
-    t.integer "failed_item_count", default: 0, null: false
-    t.string "impersonator_id"
-    t.string "impersonator_type"
-    t.string "initiator_id", null: false
-    t.string "initiator_kind", null: false
-    t.string "initiator_type", null: false
-    t.bigint "input_tokens"
-    t.integer "item_count", default: 0, null: false
-    t.string "job_id"
-    t.integer "lock_version", default: 0, null: false
     t.json "metadata"
-    t.string "model"
-    t.bigint "output_tokens"
-    t.string "profile_key"
-    t.string "provider"
-    t.string "provider_batch_id"
-    t.bigint "reasoning_tokens"
-    t.string "request_id"
-    t.uuid "root_recording_id", null: false
-    t.string "status", null: false
-    t.datetime "submitted_at"
-    t.bigint "total_tokens"
+    t.integer "lock_version", default: 0, null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "impersonator_type"
+    t.string "impersonator_id"
     t.index ["context_recording_id"], name: "index_recording_studio_ai_batches_on_context_recording_id"
     t.index ["expires_at"], name: "index_recording_studio_ai_batches_on_expires_at"
     t.index ["impersonator_type", "impersonator_id"], name: "idx_on_impersonator_type_impersonator_id_8de192b4a5"
@@ -315,40 +338,40 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
     t.check_constraint "completed_at IS NULL OR submitted_at IS NULL OR completed_at >= submitted_at", name: "chk_rsai_batches_timeline"
     t.check_constraint "completed_item_count <= item_count AND failed_item_count <= item_count AND cancelled_item_count <= item_count", name: "chk_rsai_batches_item_bounds"
     t.check_constraint "item_count >= 0 AND completed_item_count >= 0 AND failed_item_count >= 0 AND cancelled_item_count >= 0", name: "chk_rsai_batches_nonnegative_counts"
-    t.check_constraint "status::text = ANY (ARRAY['preparing'::character varying::text, 'submitted'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'partially_completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'expired'::character varying::text])", name: "chk_rsai_batches_status"
+    t.check_constraint "status::text = ANY (ARRAY['preparing'::character varying, 'submitted'::character varying, 'processing'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'expired'::character varying]::text[])", name: "chk_rsai_batches_status"
   end
 
   create_table "recording_studio_ai_custom_tool_invocations", force: :cascade do |t|
-    t.json "arguments"
-    t.datetime "completed_at"
-    t.string "confirmation_status"
-    t.datetime "confirmed_at"
-    t.string "confirmed_by_id"
-    t.string "confirmed_by_type"
+    t.bigint "run_id", null: false
+    t.bigint "requested_by_attempt_id"
     t.bigint "continued_by_attempt_id"
-    t.datetime "created_at", null: false
+    t.string "provider_tool_call_id"
+    t.string "tool_key", null: false
+    t.integer "tool_version", null: false
+    t.string "tool_name_snapshot"
+    t.string "status", null: false
+    t.boolean "read_only", null: false
     t.boolean "destructive", null: false
+    t.boolean "requires_confirmation", null: false
+    t.boolean "idempotent", null: false
+    t.string "latency_category"
+    t.string "confirmation_status"
+    t.string "confirmed_by_type"
+    t.string "confirmed_by_id"
+    t.datetime "confirmed_at"
+    t.text "result_summary"
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.bigint "latency_ms"
     t.string "error_category"
     t.string "error_code"
     t.string "error_message"
-    t.boolean "idempotent", null: false
-    t.string "latency_category"
-    t.bigint "latency_ms"
-    t.integer "lock_version", default: 0, null: false
     t.json "metadata"
-    t.string "provider_tool_call_id"
-    t.boolean "read_only", null: false
-    t.bigint "requested_by_attempt_id"
-    t.boolean "requires_confirmation", null: false
-    t.json "result"
-    t.text "result_summary"
-    t.bigint "run_id", null: false
-    t.datetime "started_at"
-    t.string "status", null: false
-    t.string "tool_key", null: false
-    t.string "tool_name_snapshot"
-    t.integer "tool_version", null: false
+    t.integer "lock_version", default: 0, null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.json "arguments"
+    t.json "result"
     t.index ["confirmation_status", "created_at"], name: "idx_rsai_tool_invocations_confirmation"
     t.index ["continued_by_attempt_id"], name: "idx_rsai_tool_invocations_continued_attempt"
     t.index ["provider_tool_call_id"], name: "idx_on_provider_tool_call_id_c470d20051"
@@ -358,31 +381,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
     t.index ["status", "created_at"], name: "idx_on_status_created_at_3871597917"
     t.index ["tool_key", "created_at"], name: "idx_on_tool_key_created_at_f4175f8648"
     t.check_constraint "completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at", name: "chk_rsai_tool_invocations_timeline"
-    t.check_constraint "confirmation_status IS NULL OR (confirmation_status::text = ANY (ARRAY['not_required'::character varying::text, 'pending'::character varying::text, 'confirmed'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text]))", name: "chk_rsai_tool_invocations_confirmation_status"
+    t.check_constraint "confirmation_status IS NULL OR (confirmation_status::text = ANY (ARRAY['not_required'::character varying, 'pending'::character varying, 'confirmed'::character varying, 'rejected'::character varying, 'expired'::character varying]::text[]))", name: "chk_rsai_tool_invocations_confirmation_status"
     t.check_constraint "confirmation_status::text = 'confirmed'::text AND confirmed_by_type IS NOT NULL AND confirmed_by_id IS NOT NULL AND confirmed_at IS NOT NULL OR confirmation_status::text <> 'confirmed'::text AND confirmed_by_type IS NULL AND confirmed_by_id IS NULL AND confirmed_at IS NULL OR confirmation_status IS NULL", name: "chk_rsai_tool_invocations_confirmer"
-    t.check_constraint "latency_category IS NULL OR (latency_category::text = ANY (ARRAY['instant'::character varying::text, 'fast'::character varying::text, 'slow'::character varying::text]))", name: "chk_rsai_tool_invocations_latency_category"
+    t.check_constraint "latency_category IS NULL OR (latency_category::text = ANY (ARRAY['instant'::character varying, 'fast'::character varying, 'slow'::character varying]::text[]))", name: "chk_rsai_tool_invocations_latency_category"
     t.check_constraint "latency_ms IS NULL OR latency_ms >= 0", name: "chk_rsai_tool_invocations_latency"
-    t.check_constraint "status::text = ANY (ARRAY['requested'::character varying::text, 'awaiting_confirmation'::character varying::text, 'authorized'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'denied'::character varying::text, 'rejected'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "chk_rsai_tool_invocations_status"
+    t.check_constraint "status::text = ANY (ARRAY['requested'::character varying, 'awaiting_confirmation'::character varying, 'authorized'::character varying, 'running'::character varying, 'completed'::character varying, 'denied'::character varying, 'rejected'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "chk_rsai_tool_invocations_status"
   end
 
   create_table "recording_studio_ai_responses", force: :cascade do |t|
     t.bigint "attempt_id"
     t.bigint "batch_item_id"
-    t.bigint "byte_size"
-    t.boolean "complete"
+    t.string "provider"
+    t.string "model"
+    t.string "provider_response_id"
+    t.string "response_type", null: false
+    t.text "raw_response"
+    t.text "normalized_response"
     t.text "content_text"
     t.string "content_type"
-    t.datetime "created_at", null: false
-    t.datetime "expires_at", null: false
     t.string "finish_reason"
-    t.json "metadata"
-    t.string "model"
-    t.text "normalized_response"
-    t.string "provider"
-    t.string "provider_response_id"
-    t.text "raw_response"
-    t.string "response_type", null: false
+    t.boolean "complete"
     t.boolean "truncated"
+    t.bigint "byte_size"
+    t.datetime "expires_at", null: false
+    t.json "metadata"
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["attempt_id"], name: "index_recording_studio_ai_responses_on_attempt_id", unique: true
     t.index ["batch_item_id"], name: "index_recording_studio_ai_responses_on_batch_item_id", unique: true
@@ -391,60 +414,60 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
     t.index ["provider_response_id"], name: "index_recording_studio_ai_responses_on_provider_response_id"
     t.check_constraint "attempt_id IS NOT NULL AND batch_item_id IS NULL OR attempt_id IS NULL AND batch_item_id IS NOT NULL", name: "chk_rsai_responses_attempt_xor_batch_item"
     t.check_constraint "byte_size IS NULL OR byte_size >= 0", name: "chk_rsai_responses_nonnegative_byte_size"
-    t.check_constraint "response_type::text = ANY (ARRAY['generation'::character varying::text, 'stream'::character varying::text, 'batch_item'::character varying::text, 'error'::character varying::text, 'decision'::character varying::text])", name: "chk_rsai_responses_type"
+    t.check_constraint "response_type::text = ANY (ARRAY['generation'::character varying, 'stream'::character varying, 'batch_item'::character varying, 'error'::character varying, 'decision'::character varying]::text[])", name: "chk_rsai_responses_type"
   end
 
   create_table "recording_studio_ai_runs", force: :cascade do |t|
-    t.json "attachment_content_types"
+    t.string "operation", null: false
+    t.string "purpose"
+    t.string "status", default: "pending", null: false
+    t.string "profile_key"
+    t.string "requested_provider"
+    t.string "resolved_provider"
+    t.string "resolved_model"
+    t.uuid "root_recording_id", null: false
+    t.uuid "context_recording_id"
+    t.string "initiator_type", null: false
+    t.string "initiator_id", null: false
+    t.string "initiator_kind", null: false
+    t.string "executor_type"
+    t.string "executor_id"
+    t.string "executor_kind"
+    t.string "impersonator_type"
+    t.string "impersonator_id"
+    t.string "execution_source"
+    t.string "request_id"
+    t.string "job_id"
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.bigint "latency_ms"
+    t.bigint "input_tokens"
+    t.bigint "output_tokens"
+    t.bigint "total_tokens"
+    t.bigint "cached_input_tokens"
+    t.bigint "reasoning_tokens"
+    t.integer "attempt_count", default: 0, null: false
+    t.integer "retry_count", default: 0, null: false
+    t.integer "fallback_count", default: 0, null: false
+    t.integer "custom_tool_invocation_count", default: 0, null: false
+    t.integer "input_character_count"
+    t.integer "output_character_count"
     t.integer "attachment_count", default: 0, null: false
     t.bigint "attachment_total_bytes", default: 0, null: false
-    t.integer "attempt_count", default: 0, null: false
-    t.bigint "cached_input_tokens"
+    t.json "attachment_content_types"
     t.integer "citation_count", default: 0, null: false
-    t.datetime "completed_at"
-    t.uuid "context_recording_id"
-    t.datetime "created_at", null: false
-    t.integer "custom_tool_invocation_count", default: 0, null: false
+    t.boolean "web_search_requested", default: false, null: false
+    t.boolean "web_search_used", default: false, null: false
     t.string "error_category"
     t.string "error_code"
     t.string "error_message"
-    t.string "execution_source"
-    t.string "executor_id"
-    t.string "executor_kind"
-    t.string "executor_type"
-    t.integer "fallback_count", default: 0, null: false
-    t.string "impersonator_id"
-    t.string "impersonator_type"
-    t.string "initiator_id", null: false
-    t.string "initiator_kind", null: false
-    t.string "initiator_type", null: false
-    t.integer "input_character_count"
-    t.bigint "input_tokens"
-    t.string "job_id"
-    t.bigint "latency_ms"
-    t.integer "lock_version", default: 0, null: false
     t.json "metadata"
-    t.string "operation", null: false
-    t.integer "output_character_count"
-    t.bigint "output_tokens"
-    t.string "profile_key"
-    t.string "prompt_key"
-    t.string "prompt_name_snapshot"
-    t.integer "prompt_version"
-    t.string "purpose"
-    t.bigint "reasoning_tokens"
-    t.string "request_id"
-    t.string "requested_provider"
-    t.string "resolved_model"
-    t.string "resolved_provider"
-    t.integer "retry_count", default: 0, null: false
-    t.uuid "root_recording_id", null: false
-    t.datetime "started_at"
-    t.string "status", default: "pending", null: false
-    t.bigint "total_tokens"
+    t.integer "lock_version", default: 0, null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.boolean "web_search_requested", default: false, null: false
-    t.boolean "web_search_used", default: false, null: false
+    t.string "prompt_key"
+    t.integer "prompt_version"
+    t.string "prompt_name_snapshot"
     t.index ["context_recording_id"], name: "index_recording_studio_ai_runs_on_context_recording_id"
     t.index ["executor_type", "executor_id"], name: "idx_on_executor_type_executor_id_ff99c66eda"
     t.index ["initiator_type", "initiator_id"], name: "idx_on_initiator_type_initiator_id_c688e18770"
@@ -462,24 +485,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
     t.check_constraint "attempt_count >= 0 AND retry_count >= 0 AND fallback_count >= 0 AND custom_tool_invocation_count >= 0", name: "chk_rsai_runs_nonnegative_counts"
     t.check_constraint "completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at", name: "chk_rsai_runs_timeline"
     t.check_constraint "operation::text = ANY (ARRAY['generation'::character varying, 'stream'::character varying, 'batch'::character varying, 'decision'::character varying, 'tool'::character varying]::text[])", name: "chk_rsai_runs_operation"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "chk_rsai_runs_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "chk_rsai_runs_status"
   end
 
   create_table "recording_studio_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "action", null: false
-    t.uuid "actor_id"
-    t.string "actor_type"
-    t.datetime "created_at", null: false
-    t.string "idempotency_key"
-    t.uuid "impersonator_id"
-    t.string "impersonator_type"
-    t.jsonb "metadata", default: {}, null: false
-    t.datetime "occurred_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
-    t.uuid "previous_recordable_id"
-    t.string "previous_recordable_type"
-    t.uuid "recordable_id", null: false
-    t.string "recordable_type", null: false
     t.uuid "recording_id", null: false
+    t.string "action", null: false
+    t.string "recordable_type", null: false
+    t.uuid "recordable_id", null: false
+    t.string "previous_recordable_type"
+    t.uuid "previous_recordable_id"
+    t.string "actor_type"
+    t.uuid "actor_id"
+    t.string "impersonator_type"
+    t.uuid "impersonator_id"
+    t.datetime "occurred_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "idempotency_key"
+    t.datetime "created_at", null: false
     t.index ["action", "occurred_at"], name: "index_rs_events_on_action_and_occurred_at"
     t.index ["actor_type", "actor_id", "occurred_at"], name: "index_rs_events_on_actor_and_occurred_at"
     t.index ["recording_id", "idempotency_key"], name: "index_recording_studio_events_on_recording_and_idempotency_key", unique: true, where: "(idempotency_key IS NOT NULL)"
@@ -488,13 +511,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
   end
 
   create_table "recording_studio_recordings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.uuid "parent_recording_id"
-    t.uuid "recordable_id", null: false
     t.string "recordable_type", null: false
-    t.uuid "root_recording_id"
+    t.uuid "recordable_id", null: false
     t.datetime "trashed_at"
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "parent_recording_id"
+    t.uuid "root_recording_id"
     t.index ["parent_recording_id"], name: "index_recording_studio_recordings_on_parent_recording_id"
     t.index ["recordable_type", "recordable_id", "parent_recording_id", "trashed_at"], name: "index_recording_studio_recordings_on_recordable_parent_trashed"
     t.index ["recordable_type", "recordable_id"], name: "index_recording_studio_recordings_on_recordable"
@@ -524,40 +547,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_130000) do
   end
 
   create_table "recording_studio_web_search_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.integer "duration_ms"
-    t.decimal "estimated_cost_usd", precision: 12, scale: 6, default: "0.0", null: false
-    t.string "outcome", null: false
-    t.jsonb "parameters", default: {}, null: false
     t.string "provider", null: false
     t.string "query", null: false
-    t.integer "result_count"
-    t.jsonb "results", default: [], null: false
     t.string "status", null: false
+    t.string "outcome", null: false
+    t.integer "result_count"
+    t.integer "duration_ms"
+    t.decimal "estimated_cost_usd", precision: 12, scale: 6, default: "0.0", null: false
+    t.jsonb "parameters", default: {}, null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "results", default: [], null: false
     t.index ["created_at"], name: "index_recording_studio_web_search_runs_on_created_at"
     t.index ["provider"], name: "index_recording_studio_web_search_runs_on_provider"
     t.index ["status"], name: "index_recording_studio_web_search_runs_on_status"
   end
 
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "created_at", null: false
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
-    t.datetime "remember_created_at"
-    t.datetime "reset_password_sent_at"
     t.string "reset_password_token"
+    t.datetime "reset_password_sent_at"
+    t.datetime "remember_created_at"
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
   create_table "workspaces", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "created_at", null: false
     t.string "name"
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
 
+  add_foreign_key "recording_studio_access_invitations", "recording_studio_recordings", column: "recording_id"
   add_foreign_key "recording_studio_agents_agent_runs", "recording_studio_agents_tasks", column: "task_id"
   add_foreign_key "recording_studio_agents_agent_steps", "recording_studio_agents_agent_runs", column: "agent_run_id"
   add_foreign_key "recording_studio_agents_evaluations", "recording_studio_agents_agent_runs", column: "agent_run_id"
