@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Development and dummy Gemfiles pin later Recording Studio addons. The dummy Accessible schema follows Accessible 0.11.
+
+### Changed
+- Development Gemfile tags: Accessible `v0.11.1`, Admin `v2.0.4`, AI `v0.7.1`.
+- Dummy Gemfile tags: Accessible `v0.11.1`, Admin `v2.0.4`, AI `v0.7.1`, Root Switchable `v0.5.3`, Web Search `v0.3.1`.
+- Gemspec Accessible constraint is `~> 0.11`.
+- Dummy Accessible tables: `depends_on_recording_id` on accesses, access invitations, and string roles (`view` / `edit` / `admin`). Dummy seeds and tests still grant through `bootstrap_owner_access!` and `grant_access`.
+
+### Upgrade notes
+- Hosts on Accessible 0.11 need that gem's 0.8-0.11 migrations. Roles are strings. `RecordingStudio::Access` is readonly; grant through Accessible's public services.
+- Recording Studio stays at GitHub tag `v4.2.2`. This gem version is unchanged.
+
 ## [0.5.0] - 2026-09-24
 
 An agent run can keep working across many tool actions. The next model call sees the current state, not the whole transcript.
