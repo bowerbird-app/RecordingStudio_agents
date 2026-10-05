@@ -12,11 +12,7 @@ ENV.delete("typesafe")
 
 require_relative "simplecov_helper"
 require "minitest/autorun"
-begin
-  require "minitest/mock"
-rescue LoadError
-  nil
-end
+require_relative "support/minitest_stub"
 require "rails"
 require "active_support/time"
 Time.zone ||= "UTC"

@@ -12,11 +12,7 @@ ENV.delete("brave_search")
 
 require_relative "../config/environment"
 require "rails/test_help"
-begin
-  require "minitest/mock"
-rescue LoadError
-  nil
-end
+require_relative "../../../test/support/minitest_stub"
 require_relative "support/accessible_test_helpers"
 
 class ActionDispatch::IntegrationTest

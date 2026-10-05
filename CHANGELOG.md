@@ -14,6 +14,7 @@ Development and dummy Gemfiles pin later Recording Studio addons. The dummy Acce
 - Dummy Gemfile tags: Accessible `v0.11.1`, Admin `v2.0.4`, AI `v0.7.1`, Root Switchable `v0.5.3`, Web Search `v0.3.1`.
 - Gemspec Accessible constraint is `~> 0.11`.
 - Dummy Accessible tables: `depends_on_recording_id` on accesses, access invitations, and string roles (`view` / `edit` / `admin`). Dummy seeds and tests still grant through `bootstrap_owner_access!` and `grant_access`.
+- Tests keep a small `Object#stub` helper. Minitest 6 no longer ships that method.
 
 ### Upgrade notes
 - Hosts on Accessible 0.11 need that gem's 0.8-0.11 migrations. Roles are strings. `RecordingStudio::Access` is readonly; grant through Accessible's public services.
