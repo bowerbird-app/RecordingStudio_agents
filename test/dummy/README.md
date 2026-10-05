@@ -16,6 +16,8 @@ This Rails app exists to prove Recording Studio Agents in a real host.
 - Playground at `/playground`. The form sits on the left and includes a Profile choice of Low, Medium, or High for that attempt. An agent with no profile uses the host default, Medium. The right side stays blank until a run has steps. While a run is going, the list updates in place. A durable Page librarian run shows Plan, Decision, each tool, and Answer, each as a collapse with a Working, Waiting, Done, or Failed badge. Open a step to see what that step recorded. A plan step shows the plan written then. A decision shows that choice, and names the tool when one was picked. A tool step shows that tool's note. An answer shows the full reply. A step that called a model shows that call's profile and model. A failed run adds a last step with the reason it stopped. The exchange does not include tool arguments. Without a generative key, the playground uses an offline durable stub. The home button still uses a one-reply stub. Model replies from generate calls are kept. Admin lists model calls from workspaces as well as the staff root. The dummy sets fixture Active Record encryption keys when the host has none, so a kept reply can be read.
 - Mounted Agents, AI, Accessible, and Admin (`/admin`)
 
+Dummy credentials (`test/dummy/config/credentials.yml.enc`) are encrypted with the shared RecordingStudio_* development master key. Set `RAILS_MASTER_KEY` or write that key to `test/dummy/config/master.key` (gitignored). Do not mint a per-repo dummy key.
+
 ## Quick start
 
 ```bash
