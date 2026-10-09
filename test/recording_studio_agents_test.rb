@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.5.0", ::RecordingStudioAgents::VERSION
+    assert_equal "0.6.0", ::RecordingStudioAgents::VERSION
   end
 
   def test_engine_exists
@@ -18,6 +18,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", "~> 0.3"'
     assert_includes gemspec, 'spec.add_dependency "recording_studio_admin", "~> 2.0"'
     assert_includes gemspec, 'spec.add_dependency "recording_studio_accessible", "~> 0.11"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio_metrics", "~> 0.2"'
     assert_includes gemspec, 'spec.homepage    = "https://github.com/bowerbird-app/RecordingStudio_agents"'
   end
 
@@ -56,6 +57,8 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes development_gemfile, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.8.0"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_root_switchable", tag: "v0.6.0"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_web_search", tag: "v0.4.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.2.0"'
+    assert_includes development_gemfile, 'github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.2.0"'
     assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.207"'
   end
 
@@ -171,6 +174,9 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes readme, "Each entry must cite a source recording"
     assert_includes readme, "root_section: :root"
     assert_includes readme, "/admin/sections/agents"
+    assert_includes readme, "recording_studio_metrics"
+    assert_includes readme, "v0.2.0"
+    assert_includes readme, "/recording_studio_api/apis/operations/v1/metrics/agent_runs/over_time"
     refute_includes readme, "ExampleService"
     refute_includes readme, "recordable"
     refute_includes readme, "\u2014"

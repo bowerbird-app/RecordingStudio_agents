@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-09
+
+Site-wide Agents metrics register with Recording Studio Metrics for the operations API.
+
+### Added
+- `RecordingStudioAgents::Metrics.register!` registers `:agent_runs` and
+  `:agent_evaluations` (`blast_radius: :site`) with RecordingStudioMetrics.
+  Runs: `agent_runs.over_time` (`created_at`), `agent_runs.by_status`,
+  `agent_runs.by_agent` (`agent_key`). Evaluations: `agent_evaluations.by_verdict`,
+  `agent_evaluations.avg_score` (`score`). Each metric is exposed on `:operations`
+  only. `api_authorize` uses `RecordingStudioAgents::Api::Access.can_view?`
+  (AdminRoot `:view` via the existing Accessible API and Admin
+  `access_recording_resolver`).
+- Runtime dependency `recording_studio_metrics` `~> 0.2` (GitHub tag `v0.2.0`).
+
+### Upgrade notes
+- Bump to `0.6.0`. No migration.
+- Add `recording_studio_metrics` at tag `v0.2.0`.
+- This gem does not call `RecordingStudioMetrics::Api.register!`. The host
+  registers Metrics endpoints once:
+
+```ruby
+RecordingStudioMetrics::Api.register!(api: :operations)
+```
+
 Development and dummy Gemfiles pin later Recording Studio addons. The dummy Accessible schema follows Accessible 0.11.
 
 ### Changed

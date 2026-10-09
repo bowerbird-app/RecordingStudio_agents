@@ -119,6 +119,23 @@ recording_studio_admin_sections do
 end
 ```
 
+Site-wide run and evaluation metrics register with `recording_studio_metrics` (`v0.2.0`). The host exposes them once:
+
+```ruby
+RecordingStudioMetrics::Api.register!(api: :operations)
+```
+
+| Method | Path |
+| --- | --- |
+| `GET` | `/recording_studio_api/apis/operations/v1/metrics` |
+| `GET` | `/recording_studio_api/apis/operations/v1/metrics/agent_runs/over_time` |
+| `GET` | `/recording_studio_api/apis/operations/v1/metrics/agent_runs/by_status` |
+| `GET` | `/recording_studio_api/apis/operations/v1/metrics/agent_runs/by_agent` |
+| `GET` | `/recording_studio_api/apis/operations/v1/metrics/agent_evaluations/by_verdict` |
+| `GET` | `/recording_studio_api/apis/operations/v1/metrics/agent_evaluations/avg_score` |
+
+Staff with AdminRoot `:view` can read them. A public token or a non-admin operations token is denied.
+
 ## Register a skill and a tool
 
 Tools belong to Recording Studio AI. A skill names the tools it needs, but the agent must also allow them.
