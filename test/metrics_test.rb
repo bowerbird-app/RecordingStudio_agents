@@ -37,7 +37,8 @@ class MetricsTest < Minitest::Test
 
     assert_includes access, "def can_view?"
     assert_includes access, "authorized_on_admin_root?(context, :view)"
-    assert_includes access, "access_recording_resolver"
+    assert_includes access, "site_admin_recording_resolver || config.access_recording_resolver"
+    assert_includes access, "rescue StandardError"
     assert_includes access, "RecordingStudioAccessible.authorized?"
 
     assert_includes metrics, "def install!"
