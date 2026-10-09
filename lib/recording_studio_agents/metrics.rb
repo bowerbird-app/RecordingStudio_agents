@@ -13,6 +13,12 @@ module RecordingStudioAgents
 
     module_function
 
+    def install!
+      RecordingStudioAgents::Engine.initializer "recording_studio_agents.metrics" do
+        config.to_prepare { RecordingStudioAgents::Metrics.register! }
+      end
+    end
+
     def register!
       register_runs!
       register_evaluations!

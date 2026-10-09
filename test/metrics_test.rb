@@ -40,9 +40,16 @@ class MetricsTest < Minitest::Test
     assert_includes access, "access_recording_resolver"
     assert_includes access, "RecordingStudioAccessible.authorized?"
 
-    assert_includes engine, 'initializer "recording_studio_agents.metrics"'
-    assert_includes engine, "RecordingStudioAgents::Metrics.register!"
+    assert_includes metrics, "def install!"
+    assert_includes metrics, 'initializer "recording_studio_agents.metrics"'
+    assert_includes metrics, "RecordingStudioAgents::Metrics.register!"
     refute_includes engine, "RecordingStudioMetrics::Api.register!"
+    refute_includes engine, "RecordingStudioAgents::Metrics"
+    assert_includes File.read(File.expand_path("../lib/recording_studio_agents.rb", __dir__)),
+                    "RecordingStudioAgents::Metrics.install!"
+    assert RecordingStudioAgents::Engine.initializers.any? { |entry|
+      entry.name == "recording_studio_agents.metrics"
+    }
 
     assert_includes gemspec, 'spec.add_dependency "recording_studio_metrics", "~> 0.2"'
     assert_includes dummy_metrics, "RecordingStudioMetrics::Api.register!(api: :operations)"
