@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_09_083022) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_02_000012) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -488,132 +488,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_083022) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "chk_rsai_runs_status"
   end
 
-  create_table "recording_studio_api_admin_apis", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "key", null: false
-    t.string "name", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["key"], name: "index_recording_studio_api_admin_apis_on_key", unique: true
-  end
-
-  create_table "recording_studio_api_api_access_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "api_credential_id", null: false
-    t.string "token_digest", null: false
-    t.string "token_prefix", null: false
-    t.datetime "expires_at", null: false
-    t.datetime "last_used_at"
-    t.datetime "revoked_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["api_credential_id"], name: "idx_on_api_credential_id_89874cbf51"
-    t.index ["expires_at"], name: "index_recording_studio_api_api_access_tokens_on_expires_at"
-    t.index ["token_digest"], name: "index_recording_studio_api_api_access_tokens_on_token_digest", unique: true
-  end
-
-  create_table "recording_studio_api_api_clients", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "access_recording_id"
-    t.string "name", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "api_key", default: "public", null: false
-    t.index ["access_recording_id"], name: "index_recording_studio_api_api_clients_on_access_recording_id", unique: true
-    t.index ["api_key"], name: "index_recording_studio_api_api_clients_on_api_key"
-  end
-
-  create_table "recording_studio_api_api_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "api_client_id", null: false
-    t.uuid "access_recording_id", null: false
-    t.string "token_public_id", null: false
-    t.string "token_digest", null: false
-    t.string "token_prefix", null: false
-    t.datetime "expires_at"
-    t.datetime "last_used_at"
-    t.datetime "revoked_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["access_recording_id"], name: "idx_on_access_recording_id_103368144f"
-    t.index ["api_client_id"], name: "index_recording_studio_api_api_credentials_on_api_client_id"
-    t.index ["api_client_id"], name: "index_recording_studio_api_credentials_on_active_client", unique: true, where: "(revoked_at IS NULL)"
-    t.index ["token_digest"], name: "index_recording_studio_api_api_credentials_on_token_digest", unique: true
-    t.index ["token_public_id"], name: "index_recording_studio_api_api_credentials_on_token_public_id", unique: true
-  end
-
-  create_table "recording_studio_api_api_daily_latency_histogram_buckets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.date "metric_date", null: false
-    t.string "route_name", null: false
-    t.string "request_method", null: false
-    t.integer "status_class", null: false
-    t.integer "upper_bound_ms", null: false
-    t.bigint "request_count", default: 0, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "api_key", default: "public", null: false
-    t.index ["api_key", "metric_date", "route_name", "request_method", "status_class", "upper_bound_ms"], name: "index_rs_api_daily_latency_histogram_on_dimensions", unique: true
-    t.index ["metric_date"], name: "idx_on_metric_date_8723beba88"
-  end
-
-  create_table "recording_studio_api_api_daily_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.date "metric_date", null: false
-    t.string "route_name", null: false
-    t.string "controller_name"
-    t.string "action_name"
-    t.string "request_method", null: false
-    t.integer "status_class", null: false
-    t.bigint "request_count", default: 0, null: false
-    t.bigint "rate_limited_count", default: 0, null: false
-    t.bigint "client_error_count", default: 0, null: false
-    t.bigint "server_error_count", default: 0, null: false
-    t.bigint "duration_count", default: 0, null: false
-    t.bigint "duration_sum_ms", default: 0, null: false
-    t.integer "duration_max_ms", default: 0, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "api_key", default: "public", null: false
-    t.index ["api_key", "metric_date", "route_name", "request_method", "status_class"], name: "index_rs_api_daily_metrics_on_dimensions", unique: true
-    t.index ["metric_date"], name: "index_recording_studio_api_api_daily_metrics_on_metric_date"
-  end
-
-  create_table "recording_studio_api_api_request_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "occurred_at", null: false
-    t.string "request_id"
-    t.string "request_method", null: false
-    t.string "request_path", null: false
-    t.string "route_name"
-    t.string "controller_name"
-    t.string "action_name"
-    t.integer "status_code", null: false
-    t.integer "duration_ms", null: false
-    t.boolean "rate_limited", default: false, null: false
-    t.uuid "api_client_id"
-    t.uuid "api_credential_id"
-    t.uuid "access_recording_id"
-    t.uuid "root_recording_id"
-    t.string "remote_ip"
-    t.string "user_agent"
-    t.string "error_class"
-    t.string "error_message"
-    t.jsonb "request_params", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "api_key", default: "public", null: false
-    t.index ["api_client_id", "occurred_at"], name: "index_rs_api_request_logs_on_client_and_time"
-    t.index ["api_credential_id", "occurred_at"], name: "index_rs_api_request_logs_on_credential_and_time"
-    t.index ["api_key", "occurred_at"], name: "index_rs_api_request_logs_on_api_and_time"
-    t.index ["occurred_at"], name: "index_recording_studio_api_api_request_logs_on_occurred_at"
-    t.index ["request_id"], name: "index_recording_studio_api_api_request_logs_on_request_id"
-    t.index ["request_path"], name: "index_recording_studio_api_api_request_logs_on_request_path"
-    t.index ["status_code"], name: "index_recording_studio_api_api_request_logs_on_status_code"
-  end
-
-  create_table "recording_studio_api_api_settings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "key", null: false
-    t.boolean "api_access_enabled", default: true, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.jsonb "runtime_overrides", default: {}, null: false
-    t.index ["key"], name: "index_recording_studio_api_api_settings_on_key", unique: true
-  end
-
   create_table "recording_studio_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "recording_id", null: false
     t.string "action", null: false
@@ -724,8 +598,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_083022) do
   add_foreign_key "recording_studio_ai_responses", "recording_studio_ai_batch_items", column: "batch_item_id"
   add_foreign_key "recording_studio_ai_runs", "recording_studio_recordings", column: "context_recording_id"
   add_foreign_key "recording_studio_ai_runs", "recording_studio_recordings", column: "root_recording_id"
-  add_foreign_key "recording_studio_api_api_access_tokens", "recording_studio_api_api_credentials", column: "api_credential_id"
-  add_foreign_key "recording_studio_api_api_credentials", "recording_studio_api_api_clients", column: "api_client_id"
   add_foreign_key "recording_studio_events", "recording_studio_recordings", column: "recording_id"
   add_foreign_key "recording_studio_recordings", "recording_studio_recordings", column: "parent_recording_id"
   add_foreign_key "recording_studio_recordings", "recording_studio_recordings", column: "root_recording_id"

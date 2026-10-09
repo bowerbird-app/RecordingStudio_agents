@@ -1,17 +1,7 @@
 # frozen_string_literal: true
 
 RecordingStudio.configure do |config|
-  config.recordable_types = [
-    "Workspace",
-    "Folder",
-    "Page",
-    "AdminRoot",
-    "RecordingStudio::Access",
-    "RecordingStudioApi::ApiClient",
-    "RecordingStudioApi::ApiCredential",
-    "RecordingStudioApi::ApiAccessToken",
-    "RecordingStudioApi::AdminApi"
-  ]
+  config.recordable_types = ["Workspace", "Folder", "Page", "AdminRoot"]
   config.require_recordable_declarations = true
   config.app_name = "Agents" if config.respond_to?(:app_name=)
   config.actor = -> { Current.actor }
