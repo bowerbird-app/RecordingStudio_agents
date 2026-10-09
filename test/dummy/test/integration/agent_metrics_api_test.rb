@@ -68,15 +68,15 @@ class AgentMetricsApiTest < ActionDispatch::IntegrationTest
     end
 
     get "#{OPERATIONS_ROOT}/metrics/agent_runs/over_time",
-        params: { interval: "day" },
+        params: { interval: "month" },
         headers: auth(@staff_operations_token),
         as: :json
     assert_response :success
     opened = timeseries_counts(response.parsed_body)
-    assert_equal runs_created_between(Time.utc(2026, 2, 10), Time.utc(2026, 2, 11)), opened["2026-02-10"]
-    assert_equal runs_created_between(Time.utc(2026, 2, 11), Time.utc(2026, 2, 12)), opened["2026-02-11"]
-    assert_operator opened["2026-02-10"], :>=, 1
-    assert_operator opened["2026-02-11"], :>=, 2
+    assert_equal runs_created_between(Time.utc(2026, 2, 1), Time.utc(2026, 3, 1)), opened["2026-02-01"]
+    assert_equal runs_created_between(Time.utc(2026, 3, 1), Time.utc(2026, 4, 1)), opened["2026-03-01"]
+    assert_operator opened["2026-02-01"], :>=, 1
+    assert_operator opened["2026-03-01"], :>=, 2
 
     get "#{OPERATIONS_ROOT}/metrics/agent_evaluations/by_verdict",
         headers: auth(@staff_operations_token),
@@ -150,14 +150,14 @@ class AgentMetricsApiTest < ActionDispatch::IntegrationTest
     travel_to Time.utc(2026, 2, 10, 12) do
       create_run!(agent_key: "page_librarian", status: "succeeded", suffix: "feb10-ok")
     end
-    travel_to Time.utc(2026, 2, 11, 12) do
-      failed = create_run!(agent_key: "page_librarian", status: "failed", suffix: "feb11-fail")
-      running = create_run!(agent_key: "page_reviewer", status: "running", suffix: "feb11-run")
+    travel_to Time.utc(2026, 3, 11, 12) do
+      failed = create_run!(agent_key: "page_librarian", status: "failed", suffix: "mar11-fail")
+      running = create_run!(agent_key: "page_reviewer", status: "running", suffix: "mar11-run")
       create_evaluation!(run: failed, verdict: "failed", score: 0.2, suffix: "fail")
       create_evaluation!(run: running, verdict: "inconclusive", score: 0.5, suffix: "wait")
     end
-    travel_to Time.utc(2026, 2, 12, 12) do
-      succeeded = create_run!(agent_key: "page_reviewer", status: "succeeded", suffix: "feb12-ok")
+    travel_to Time.utc(2026, 3, 12, 12) do
+      succeeded = create_run!(agent_key: "page_reviewer", status: "succeeded", suffix: "mar12-ok")
       create_evaluation!(run: succeeded, verdict: "passed", score: 0.9, suffix: "pass")
     end
   end
@@ -200,7 +200,7 @@ class AgentMetricsApiTest < ActionDispatch::IntegrationTest
   end
 
   def timeseries_counts(payload)
-    payload.fetch("data").to_h { |row| [row.fetch("date").to_s, row.fetch("value")] }
+    payload.fetch("data").to_h { |row| [row.fetch("date").to_s, row.fetch("value").to_i] }
   end
 
   def runs_created_between(start_at, end_at)

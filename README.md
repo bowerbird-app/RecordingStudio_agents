@@ -119,7 +119,7 @@ recording_studio_admin_sections do
 end
 ```
 
-Site-wide run and evaluation metrics register with Recording Studio Metrics (`v0.2.0`). The host exposes them once:
+Site-wide run and evaluation metrics register with `recording_studio_metrics` (`v0.2.0`). The host exposes them once:
 
 ```ruby
 RecordingStudioMetrics::Api.register!(api: :operations)
