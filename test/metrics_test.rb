@@ -47,9 +47,9 @@ class MetricsTest < Minitest::Test
     refute_includes engine, "RecordingStudioAgents::Metrics"
     assert_includes File.read(File.expand_path("../lib/recording_studio_agents.rb", __dir__)),
                     "RecordingStudioAgents::Metrics.install!"
-    assert RecordingStudioAgents::Engine.initializers.any? { |entry|
+    assert(RecordingStudioAgents::Engine.initializers.any? { |entry|
       entry.name == "recording_studio_agents.metrics"
-    }
+    })
 
     assert_includes gemspec, 'spec.add_dependency "recording_studio_metrics", "~> 0.2"'
     assert_includes dummy_metrics, "RecordingStudioMetrics::Api.register!(api: :operations)"
