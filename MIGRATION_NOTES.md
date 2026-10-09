@@ -53,7 +53,7 @@ Success criteria now stay for the run. A later plan adds an open criterion and k
 - Recording Studio AI `~> 0.3` (dummy and development tag `v0.8.0`)
 - Recording Studio Admin `~> 2.0` (dummy tag `v2.0.6`)
 - Accessible `~> 0.11` (dummy tag `v0.13.0`)
-- Root Switchable dummy tag `v0.5.3`
+- Root Switchable dummy tag `v0.6.0`
 - Web Search dummy tag `v0.3.1`
 - FlatPack dummy tag `v0.1.207`
 
