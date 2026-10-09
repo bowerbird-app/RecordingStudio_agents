@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-09
+
+Site-wide metrics authorization uses the site admin root and denies the view when that lookup fails.
+
+### Fixed
+- `RecordingStudioAgents::Api::Access` resolves the admin root with
+  `site_admin_recording_resolver`, then `access_recording_resolver`.
+  If that resolver raises, `can_view?` returns false. The Accessible
+  `:view` check is unchanged.
+
+### Upgrade notes
+- Bump to `0.6.1`. No migration.
+- Hosts that set `site_admin_recording_resolver` now use it for Agents
+  metrics. A resolver error is treated as no access.
+
 ## [0.6.0] - 2026-10-09
 
 Site-wide Agents metrics register with Recording Studio Metrics for the operations API.
