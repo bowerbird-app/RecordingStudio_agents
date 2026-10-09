@@ -8,6 +8,7 @@ Rails.application.routes.draw do
   mount RecordingStudioAI::Engine, at: "/recording_studio_ai"
   mount RecordingStudio::WebSearch::Engine, at: "/addons/recording"
   mount RecordingStudioAccessible::Engine, at: "/admin/access"
+  mount RecordingStudioApi::Engine, at: "/recording_studio_api"
   recording_studio_admin_for :admin, at: "/admin", root_section: :root
 
   get "up" => "rails/health#show", as: :rails_health_check

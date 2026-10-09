@@ -119,6 +119,10 @@ module RecordingStudioAgents
       end
     end
 
+    initializer "recording_studio_agents.metrics" do
+      config.to_prepare { RecordingStudioAgents::Metrics.register! }
+    end
+
     initializer "recording_studio_agents.finalize" do
       config.after_initialize do
         RecordingStudioAgents.finalize!

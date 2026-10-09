@@ -39,6 +39,15 @@ GIT
       recording_studio_accessible (~> 0.6)
 
 GIT
+  remote: https://github.com/bowerbird-app/RecordingStudio_metrics.git
+  revision: 6e02b6b75a8a9dad2bd80c6ba2d30f7444e67b9e
+  tag: v0.2.0
+  specs:
+    recording_studio_metrics (0.2.0)
+      rails (~> 8.1.0)
+      recording_studio (~> 4.2)
+
+GIT
   remote: https://github.com/bowerbird-app/flatpack.git
   revision: 7490c10b4ec59c7df81aa4f6a46d8f9ef83de8bc
   tag: v0.1.207
@@ -52,12 +61,13 @@ GIT
 PATH
   remote: .
   specs:
-    recording_studio_agents (0.5.0)
+    recording_studio_agents (0.6.0)
       rails (~> 8.1.0)
       recording_studio (~> 4.2)
       recording_studio_accessible (~> 0.11)
       recording_studio_admin (~> 2.0)
       recording_studio_ai (~> 0.3)
+      recording_studio_metrics (~> 0.2)
 
 GEM
   remote: https://rubygems.org/
@@ -380,6 +390,7 @@ DEPENDENCIES
   recording_studio_admin!
   recording_studio_agents!
   recording_studio_ai!
+  recording_studio_metrics!
   rubocop
   rubocop-rails
   simplecov
@@ -469,8 +480,9 @@ CHECKSUMS
   recording_studio (4.4.0)
   recording_studio_accessible (0.13.0)
   recording_studio_admin (2.1.0)
-  recording_studio_agents (0.5.0)
+  recording_studio_agents (0.6.0)
   recording_studio_ai (0.8.0)
+  recording_studio_metrics (0.2.0)
   regexp_parser (2.13.1) sha256=5aedb6b7c35688f51e86eef17a15374dfd287c83f4ca644b2c5f3ec50a33b44b
   reline (0.7.0) sha256=5b012d8e55dbf9d450f12bde2cf7d15ff546ae80b3f8f3b30e570d431815583d
   responders (3.2.0) sha256=89c2d6ac0ae16f6458a11524cae4a8efdceba1a3baea164d28ee9046bd3df55a

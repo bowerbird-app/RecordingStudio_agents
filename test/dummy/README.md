@@ -14,7 +14,7 @@ This Rails app exists to prove Recording Studio Agents in a real host.
 - Recording Studio Web Search at `v0.4.0`, mounted at `/addons/recording`. Brave reads `brave_search`. Tests leave that variable unread. Staff can open Web search from `/admin/sections/web_search`.
 - Web researcher on the playground. It uses the Web research skill and the `web_search` tool, so a run can look past the workspace pages. The skill answers from the snippets. When a count only comes back as a link, the answer is that list plus the missing number. Without a generative key, that run uses the offline durable stub and does not call Brave.
 - Playground at `/playground`. The form sits on the left and includes a Profile choice of Low, Medium, or High for that attempt. An agent with no profile uses the host default, Medium. The right side stays blank until a run has steps. While a run is going, the list updates in place. A durable Page librarian run shows Plan, Decision, each tool, and Answer, each as a collapse with a Working, Waiting, Done, or Failed badge. Open a step to see what that step recorded. A plan step shows the plan written then. A decision shows that choice, and names the tool when one was picked. A tool step shows that tool's note. An answer shows the full reply. A step that called a model shows that call's profile and model. A failed run adds a last step with the reason it stopped. The exchange does not include tool arguments. Without a generative key, the playground uses an offline durable stub. The home button still uses a one-reply stub. Model replies from generate calls are kept. Admin lists model calls from workspaces as well as the staff root. The dummy sets fixture Active Record encryption keys when the host has none, so a kept reply can be read.
-- Mounted Agents, AI, Accessible, and Admin (`/admin`)
+- Mounted Agents, AI, Accessible, Admin (`/admin`), and Recording Studio API (`/recording_studio_api`). The host registers Metrics on `:operations`.
 
 Dummy credentials (`test/dummy/config/credentials.yml.enc`) are encrypted with the shared RecordingStudio_* development master key. Set `RAILS_MASTER_KEY` or write that key to `test/dummy/config/master.key` (gitignored). Do not mint a per-repo dummy key.
 
@@ -40,6 +40,7 @@ Run those commands from the dummy app directory.
 - `/addons/recording` - mounted Recording Studio Web Search engine
 - `/recording_studio` - redirects to `/`
 - `/up` - health check
+- `/recording_studio_api/apis/operations/v1/metrics` - staff operations metrics, including agent runs and evaluations
 
 The home page uses a sidebar layout. Devise sign-in keeps `layouts/application`. Admin, the workspace switch page, and access screens use Recording Studio's shared default layout. Admin screen tables lazy-load through Turbo frames. The dummy importmap pins Turbo and Recording Studio Admin controllers so those frames fill.
 

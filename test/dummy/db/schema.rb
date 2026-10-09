@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_02_000012) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_09_083022) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -247,9 +247,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_000012) do
     t.index ["status", "created_at"], name: "index_recording_studio_ai_attempts_on_status_and_created_at"
     t.check_constraint "(latency_ms IS NULL OR latency_ms >= 0) AND (input_tokens IS NULL OR input_tokens >= 0) AND (output_tokens IS NULL OR output_tokens >= 0) AND (total_tokens IS NULL OR total_tokens >= 0) AND (cached_input_tokens IS NULL OR cached_input_tokens >= 0) AND (reasoning_tokens IS NULL OR reasoning_tokens >= 0) AND (latency_ms IS NULL OR latency_ms >= 0)", name: "chk_rsai_attempts_nonnegative_metrics"
     t.check_constraint "completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at", name: "chk_rsai_attempts_timeline"
-    t.check_constraint "kind::text = ANY (ARRAY['primary'::character varying, 'retry'::character varying, 'fallback'::character varying, 'continuation'::character varying]::text[])", name: "chk_rsai_attempts_kind"
+    t.check_constraint "kind::text = ANY (ARRAY['primary'::character varying::text, 'retry'::character varying::text, 'fallback'::character varying::text, 'continuation'::character varying::text])", name: "chk_rsai_attempts_kind"
     t.check_constraint "sequence > 0 AND citation_count >= 0 AND attachment_count >= 0 AND attachment_total_bytes >= 0 AND (provider_file_count IS NULL OR provider_file_count >= 0)", name: "chk_rsai_attempts_nonnegative_counts"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "chk_rsai_attempts_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "chk_rsai_attempts_status"
   end
 
   create_table "recording_studio_ai_batch_items", force: :cascade do |t|
@@ -282,7 +282,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_000012) do
     t.check_constraint "(input_tokens IS NULL OR input_tokens >= 0) AND (output_tokens IS NULL OR output_tokens >= 0) AND (total_tokens IS NULL OR total_tokens >= 0) AND (cached_input_tokens IS NULL OR cached_input_tokens >= 0) AND (reasoning_tokens IS NULL OR reasoning_tokens >= 0)", name: "chk_rsai_batch_items_nonnegative_metrics"
     t.check_constraint "\"position\" >= 0", name: "chk_rsai_batch_items_position"
     t.check_constraint "completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at", name: "chk_rsai_batch_items_timeline"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'expired'::character varying]::text[])", name: "chk_rsai_batch_items_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'expired'::character varying::text])", name: "chk_rsai_batch_items_status"
   end
 
   create_table "recording_studio_ai_batches", force: :cascade do |t|
@@ -338,7 +338,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_000012) do
     t.check_constraint "completed_at IS NULL OR submitted_at IS NULL OR completed_at >= submitted_at", name: "chk_rsai_batches_timeline"
     t.check_constraint "completed_item_count <= item_count AND failed_item_count <= item_count AND cancelled_item_count <= item_count", name: "chk_rsai_batches_item_bounds"
     t.check_constraint "item_count >= 0 AND completed_item_count >= 0 AND failed_item_count >= 0 AND cancelled_item_count >= 0", name: "chk_rsai_batches_nonnegative_counts"
-    t.check_constraint "status::text = ANY (ARRAY['preparing'::character varying, 'submitted'::character varying, 'processing'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'expired'::character varying]::text[])", name: "chk_rsai_batches_status"
+    t.check_constraint "status::text = ANY (ARRAY['preparing'::character varying::text, 'submitted'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'partially_completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'expired'::character varying::text])", name: "chk_rsai_batches_status"
   end
 
   create_table "recording_studio_ai_custom_tool_invocations", force: :cascade do |t|
@@ -381,11 +381,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_000012) do
     t.index ["status", "created_at"], name: "idx_on_status_created_at_3871597917"
     t.index ["tool_key", "created_at"], name: "idx_on_tool_key_created_at_f4175f8648"
     t.check_constraint "completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at", name: "chk_rsai_tool_invocations_timeline"
-    t.check_constraint "confirmation_status IS NULL OR (confirmation_status::text = ANY (ARRAY['not_required'::character varying, 'pending'::character varying, 'confirmed'::character varying, 'rejected'::character varying, 'expired'::character varying]::text[]))", name: "chk_rsai_tool_invocations_confirmation_status"
+    t.check_constraint "confirmation_status IS NULL OR (confirmation_status::text = ANY (ARRAY['not_required'::character varying::text, 'pending'::character varying::text, 'confirmed'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text]))", name: "chk_rsai_tool_invocations_confirmation_status"
     t.check_constraint "confirmation_status::text = 'confirmed'::text AND confirmed_by_type IS NOT NULL AND confirmed_by_id IS NOT NULL AND confirmed_at IS NOT NULL OR confirmation_status::text <> 'confirmed'::text AND confirmed_by_type IS NULL AND confirmed_by_id IS NULL AND confirmed_at IS NULL OR confirmation_status IS NULL", name: "chk_rsai_tool_invocations_confirmer"
-    t.check_constraint "latency_category IS NULL OR (latency_category::text = ANY (ARRAY['instant'::character varying, 'fast'::character varying, 'slow'::character varying]::text[]))", name: "chk_rsai_tool_invocations_latency_category"
+    t.check_constraint "latency_category IS NULL OR (latency_category::text = ANY (ARRAY['instant'::character varying::text, 'fast'::character varying::text, 'slow'::character varying::text]))", name: "chk_rsai_tool_invocations_latency_category"
     t.check_constraint "latency_ms IS NULL OR latency_ms >= 0", name: "chk_rsai_tool_invocations_latency"
-    t.check_constraint "status::text = ANY (ARRAY['requested'::character varying, 'awaiting_confirmation'::character varying, 'authorized'::character varying, 'running'::character varying, 'completed'::character varying, 'denied'::character varying, 'rejected'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "chk_rsai_tool_invocations_status"
+    t.check_constraint "status::text = ANY (ARRAY['requested'::character varying::text, 'awaiting_confirmation'::character varying::text, 'authorized'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'denied'::character varying::text, 'rejected'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "chk_rsai_tool_invocations_status"
   end
 
   create_table "recording_studio_ai_responses", force: :cascade do |t|
@@ -414,7 +414,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_000012) do
     t.index ["provider_response_id"], name: "index_recording_studio_ai_responses_on_provider_response_id"
     t.check_constraint "attempt_id IS NOT NULL AND batch_item_id IS NULL OR attempt_id IS NULL AND batch_item_id IS NOT NULL", name: "chk_rsai_responses_attempt_xor_batch_item"
     t.check_constraint "byte_size IS NULL OR byte_size >= 0", name: "chk_rsai_responses_nonnegative_byte_size"
-    t.check_constraint "response_type::text = ANY (ARRAY['generation'::character varying, 'stream'::character varying, 'batch_item'::character varying, 'error'::character varying, 'decision'::character varying]::text[])", name: "chk_rsai_responses_type"
+    t.check_constraint "response_type::text = ANY (ARRAY['generation'::character varying::text, 'stream'::character varying::text, 'batch_item'::character varying::text, 'error'::character varying::text, 'decision'::character varying::text])", name: "chk_rsai_responses_type"
   end
 
   create_table "recording_studio_ai_runs", force: :cascade do |t|
@@ -484,8 +484,134 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_000012) do
     t.check_constraint "attachment_count >= 0 AND attachment_total_bytes >= 0 AND citation_count >= 0", name: "chk_rsai_runs_nonnegative_attachment_counts"
     t.check_constraint "attempt_count >= 0 AND retry_count >= 0 AND fallback_count >= 0 AND custom_tool_invocation_count >= 0", name: "chk_rsai_runs_nonnegative_counts"
     t.check_constraint "completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at", name: "chk_rsai_runs_timeline"
-    t.check_constraint "operation::text = ANY (ARRAY['generation'::character varying, 'stream'::character varying, 'batch'::character varying, 'decision'::character varying, 'tool'::character varying]::text[])", name: "chk_rsai_runs_operation"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "chk_rsai_runs_status"
+    t.check_constraint "operation::text = ANY (ARRAY['generation'::character varying::text, 'stream'::character varying::text, 'batch'::character varying::text, 'decision'::character varying::text, 'tool'::character varying::text])", name: "chk_rsai_runs_operation"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "chk_rsai_runs_status"
+  end
+
+  create_table "recording_studio_api_admin_apis", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "key", null: false
+    t.string "name", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_recording_studio_api_admin_apis_on_key", unique: true
+  end
+
+  create_table "recording_studio_api_api_access_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "api_credential_id", null: false
+    t.string "token_digest", null: false
+    t.string "token_prefix", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "last_used_at"
+    t.datetime "revoked_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["api_credential_id"], name: "idx_on_api_credential_id_89874cbf51"
+    t.index ["expires_at"], name: "index_recording_studio_api_api_access_tokens_on_expires_at"
+    t.index ["token_digest"], name: "index_recording_studio_api_api_access_tokens_on_token_digest", unique: true
+  end
+
+  create_table "recording_studio_api_api_clients", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "access_recording_id"
+    t.string "name", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "api_key", default: "public", null: false
+    t.index ["access_recording_id"], name: "index_recording_studio_api_api_clients_on_access_recording_id", unique: true
+    t.index ["api_key"], name: "index_recording_studio_api_api_clients_on_api_key"
+  end
+
+  create_table "recording_studio_api_api_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "api_client_id", null: false
+    t.uuid "access_recording_id", null: false
+    t.string "token_public_id", null: false
+    t.string "token_digest", null: false
+    t.string "token_prefix", null: false
+    t.datetime "expires_at"
+    t.datetime "last_used_at"
+    t.datetime "revoked_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["access_recording_id"], name: "idx_on_access_recording_id_103368144f"
+    t.index ["api_client_id"], name: "index_recording_studio_api_api_credentials_on_api_client_id"
+    t.index ["api_client_id"], name: "index_recording_studio_api_credentials_on_active_client", unique: true, where: "(revoked_at IS NULL)"
+    t.index ["token_digest"], name: "index_recording_studio_api_api_credentials_on_token_digest", unique: true
+    t.index ["token_public_id"], name: "index_recording_studio_api_api_credentials_on_token_public_id", unique: true
+  end
+
+  create_table "recording_studio_api_api_daily_latency_histogram_buckets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.date "metric_date", null: false
+    t.string "route_name", null: false
+    t.string "request_method", null: false
+    t.integer "status_class", null: false
+    t.integer "upper_bound_ms", null: false
+    t.bigint "request_count", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "api_key", default: "public", null: false
+    t.index ["api_key", "metric_date", "route_name", "request_method", "status_class", "upper_bound_ms"], name: "index_rs_api_daily_latency_histogram_on_dimensions", unique: true
+    t.index ["metric_date"], name: "idx_on_metric_date_8723beba88"
+  end
+
+  create_table "recording_studio_api_api_daily_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.date "metric_date", null: false
+    t.string "route_name", null: false
+    t.string "controller_name"
+    t.string "action_name"
+    t.string "request_method", null: false
+    t.integer "status_class", null: false
+    t.bigint "request_count", default: 0, null: false
+    t.bigint "rate_limited_count", default: 0, null: false
+    t.bigint "client_error_count", default: 0, null: false
+    t.bigint "server_error_count", default: 0, null: false
+    t.bigint "duration_count", default: 0, null: false
+    t.bigint "duration_sum_ms", default: 0, null: false
+    t.integer "duration_max_ms", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "api_key", default: "public", null: false
+    t.index ["api_key", "metric_date", "route_name", "request_method", "status_class"], name: "index_rs_api_daily_metrics_on_dimensions", unique: true
+    t.index ["metric_date"], name: "index_recording_studio_api_api_daily_metrics_on_metric_date"
+  end
+
+  create_table "recording_studio_api_api_request_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "occurred_at", null: false
+    t.string "request_id"
+    t.string "request_method", null: false
+    t.string "request_path", null: false
+    t.string "route_name"
+    t.string "controller_name"
+    t.string "action_name"
+    t.integer "status_code", null: false
+    t.integer "duration_ms", null: false
+    t.boolean "rate_limited", default: false, null: false
+    t.uuid "api_client_id"
+    t.uuid "api_credential_id"
+    t.uuid "access_recording_id"
+    t.uuid "root_recording_id"
+    t.string "remote_ip"
+    t.string "user_agent"
+    t.string "error_class"
+    t.string "error_message"
+    t.jsonb "request_params", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "api_key", default: "public", null: false
+    t.index ["api_client_id", "occurred_at"], name: "index_rs_api_request_logs_on_client_and_time"
+    t.index ["api_credential_id", "occurred_at"], name: "index_rs_api_request_logs_on_credential_and_time"
+    t.index ["api_key", "occurred_at"], name: "index_rs_api_request_logs_on_api_and_time"
+    t.index ["occurred_at"], name: "index_recording_studio_api_api_request_logs_on_occurred_at"
+    t.index ["request_id"], name: "index_recording_studio_api_api_request_logs_on_request_id"
+    t.index ["request_path"], name: "index_recording_studio_api_api_request_logs_on_request_path"
+    t.index ["status_code"], name: "index_recording_studio_api_api_request_logs_on_status_code"
+  end
+
+  create_table "recording_studio_api_api_settings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "key", null: false
+    t.boolean "api_access_enabled", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "runtime_overrides", default: {}, null: false
+    t.index ["key"], name: "index_recording_studio_api_api_settings_on_key", unique: true
   end
 
   create_table "recording_studio_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -598,6 +724,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_000012) do
   add_foreign_key "recording_studio_ai_responses", "recording_studio_ai_batch_items", column: "batch_item_id"
   add_foreign_key "recording_studio_ai_runs", "recording_studio_recordings", column: "context_recording_id"
   add_foreign_key "recording_studio_ai_runs", "recording_studio_recordings", column: "root_recording_id"
+  add_foreign_key "recording_studio_api_api_access_tokens", "recording_studio_api_api_credentials", column: "api_credential_id"
+  add_foreign_key "recording_studio_api_api_credentials", "recording_studio_api_api_clients", column: "api_client_id"
   add_foreign_key "recording_studio_events", "recording_studio_recordings", column: "recording_id"
   add_foreign_key "recording_studio_recordings", "recording_studio_recordings", column: "parent_recording_id"
   add_foreign_key "recording_studio_recordings", "recording_studio_recordings", column: "root_recording_id"
