@@ -4,6 +4,7 @@ module RecordingStudioAgents
   module Sessions
     class Create < RecordingStudio::Services::BaseService
       include RootGuard
+      include Access
       include ChatDraft
 
       def initialize(parent_recording:, root_recording:, actor:, input:, **options)
@@ -39,6 +40,7 @@ module RecordingStudioAgents
         return if record.nil?
 
         ensure_in_root!(record.recording, @root_recording)
+        ensure_access!(record.recording)
         record.recording
       end
 
@@ -48,6 +50,7 @@ module RecordingStudioAgents
         ensure_key!(@idempotency_key)
         ensure_input!
         ensure_parent!
+        ensure_access!(@parent_recording)
       end
 
       def ensure_input!

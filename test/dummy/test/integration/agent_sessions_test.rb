@@ -9,6 +9,8 @@ class AgentSessionsTest < ActiveSupport::TestCase
     @user = User.create!(email: "agent-#{SecureRandom.hex(4)}@example.com", password: "Password")
     @root = RecordingStudio.root_recording_for(Workspace.create!(name: "Agent #{SecureRandom.hex(4)}"))
     @other_root = RecordingStudio.root_recording_for(Workspace.create!(name: "Other #{SecureRandom.hex(4)}"))
+    grant_edit(@user, @root)
+    grant_edit(@user, @other_root)
     @calls = Hash.new { |calls, name| calls[name] = [] }
     @provider_error = nil
     stub_agents
@@ -49,6 +51,25 @@ class AgentSessionsTest < ActiveSupport::TestCase
 
     assert_match(/outside this root/, error.message)
     assert_equal 1, @calls[:create_session].size
+  end
+
+  test "an actor without access is refused and the chat inherits the parent grant" do
+    stranger = User.create!(email: "stranger-#{SecureRandom.hex(4)}@example.com", password: "Password")
+
+    assert_raises(RecordingStudioAgents::Error) { create_chat("hello", actor: stranger) }
+    assert_empty @calls[:create_session]
+
+    recording = create_chat("hello")
+    assert_empty access_recordings_for(recording)
+    assert RecordingStudioAccessible.authorized?(actor: @user, recording: recording, role: :edit)
+
+    assert_raises(RecordingStudioAgents::Error) { append_chat(recording, actor: stranger) }
+    assert_raises(RecordingStudioAgents::Error) { rename_chat(recording, actor: stranger) }
+    assert_raises(RecordingStudioAgents::Error) { close(recording, actor: stranger) }
+    assert_raises(RecordingStudioAgents::Error) { close_id(recording.id, actor: stranger) }
+    assert_empty @calls[:send_input]
+    assert_empty @calls[:delete_session]
+    assert RecordingStudio::Recording.exists?(recording.id)
   end
 
   test "a folder cannot parent a chat" do
@@ -187,18 +208,47 @@ class AgentSessionsTest < ActiveSupport::TestCase
 
   private
 
-  def create_chat(input, key: SecureRandom.uuid, title: nil)
+  def create_chat(input, key: SecureRandom.uuid, title: nil, actor: @user)
     RecordingStudioAgents::Sessions::Create.call(
-      parent_recording: @root, root_recording: @root, actor: @user, input: input, idempotency_key: key, title: title
+      parent_recording: @root, root_recording: @root, actor: actor, input: input, idempotency_key: key, title: title
     ).value!
   end
 
-  def close(recording)
-    RecordingStudioAgents::Sessions::Close.call(root_recording: @root, recording: recording, actor: @user).value!
+  def append_chat(recording, actor: @user)
+    RecordingStudioAgents::Sessions::Append.call(
+      root_recording: @root, recording: recording, actor: actor, input: "again", idempotency_key: SecureRandom.uuid
+    ).value!
   end
 
-  def close_id(recording_id)
-    RecordingStudioAgents::Sessions::Close.call(root_recording: @root, recording_id: recording_id, actor: @user).value!
+  def rename_chat(recording, actor: @user)
+    RecordingStudioAgents::Sessions::Rename.call(
+      root_recording: @root, recording: recording, actor: actor, title: "Launch plan"
+    ).value!
+  end
+
+  def close(recording, actor: @user)
+    RecordingStudioAgents::Sessions::Close.call(root_recording: @root, recording: recording, actor: actor).value!
+  end
+
+  def close_id(recording_id, actor: @user)
+    RecordingStudioAgents::Sessions::Close.call(
+      root_recording: @root, recording_id: recording_id, actor: actor
+    ).value!
+  end
+
+  def grant_edit(actor, recording)
+    RecordingStudioAccessible::AccessCreationContext.allow do
+      RecordingStudio.root_recording_or_self(recording).record(
+        RecordingStudio::Access, actor: actor, parent_recording: recording
+      ) do |access|
+        access.actor = actor
+        access.role = "edit"
+      end
+    end
+  end
+
+  def access_recordings_for(recording)
+    RecordingStudio::Recording.where(parent_recording_id: recording.id, recordable_type: "RecordingStudio::Access")
   end
 
   def stub_agents

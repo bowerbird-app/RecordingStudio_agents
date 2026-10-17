@@ -3,25 +3,33 @@
 module RecordingStudioAgents
   module Sessions
     module ChatLookup
+      include Access
+
       private
 
       def require_chat!
         recording = chat_in_root!
         raise Error, "recording is not a chat" unless chat_recording?(recording)
 
+        ensure_access!(recording)
         recording
       end
 
       def optional_chat
         return present_chat if @recording
 
-        chats_in_root.find_by(id: @recording_id)
+        recording = chats_in_root.find_by(id: @recording_id)
+        return if recording.nil?
+
+        ensure_access!(recording)
+        recording
       end
 
       def present_chat
         ensure_in_root!(@recording, @root_recording)
         raise Error, "recording is not a chat" unless chat_recording?(@recording)
 
+        ensure_access!(@recording)
         @recording
       end
 
