@@ -63,9 +63,26 @@ Create and append are idempotent on their keys inside one root. Reusing a create
 
 `POST /recording_studio_agents/chatkit` accepts the ChatKit protocol and answers with JSON or server-sent events. The host session resolves the actor and the root. Client metadata ids are ignored. Create, append, rename, and delete go through the Sessions services. Streaming, cancel, and reading a finished first turn go through `RecordingStudioAI::Agents`.
 
-`threads.create` is not streamed by Recording Studio AI. After the session is saved, the endpoint reads the saved turn so the first assistant text is not lost. `text_delta` events become ChatKit text deltas. An unsupported operation returns a protocol error.
+`threads.create` is not streamed by Recording Studio AI. After the session is saved, the endpoint reads the provider stream, and reads saved items when that stream has no text. `text_delta` events become ChatKit text deltas. An unsupported operation returns a protocol error.
 
-The dummy page at `/agent-chat` sends the CSRF token with the session cookie. Set `config.chatkit_domain_key` to mount the ChatKit frame. Without that key, the page drives the same endpoint directly.
+`recording_studio_agents_chatkit` renders the official `<openai-chatkit>` web component from `https://cdn.platform.openai.com/deployments/chatkit/chatkit.js`. Its custom backend is this endpoint. The component's `fetch` sends the session cookie and the CSRF token. `domainKey` comes from `config.chatkit_domain_key`. The browser does not receive an OpenAI API key, a client secret, or an Agent Builder workflow.
+
+The component renders only when both keys are present. Otherwise the helper renders a setup notice.
+
+Set the OpenAI API key through Recording Studio AI, in `config/initializers/recording_studio_ai.rb`:
+
+```ruby
+config.openai_api_key =
+  Rails.application.credentials.dig(:openai, :api_key) || ENV.fetch("OPENAI_API_KEY", nil)
+```
+
+Register the page's origin, including scheme and port, in the [OpenAI domain allowlist](https://platform.openai.com/settings/organization/security/domain-allowlist). Assign that domain key in `config/initializers/recording_studio_agents.rb`:
+
+```ruby
+config.chatkit_domain_key = ENV.fetch("CHATKIT_DOMAIN_KEY", nil)
+```
+
+The dummy page at `/agent-chat` uses the same helper. With neither key set, it shows the setup notice and does not call OpenAI.
 
 ## Dummy app
 

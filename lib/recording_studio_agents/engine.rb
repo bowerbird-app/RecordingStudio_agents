@@ -110,6 +110,12 @@ module RecordingStudioAgents
       end
     end
 
+    initializer "recording_studio_agents.chatkit_helper" do
+      ActiveSupport.on_load(:action_controller_base) do
+        helper RecordingStudioAgents::ChatKitHelper
+      end
+    end
+
     initializer "recording_studio_agents.recordables" do
       config.to_prepare do
         RecordingStudio.register_recordable_type("RecordingStudioAgents::Session")
