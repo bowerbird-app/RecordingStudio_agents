@@ -59,6 +59,14 @@ Schedule `RecordingStudioAgents::ExpireSessionsJob`. It closes chats whose `expi
 
 Create and append are idempotent on their keys inside one root. Reusing a create key from another root raises `RecordingStudioAgents::IsolationError`.
 
+## ChatKit
+
+`POST /recording_studio_agents/chatkit` accepts the ChatKit protocol and answers with JSON or server-sent events. The host session resolves the actor and the root. Client metadata ids are ignored. Create, append, rename, and delete go through the Sessions services. Streaming, cancel, and reading a finished first turn go through `RecordingStudioAI::Agents`.
+
+`threads.create` is not streamed by Recording Studio AI. After the session is saved, the endpoint reads the saved turn so the first assistant text is not lost. `text_delta` events become ChatKit text deltas. An unsupported operation returns a protocol error.
+
+The dummy page at `/agent-chat` sends the CSRF token with the session cookie. Set `config.chatkit_domain_key` to mount the ChatKit frame. Without that key, the page drives the same endpoint directly.
+
 ## Dummy app
 
 The dummy app validates the engine in a host with Devise, FlatPack, and Recording Studio's default layout. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`.

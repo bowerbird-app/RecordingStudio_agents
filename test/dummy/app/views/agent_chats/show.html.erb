@@ -1,0 +1,137 @@
+<% dummy_page_nav(title: "Agent chat", back_url: root_path) %>
+
+<div class="flex w-full flex-col gap-4" data-chat-root data-endpoint="<%= recording_studio_agents.chatkit_path %>">
+  <%= render FlatPack::PageTitle::Component.new(
+    title: "Agent chat",
+    subtitle: "Same-origin ChatKit endpoint. The browser sends the session cookie and CSRF token.",
+    variant: :h1
+  ) %>
+
+  <openai-chatkit id="agent-chat" hidden></openai-chatkit>
+
+  <section class="flex h-[640px] flex-col overflow-hidden rounded-2xl border border-(--surface-border-color) bg-(--surface-card-background-color)">
+    <div class="flex-1 space-y-3 overflow-y-auto p-4" data-transcript></div>
+    <form class="flex items-end gap-2 border-t border-(--surface-border-color) p-3" data-composer>
+      <textarea data-input rows="2" class="min-h-12 flex-1 resize-none rounded-xl border border-(--surface-border-color) bg-transparent px-3 py-2 text-sm" placeholder="Message"></textarea>
+      <button type="submit" data-send class="rounded-xl bg-(--surface-accent-color, #111) px-4 py-2 text-sm text-white">Send</button>
+      <button type="button" data-stop hidden class="rounded-xl border border-(--surface-border-color) px-4 py-2 text-sm">Stop</button>
+    </form>
+  </section>
+</div>
+
+<script src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js" async></script>
+<script>
+  const root = document.querySelector("[data-chat-root]")
+  const endpoint = root.dataset.endpoint
+  const transcript = root.querySelector("[data-transcript]")
+  const input = root.querySelector("[data-input]")
+  const send = root.querySelector("[data-send]")
+  const stop = root.querySelector("[data-stop]")
+  const frame = document.getElementById("agent-chat")
+  const csrf = document.querySelector("meta[name='csrf-token']")?.content
+  const domainKey = "<%= j RecordingStudioAgents.configuration.chatkit_domain_key.to_s %>"
+  let threadId = null
+  let request = null
+  let assistantNode = null
+
+  function mountEmbed() {
+    if (!domainKey || !frame.setOptions) return
+    frame.hidden = false
+    frame.style.height = "640px"
+    root.querySelector("section").hidden = true
+    frame.setOptions({
+      api: {
+        url: endpoint,
+        domainKey: domainKey,
+        fetch: (url, options) => fetch(url, { ...options, headers: csrfHeaders(options.headers), credentials: "same-origin" })
+      }
+    })
+  }
+
+  function csrfHeaders(headers) {
+    const next = new Headers(headers || {})
+    if (csrf) next.set("X-CSRF-Token", csrf)
+    next.set("Content-Type", "application/json")
+    return next
+  }
+
+  function addBubble(text, role) {
+    const node = document.createElement("p")
+    node.className = role === "user" ? "ml-12 rounded-2xl bg-(--surface-muted-background-color, #f4f4f5) px-3 py-2 text-sm" : "mr-12 rounded-2xl px-3 py-2 text-sm"
+    node.textContent = text
+    node.dataset.role = role
+    transcript.append(node)
+    transcript.scrollTop = transcript.scrollHeight
+    return node
+  }
+
+  function handleEvent(event) {
+    if (event.type === "thread.created") threadId = event.thread.id
+    if (event.type === "thread.item.done" && event.item.type === "user_message") {
+      addBubble(event.item.content.map((part) => part.text).join(""), "user")
+    }
+    if (event.type === "thread.item.added" && event.item.type === "assistant_message") {
+      assistantNode = addBubble("", "assistant")
+    }
+    if (event.type === "thread.item.updated" && event.update?.type === "assistant_message.content_part.text_delta") {
+      assistantNode ||= addBubble("", "assistant")
+      assistantNode.textContent += event.update.delta
+      transcript.scrollTop = transcript.scrollHeight
+    }
+    if (event.type === "thread.item.done" && event.item.type === "assistant_message") {
+      assistantNode ||= addBubble("", "assistant")
+      assistantNode.textContent = event.item.content.map((part) => part.text).join("")
+      assistantNode = null
+    }
+    if (event.type === "error") addBubble(event.message || "The response failed.", "assistant")
+  }
+
+  async function readStream(response) {
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    while (true) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+      buffer += decoder.decode(chunk.value, { stream: true })
+      const parts = buffer.split("\n\n")
+      buffer = parts.pop()
+      parts.forEach((part) => {
+        const line = part.split("\n").find((entry) => entry.startsWith("data: "))
+        if (line) handleEvent(JSON.parse(line.slice(6)))
+      })
+    }
+  }
+
+  root.querySelector("[data-composer]").addEventListener("submit", async (event) => {
+    event.preventDefault()
+    const text = input.value.trim()
+    if (!text || request) return
+    input.value = ""
+    send.hidden = true
+    stop.hidden = false
+    assistantNode = null
+    const body = threadId
+      ? { type: "threads.add_user_message", params: { thread_id: threadId, input: { content: [{ type: "input_text", text }], attachments: [], inference_options: {} } }, metadata: {} }
+      : { type: "threads.create", params: { input: { content: [{ type: "input_text", text }], attachments: [], inference_options: {} } }, metadata: { root_recording_id: "ignored" } }
+    request = new AbortController()
+    try {
+      const response = await fetch(endpoint, { method: "POST", headers: csrfHeaders(), body: JSON.stringify(body), signal: request.signal, credentials: "same-origin" })
+      if (!response.ok || !response.headers.get("content-type")?.includes("text/event-stream")) {
+        const payload = await response.json().catch(() => ({}))
+        addBubble(payload.message || "The chat could not be sent.", "assistant")
+      } else {
+        await readStream(response)
+      }
+    } catch (error) {
+      if (error.name === "AbortError") addBubble("Stopped.", "assistant")
+    } finally {
+      request = null
+      send.hidden = false
+      stop.hidden = true
+    }
+  })
+
+  stop.addEventListener("click", () => request?.abort())
+  window.addEventListener("load", mountEmbed)
+</script>
