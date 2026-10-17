@@ -10,12 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `Session` recordable ("Chat") registered under the `:agents` capability.
 - `Binding` and `Item` tables for provider session identity, retention, and the local item projection.
-- `Sessions::Create`, `Append`, `Rename`, and `Close`. Close deletes the provider session through Recording Studio AI and treats an already-gone session as success.
+- `Sessions::Create`, `Append`, `Rename`, and `Close`. Close deletes the provider session through Recording Studio AI and treats an already-gone session as success. User actions require Accessible edit access on the chat, inherited from the parent. Create does not write a per-chat grant.
 - Idempotent `Sessions::Expire` and `ExpireSessionsJob`. Expiry closes by recording and root and does not require the creator's access.
-- Recording Studio `~> 4.7` and Recording Studio AI `~> 0.15.0` dependencies.
+- Recording Studio `~> 4.7` and Recording Studio AI `~> 0.15.1`. Recording Studio AI 0.15.1 rejects a provider session whose runs belong to another root.
 
 ### Upgrade notes
-- Point host Gemfiles at Recording Studio `v4.7.0`, Recording Studio AI `v0.15.0`, and Recording Studio Metrics `v0.3.1`.
+- Point host Gemfiles at Recording Studio `v4.7.0`, Recording Studio AI `v0.15.1`, and Recording Studio Metrics `v0.3.1`.
 - Run `bin/rails generate recording_studio_agents:migrations`, then `bin/rails db:migrate`.
 - Include `RecordingStudio::Capabilities::Agents.to` on each parent type that may own a chat, and add `RecordingStudioAgents::Session` to `config.recordable_types`.
 - Schedule `RecordingStudioAgents::ExpireSessionsJob`.

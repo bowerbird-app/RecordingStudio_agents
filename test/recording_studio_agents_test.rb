@@ -15,7 +15,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     gemspec = File.read(File.expand_path("../recording_studio_agents.gemspec", __dir__))
 
     assert_includes gemspec, 'spec.add_dependency "recording_studio", "~> 4.7"'
-    assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", "~> 0.15.0"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", "~> 0.15.1"'
     assert_includes gemspec, "https://github.com/bowerbird-app/RecordingStudio_agents"
   end
 
@@ -47,7 +47,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     gemfile = File.read(File.expand_path("dummy/Gemfile", __dir__))
 
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v4.7.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.15.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.15.1"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.3.1"'
     refute_includes gemfile, 'tag: "v4.5.0"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.18.0"'
@@ -210,7 +210,7 @@ class RecordingStudioAgentsTest < Minitest::Test
 
     assert_includes readme, "RecordingStudio"
     assert_includes readme, "dummy GitHub tag `v4.7.0`"
-    assert_includes readme, "dummy GitHub tag `v0.15.0`"
+    assert_includes readme, "dummy GitHub tag `v0.15.1`"
     assert_includes readme, "dummy GitHub tag `v0.3.1`"
     refute_includes readme, "dummy GitHub tag `v4.5.0`"
     assert_includes readme, "dummy GitHub tag `v0.1.196`"

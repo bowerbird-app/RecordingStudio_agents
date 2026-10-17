@@ -9,7 +9,7 @@ ChatKit and the browser embed are not part of this release.
 - Ruby 3.3 or newer
 - Rails 8.1
 - Recording Studio `~> 4.7` (dummy GitHub tag `v4.7.0`)
-- Recording Studio AI `~> 0.15.0` (dummy GitHub tag `v0.15.0`)
+- Recording Studio AI `~> 0.15.1` (dummy GitHub tag `v0.15.1`)
 - Recording Studio Metrics dummy GitHub tag `v0.3.1`
 - Accessible dummy GitHub tag `v0.18.0`
 - Trashable dummy GitHub tag `v0.10.0`
@@ -24,7 +24,7 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 ```ruby
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
 gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v4.7.0"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.15.0"
+gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.15.1"
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.3.1"
 ```
 

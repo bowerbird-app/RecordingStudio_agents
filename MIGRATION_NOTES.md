@@ -5,7 +5,7 @@
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `~> 4.7` (dummy GitHub tag `v4.7.0`)
-- Recording Studio AI `~> 0.15.0` (dummy GitHub tag `v0.15.0`)
+- Recording Studio AI `~> 0.15.1` (dummy GitHub tag `v0.15.1`)
 - Metrics dummy tag `v0.3.1`
 - Accessible dummy tag `v0.18.0`, Trashable dummy tag `v0.10.0` (`require: false`), and Root Switchable dummy tag `v0.9.0`
 - Cache dummy tag `v0.5.0`
