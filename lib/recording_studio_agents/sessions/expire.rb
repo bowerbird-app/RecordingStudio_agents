@@ -13,12 +13,10 @@ module RecordingStudioAgents
 
       def close_binding(binding_record)
         recording = binding_record.recording
-        actor = recording&.first_event&.actor
-        return if recording.nil? || actor.blank? || recording.root_recording.nil?
+        root = recording&.root_recording
+        return if recording.nil? || root.nil?
 
-        Close.call(
-          root_recording: recording.root_recording, recording: recording, actor: actor, execution_source: :scheduled
-        ).value
+        Close.call(root_recording: root, recording: recording, system: true).value
       rescue Error, RecordingStudioAI::Agents::Failure
         nil
       end

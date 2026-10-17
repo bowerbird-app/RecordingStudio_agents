@@ -192,6 +192,26 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_equal 1, @calls[:delete_session].size
   end
 
+  test "expire closes a chat after its creator loses access" do
+    creator = User.create!(email: "creator-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    grant_edit(creator, @root)
+    recording = create_chat("old", key: "lost-access", actor: creator)
+    revoke_edit(creator, @root)
+    RecordingStudioAgents::Binding.find_by!(recording: recording).update!(expires_at: 1.minute.ago)
+
+    refute RecordingStudioAccessible.authorized?(actor: creator, recording: recording, role: :edit)
+    assert_raises(RecordingStudioAgents::Error) { close(recording, actor: creator) }
+    assert_empty @calls[:delete_session]
+
+    closed = RecordingStudioAgents::Sessions::Expire.call.value!
+
+    assert_equal [recording.id], closed
+    assert_nil RecordingStudio::Recording.find_by(id: recording.id)
+    assert_equal "recording_studio_agents", @calls[:delete_session].last[:initiator].id
+    assert_equal :system, @calls[:delete_session].last[:initiator_kind]
+    refute_equal creator, @calls[:delete_session].last[:initiator]
+  end
+
   test "expire continues after one provider failure" do
     first = create_chat("one", key: "one")
     second = create_chat("two", key: "two")
@@ -244,6 +264,16 @@ class AgentSessionsTest < ActiveSupport::TestCase
         access.actor = actor
         access.role = "edit"
       end
+    end
+  end
+
+  def revoke_edit(actor, recording)
+    access_recordings_for(recording).each do |access_recording|
+      next unless access_recording.recordable.actor == actor
+
+      access_id = access_recording.recordable_id
+      access_recording.destroy!
+      RecordingStudio::Access.where(id: access_id).delete_all
     end
   end
 

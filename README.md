@@ -55,7 +55,7 @@ Schedule `RecordingStudioAgents::ExpireSessionsJob`. It closes chats whose `expi
 - `RecordingStudioAgents::Sessions::Append` sends another user message and refreshes the retention clock.
 - `RecordingStudioAgents::Sessions::Rename` revises the chat title. The previous snapshot stays.
 - `RecordingStudioAgents::Sessions::Close` deletes the provider session, then purges the local chat.
-- `RecordingStudioAgents::Sessions::Expire` closes every expired binding. One failure does not stop the rest.
+- `RecordingStudioAgents::Sessions::Expire` closes every expired binding. One failure does not stop the rest. Expiry is system cleanup scoped to the recording and its root. It does not use the creator and does not check access. A user `Close` still requires edit access on the chat.
 
 Create and append are idempotent on their keys inside one root. Reusing a create key from another root raises `RecordingStudioAgents::IsolationError`.
 

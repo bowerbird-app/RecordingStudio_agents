@@ -6,26 +6,43 @@ module RecordingStudioAgents
       include RootGuard
       include ChatLookup
 
-      def initialize(root_recording:, actor:, **options)
+      def initialize(root_recording:, actor: nil, **options)
         super()
         @root_recording = root_recording
         @actor = actor
         @recording = options[:recording]
         @recording_id = options[:recording_id]
-        @execution_source = options.fetch(:execution_source, :web)
+        @system = options.fetch(:system, false)
+        @execution_source = options.fetch(:execution_source, (@system ? :scheduled : :web))
       end
 
       private
 
       def perform
         ensure_root!(@root_recording)
-        ensure_actor!(@actor)
-        recording = optional_chat
+        recording = find_chat
         return success(nil) if recording.nil?
 
         delete_provider!(recording)
         purge!(recording)
         success(recording.id)
+      end
+
+      def find_chat
+        return system_chat if @system
+
+        ensure_actor!(@actor)
+        optional_chat
+      end
+
+      def system_chat
+        recording = @recording || chats_in_root.find_by(id: @recording_id)
+        return if recording.nil?
+
+        ensure_in_root!(recording, @root_recording)
+        raise Error, "recording is not a chat" unless chat_recording?(recording)
+
+        recording
       end
 
       def delete_provider!(recording)
@@ -42,10 +59,14 @@ module RecordingStudioAgents
           session: ProviderSessions.handle(binding_record, recording.recordable),
           purpose: recording.recordable.purpose,
           **ProviderSessions.attribution(
-            root_recording: @root_recording, initiator: @actor, context_recording: recording,
-            execution_source: @execution_source
+            root_recording: @root_recording, initiator: close_initiator, context_recording: recording,
+            execution_source: @execution_source, initiator_kind: (@system ? :system : nil)
           )
         }
+      end
+
+      def close_initiator
+        @system ? ProviderSessions::SYSTEM_INITIATOR : @actor
       end
 
       def purge!(recording)

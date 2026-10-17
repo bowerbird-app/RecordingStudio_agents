@@ -3,6 +3,8 @@
 module RecordingStudioAgents
   # Builds the provider handle Recording Studio AI already knows how to run.
   module ProviderSessions
+    SYSTEM_INITIATOR = Struct.new(:id).new("recording_studio_agents").freeze
+
     module_function
 
     def handle(binding_record, recordable)
@@ -15,11 +17,12 @@ module RecordingStudioAgents
       )
     end
 
-    def attribution(root_recording:, initiator:, context_recording: nil, execution_source: nil)
+    def attribution(root_recording:, initiator:, context_recording: nil, execution_source: nil, initiator_kind: nil)
       {
         root_recording: root_recording,
         context_recording: context_recording,
         initiator: initiator,
+        initiator_kind: initiator_kind,
         execution_source: execution_source
       }.compact
     end

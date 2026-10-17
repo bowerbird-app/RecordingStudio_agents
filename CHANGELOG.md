@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Session` recordable ("Chat") registered under the `:agents` capability.
 - `Binding` and `Item` tables for provider session identity, retention, and the local item projection.
 - `Sessions::Create`, `Append`, `Rename`, and `Close`. Close deletes the provider session through Recording Studio AI and treats an already-gone session as success.
-- Idempotent `Sessions::Expire` and `ExpireSessionsJob`.
+- Idempotent `Sessions::Expire` and `ExpireSessionsJob`. Expiry closes by recording and root and does not require the creator's access.
 - Recording Studio `~> 4.7` and Recording Studio AI `~> 0.15.0` dependencies.
 
 ### Upgrade notes
