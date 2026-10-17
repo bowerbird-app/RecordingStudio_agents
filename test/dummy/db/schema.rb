@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_044328) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_17_030000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -71,6 +71,43 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_044328) do
     t.index ["actor_type", "actor_id", "role"], name: "index_recording_studio_accesses_on_actor_and_role"
     t.index ["actor_type", "actor_id"], name: "index_recording_studio_accesses_on_actor"
     t.index ["depends_on_recording_id"], name: "index_recording_studio_accesses_on_depends_on_recording_id"
+  end
+
+  create_table "recording_studio_agents_bindings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "recording_id", null: false
+    t.string "provider", null: false
+    t.string "provider_session_id"
+    t.string "preview"
+    t.string "create_idempotency_key", null: false
+    t.datetime "last_activity_at", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["create_idempotency_key"], name: "index_rs_agents_bindings_on_create_key", unique: true
+    t.index ["expires_at"], name: "index_recording_studio_agents_bindings_on_expires_at"
+    t.index ["provider_session_id"], name: "index_rs_agents_bindings_on_provider_session", unique: true, where: "(provider_session_id IS NOT NULL)"
+    t.index ["recording_id"], name: "index_recording_studio_agents_bindings_on_recording_id", unique: true
+  end
+
+  create_table "recording_studio_agents_items", id: :string, force: :cascade do |t|
+    t.uuid "recording_id", null: false
+    t.string "provider_item_id"
+    t.string "role", null: false
+    t.text "text", null: false
+    t.string "status", default: "done", null: false
+    t.string "idempotency_key"
+    t.datetime "created_at", null: false
+    t.index ["idempotency_key"], name: "index_rs_agents_items_on_idempotency_key", unique: true, where: "(idempotency_key IS NOT NULL)"
+    t.index ["recording_id"], name: "index_recording_studio_agents_items_on_recording_id"
+  end
+
+  create_table "recording_studio_agents_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "title"
+    t.string "status", null: false
+    t.string "model", null: false
+    t.string "profile"
+    t.string "purpose"
+    t.datetime "created_at", null: false
   end
 
   create_table "recording_studio_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -150,6 +187,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_044328) do
   end
 
   add_foreign_key "recording_studio_access_invitations", "recording_studio_recordings", column: "recording_id"
+  add_foreign_key "recording_studio_agents_bindings", "recording_studio_recordings", column: "recording_id"
+  add_foreign_key "recording_studio_agents_items", "recording_studio_recordings", column: "recording_id"
   add_foreign_key "recording_studio_events", "recording_studio_recordings", column: "recording_id"
   add_foreign_key "recording_studio_recordings", "recording_studio_recordings", column: "parent_recording_id"
   add_foreign_key "recording_studio_recordings", "recording_studio_recordings", column: "root_recording_id"

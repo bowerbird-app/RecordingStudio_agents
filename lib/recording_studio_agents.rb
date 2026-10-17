@@ -1,0 +1,33 @@
+# frozen_string_literal: true
+
+require "recording_studio"
+require "recording_studio_ai"
+require "recording_studio_agents/version"
+require "recording_studio_agents/engine"
+require "recording_studio_agents/configuration"
+require "recording_studio_agents/capabilities/example"
+require "recording_studio/capabilities/agents"
+require "recording_studio_agents/provider_sessions"
+require "recording_studio_agents/sessions/root_guard"
+require "recording_studio_agents/sessions/chat_lookup"
+require "recording_studio_agents/sessions/chat_draft"
+require "recording_studio_agents/sessions/create"
+require "recording_studio_agents/sessions/append"
+require "recording_studio_agents/sessions/rename"
+require "recording_studio_agents/sessions/close"
+require "recording_studio_agents/sessions/expire"
+
+module RecordingStudioAgents
+  class Error < StandardError; end
+  class IsolationError < Error; end
+
+  class << self
+    def configuration
+      @configuration ||= Configuration.new
+    end
+
+    def configure
+      yield(configuration) if block_given?
+    end
+  end
+end
