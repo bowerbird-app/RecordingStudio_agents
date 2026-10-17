@@ -4,22 +4,22 @@ require "test_helper"
 
 class ConfigurationTest < Minitest::Test
   def setup
-    @configuration = GemTemplate::Configuration.new
+    @configuration = RecordingStudioAgents::Configuration.new
   end
 
   def test_merge_updates_known_attributes
-    @configuration.merge!(api_key: "abc123", timeout: 9, enable_feature_x: true)
+    @configuration.merge!(instructions: "Be brief.", purpose: "agent_chat", default_profile: "low")
 
-    assert_equal "abc123", @configuration.api_key
-    assert_equal 9, @configuration.timeout
-    assert_equal true, @configuration.enable_feature_x
+    assert_equal "Be brief.", @configuration.instructions
+    assert_equal "agent_chat", @configuration.purpose
+    assert_equal :low, @configuration.default_profile
   end
 
   def test_merge_ignores_unknown_keys
-    @configuration.merge!(unknown_key: "ignored", timeout: 7)
+    @configuration.merge!(unknown_key: "ignored", purpose: "support_chat")
 
     refute_respond_to @configuration, :unknown_key
-    assert_equal 7, @configuration.timeout
+    assert_equal "support_chat", @configuration.purpose
   end
 
   def test_merge_with_non_enumerable_is_noop
@@ -27,31 +27,33 @@ class ConfigurationTest < Minitest::Test
 
     @configuration.merge!(nil)
 
-    assert_nil @configuration.api_key if original[:api_key].nil?
-    assert_equal original[:api_key], @configuration.api_key unless original[:api_key].nil?
-    assert_equal original[:timeout], @configuration.timeout
-    assert_equal original[:enable_feature_x], @configuration.enable_feature_x
+    assert_equal original[:instructions], @configuration.instructions
+    assert_equal original[:purpose], @configuration.purpose
+    assert_equal original[:retention_period], @configuration.retention_period
   end
 
-  def test_initialize_uses_environment_api_key_and_defaults
-    previous_value = ENV.fetch("GEM_TEMPLATE_API_KEY", nil)
-    ENV["GEM_TEMPLATE_API_KEY"] = "env-token"
+  def test_initialize_uses_product_defaults
+    configuration = RecordingStudioAgents::Configuration.new
 
-    configuration = GemTemplate::Configuration.new
-
-    assert_equal "env-token", configuration.api_key
-    assert_equal false, configuration.enable_feature_x
-    assert_equal 5, configuration.timeout
+    assert_equal "Answer in plain language.", configuration.instructions
+    assert_equal :medium, configuration.default_profile
+    assert_equal "agent_chat", configuration.purpose
+    assert_equal "openai", configuration.provider
+    assert_equal 30.days, configuration.retention_period
     assert_instance_of RecordingStudio::Hooks, configuration.hooks
-  ensure
-    ENV["GEM_TEMPLATE_API_KEY"] = previous_value
+  end
+
+  def test_retention_period_accepts_a_numeric_second_count
+    @configuration.retention_period = 90
+
+    assert_equal 90.seconds, @configuration.retention_period
   end
 
   def test_merge_accepts_string_keys
-    @configuration.merge!("api_key" => "string-key", "timeout" => 12)
+    @configuration.merge!("instructions" => "From yaml.", "default_profile" => "high")
 
-    assert_equal "string-key", @configuration.api_key
-    assert_equal 12, @configuration.timeout
+    assert_equal "From yaml.", @configuration.instructions
+    assert_equal :high, @configuration.default_profile
   end
 
   def test_to_h_reports_registered_hook_counts
@@ -66,8 +68,8 @@ class ConfigurationTest < Minitest::Test
   end
 
   def test_configure_without_block_is_safe
-    GemTemplate.configure
+    RecordingStudioAgents.configure
 
-    assert_kind_of GemTemplate::Configuration, GemTemplate.configuration
+    assert_kind_of RecordingStudioAgents::Configuration, RecordingStudioAgents.configuration
   end
 end

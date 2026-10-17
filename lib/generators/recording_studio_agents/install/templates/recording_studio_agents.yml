@@ -1,0 +1,11 @@
+development:
+  instructions: "Answer in plain language."
+  default_profile: medium
+  purpose: agent_chat
+  provider: openai
+
+production:
+  instructions: "Answer in plain language."
+  default_profile: medium
+  purpose: agent_chat
+  provider: openai

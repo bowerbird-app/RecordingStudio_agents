@@ -4,10 +4,22 @@
 
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
-- Recording Studio 4.x (`~> 4.2` in the gemspec; dummy GitHub tag `v4.6.0`)
+- Recording Studio `~> 4.7` (dummy GitHub tag `v4.7.0`)
+- Recording Studio AI `~> 0.15.1` (dummy GitHub tag `v0.15.1`)
+- Metrics dummy tag `v0.3.1`
 - Accessible dummy tag `v0.18.0`, Trashable dummy tag `v0.10.0` (`require: false`), and Root Switchable dummy tag `v0.9.0`
+- Cache dummy tag `v0.5.0`
 - FlatPack dummy tag `v0.1.196`
 - Public RubyGems and GitHub access for dependency installation
+
+## Host migration
+
+```bash
+bin/rails generate recording_studio_agents:migrations
+bin/rails db:migrate
+```
+
+The generator copies `create_recording_studio_agents_sessions`. It creates the chat snapshot table, the binding table, and the item table. Recording Studio AI keeps its own run history; this migration does not delete those rows.
 
 ## Verification
 

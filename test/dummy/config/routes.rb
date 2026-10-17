@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   # Keep legacy links working by redirecting the base path to the app home.
   get "/recording_studio", to: redirect("/"), as: nil
   mount RecordingStudio::Engine, at: "/recording_studio"
+  mount RecordingStudioAgents::Engine, at: "/recording_studio_agents"
   mount RecordingStudioRootSwitchable::Engine, at: "/recording_studio_root_switchable"
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
