@@ -26,5 +26,6 @@ Rails.application.routes.draw do
   get "docs/methods", to: "docs#methods", as: :docs_methods
 
   # Defines the root path route ("/")
+  get "agent-chat", to: "agent_chats#show", as: :agent_chat
   root "home#index"
 end
