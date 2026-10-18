@@ -1,0 +1,37 @@
+<%= render FlatPack::Card::Component.new(style: :default) do |card| %>
+  <% card.header do %>
+    <%= render FlatPack::PageTitle::Component.new(
+      title: "ChatKit setup",
+      subtitle: "This page uses the official ChatKit web component. It does not open a chat until both keys below are set.",
+      variant: :h2,
+      class: "mb-0 pb-0"
+    ) %>
+  <% end %>
+
+  <% card.body do %>
+    <div class="space-y-6 text-sm leading-6" data-chatkit-setup>
+      <section class="space-y-2">
+        <h3 class="font-medium">OpenAI API key — <%= missing.include?(:openai_api_key) ? "not set" : "set" %></h3>
+        <p>
+          Recording Studio AI sends model calls with <code>config.openai_api_key</code>.
+          Set the <code>OPENAI_API_KEY</code> environment variable, or store the key in Rails credentials at
+          <code>openai.api_key</code> and assign it in <code>config/initializers/recording_studio_ai.rb</code>:
+        </p>
+        <pre class="overflow-x-auto rounded-xl bg-(--surface-muted-background-color,#f4f4f5) p-3 text-xs">config.openai_api_key = Rails.application.credentials.dig(:openai, :api_key) || ENV.fetch("OPENAI_API_KEY", nil)</pre>
+        <p>The API key stays on the server. The browser never receives it, and this page does not use a client secret or Agent Builder.</p>
+      </section>
+
+      <section class="space-y-2">
+        <h3 class="font-medium">ChatKit domain key — <%= missing.include?(:domain_key) ? "not set" : "set" %></h3>
+        <p>
+          Register this site's origin in the
+          <%= link_to "OpenAI domain allowlist", "https://platform.openai.com/settings/organization/security/domain-allowlist", target: "_blank", rel: "noreferrer" %>.
+          The allowed origin is the exact origin in the browser address bar, including the scheme and port.
+          Put the domain key in the <code>CHATKIT_DOMAIN_KEY</code> environment variable and assign it in
+          <code>config/initializers/recording_studio_agents.rb</code>:
+        </p>
+        <pre class="overflow-x-auto rounded-xl bg-(--surface-muted-background-color,#f4f4f5) p-3 text-xs">config.chatkit_domain_key = ENV.fetch("CHATKIT_DOMAIN_KEY", nil)</pre>
+      </section>
+    </div>
+  <% end %>
+<% end %>

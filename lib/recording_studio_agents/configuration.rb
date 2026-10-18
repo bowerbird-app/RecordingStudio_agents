@@ -2,7 +2,7 @@
 
 module RecordingStudioAgents
   class Configuration
-    attr_accessor :instructions, :purpose, :provider
+    attr_accessor :instructions, :purpose, :provider, :request_actor, :request_root, :chatkit_domain_key
     attr_reader :hooks, :default_profile, :retention_period
 
     def initialize
@@ -11,6 +11,9 @@ module RecordingStudioAgents
       @purpose = "agent_chat"
       @provider = "openai"
       @retention_period = 30.days
+      @request_actor = ->(*) {}
+      @request_root = ->(*) {}
+      @chatkit_domain_key = nil
       @hooks = RecordingStudio::Hooks.new
     end
 

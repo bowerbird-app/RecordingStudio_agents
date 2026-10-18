@@ -32,3 +32,13 @@ module RecordingStudioAgents
     end
   end
 end
+
+require "recording_studio_agents/chatkit/protocol_error"
+require "recording_studio_agents/chatkit/payload"
+require "recording_studio_agents/chatkit/assistant_turn"
+require "recording_studio_agents/chatkit/model_stream"
+require "recording_studio_agents/chatkit/turn"
+require "recording_studio_agents/chatkit/catalog"
+require "recording_studio_agents/chatkit/server"
+require "recording_studio_agents/chatkit/readiness"
+require "recording_studio_agents/chatkit_helper"
