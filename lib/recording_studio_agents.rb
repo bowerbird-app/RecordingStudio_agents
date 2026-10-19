@@ -7,6 +7,7 @@ require "recording_studio_agents/version"
 module RecordingStudioAgents
   class Error < StandardError; end
   class IsolationError < Error; end
+  class KeyConflictError < IsolationError; end
 
   module Sessions
     class AccessDeniedError < Error; end

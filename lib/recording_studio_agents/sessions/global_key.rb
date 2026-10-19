@@ -17,6 +17,14 @@ module RecordingStudioAgents
 
       private
 
+      def resume_after_binding_insert(hosted, error)
+        abandon(hosted)
+        found = existing_recording if error.is_a?(ActiveRecord::RecordNotUnique)
+        return found if found
+
+        reraise_binding_conflict!(error)
+      end
+
       def reraise_binding_conflict!(error)
         raise_global_binding_conflict!(error) if error.is_a?(ActiveRecord::RecordNotUnique)
         raise error
@@ -25,21 +33,21 @@ module RecordingStudioAgents
       def raise_global_binding_conflict!(error)
         return unless error.message.include?(BINDING_INDEX)
 
-        raise IsolationError, "create_idempotency_key is already used in another workspace"
+        raise KeyConflictError, "create_idempotency_key is already used in another workspace"
       end
 
       def reject_global_binding_straggler!
         return unless global_binding_index?
         return unless foreign_binding_key?
 
-        raise IsolationError, "create_idempotency_key is already used in another workspace"
+        raise KeyConflictError, "create_idempotency_key is already used in another workspace"
       end
 
       def reject_global_item_straggler!
         return unless global_item_index?
         return unless foreign_item_key?
 
-        raise IsolationError, "idempotency_key is already used outside this workspace"
+        raise KeyConflictError, "idempotency_key is already used outside this workspace"
       end
 
       def global_binding_index?
@@ -57,10 +65,11 @@ module RecordingStudioAgents
       end
 
       def cached_index(name)
-        cached = GlobalKey.public_send(name)
-        return cached unless cached.nil?
+        return false if GlobalKey.public_send(name) == false
 
-        GlobalKey.public_send("#{name}=", yield)
+        present = yield
+        GlobalKey.public_send("#{name}=", false) unless present
+        present
       end
 
       def foreign_binding_key?
@@ -78,7 +87,7 @@ module RecordingStudioAgents
       def raise_global_item_conflict!(error)
         return unless error.message.include?(ITEM_INDEX)
 
-        raise IsolationError, "idempotency_key is already used outside this workspace"
+        raise KeyConflictError, "idempotency_key is already used outside this workspace"
       end
     end
   end

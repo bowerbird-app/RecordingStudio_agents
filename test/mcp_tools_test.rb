@@ -121,13 +121,14 @@ class McpToolsTest < Minitest::Test
     end
 
     clash = lambda { |**|
-      raise RecordingStudioAgents::IsolationError, "create_idempotency_key is already used in another workspace"
+      raise RecordingStudioAgents::KeyConflictError, "create_idempotency_key is already used in another workspace"
     }
     RecordingStudioAgents::Sessions::Create.stub(:call, clash) do
-      taken = assert_raises(RecordingStudioApi::NotFoundError) do
+      taken = assert_raises(RecordingStudioApi::InvalidActionInputError) do
         RecordingStudioAgents::Mcp::Chats::Create.call(@context)
       end
       assert_equal "create_idempotency_key is already used in another workspace", taken.message
+      assert_equal ["conflict"], taken.details
     end
 
     RecordingStudioAgents::Sessions::Create.stub(:call, ->(**) { raise RecordingStudioAgents::Error, "bad input" }) do
@@ -199,7 +200,14 @@ class McpToolsTest < Minitest::Test
     mod = Module.new
     mod.const_set(:AuthorizationError, Class.new(StandardError))
     mod.const_set(:NotFoundError, Class.new(StandardError))
-    mod.const_set(:InvalidActionInputError, Class.new(StandardError))
+    mod.const_set(:InvalidActionInputError, Class.new(StandardError) do
+      attr_reader :details
+
+      def initialize(message = nil, details: [])
+        super(message)
+        @details = details
+      end
+    end)
     def mod.endpoints
       @endpoints ||= {}
     end

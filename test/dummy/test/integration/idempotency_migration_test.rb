@@ -36,6 +36,25 @@ class IdempotencyMigrationTest < ActiveSupport::TestCase
     assert_predicate status, :success?, message
   end
 
+  test "A restores lock_timeout when backfill raises" do
+    status, message = fork_migration do
+      load_pre_migration_schema
+      connection.execute("SET lock_timeout = '250ms'")
+      orphan = insert_recording(nil)
+      insert_binding(orphan, "orphan-timeout")
+      raised = false
+      begin
+        migrate_a
+      rescue ActiveRecord::MigrationError
+        raised = true
+        shown = connection.select_value("SHOW lock_timeout")
+        raise "lock_timeout is #{shown}" unless shown == "250ms"
+      end
+      raise "expected backfill to raise" unless raised
+    end
+    assert_predicate status, :success?, message
+  end
+
   test "A raises when a recording has no root and does not hang" do
     status, message = fork_migration do
       load_pre_migration_schema

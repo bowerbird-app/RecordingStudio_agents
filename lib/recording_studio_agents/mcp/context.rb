@@ -31,23 +31,16 @@ module RecordingStudioAgents
 
       def call
         yield
-      rescue ChatKit::ProtocolError => e
-        raise_protocol!(e)
-      rescue IsolationError => e
-        raise RecordingStudioApi::NotFoundError, isolation_message(e)
-      rescue Sessions::AccessDeniedError => e
-        raise RecordingStudioApi::AuthorizationError, e.message
-      rescue Error => e
-        raise RecordingStudioApi::InvalidActionInputError, e.message
+      rescue ChatKit::ProtocolError => e then raise_protocol!(e)
+      # During the A to B window this says only that the key string exists in another workspace.
+      rescue KeyConflictError => e then raise_conflict!(e)
+      rescue IsolationError then raise RecordingStudioApi::NotFoundError, "chat was not found"
+      rescue Sessions::AccessDeniedError => e then raise RecordingStudioApi::AuthorizationError, e.message
+      rescue Error => e then raise RecordingStudioApi::InvalidActionInputError, e.message
       end
 
-      # A missing chat stays a generic 404 so a refused workspace does not reveal that it exists.
-      # A key already used in another workspace is the caller's own key, so the message can say that.
-      def isolation_message(error)
-        text = error.message.to_s
-        return text if text.include?("already used")
-
-        "chat was not found"
+      def raise_conflict!(error)
+        raise RecordingStudioApi::InvalidActionInputError.new(error.message, details: ["conflict"])
       end
 
       def raise_protocol!(error)

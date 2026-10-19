@@ -160,7 +160,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_empty @calls[:send_input]
   end
 
-  test "create maps a global idempotency conflict to isolation and drops the provider session" do
+  test "create refuses a cross-workspace key before it opens a provider session" do
     RecordingStudioAgents::Sessions::Create.call(
       parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "there",
       idempotency_key: "taken-key"
@@ -168,11 +168,83 @@ class AgentSessionsTest < ActiveSupport::TestCase
     add_global_binding_index
     RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
 
-    assert_raises(RecordingStudioAgents::IsolationError) do
+    assert_raises(RecordingStudioAgents::KeyConflictError) do
       create_chat("hello", key: "taken-key")
     end
     assert_equal 1, @calls[:create_session].size
     assert_empty @calls[:delete_session]
+  end
+
+  test "create deletes the provider session when the global unique index rejects the insert" do
+    RecordingStudioAgents::Sessions::Create.call(
+      parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "there",
+      idempotency_key: "fallback-key"
+    ).value!
+    add_global_binding_index
+    opened = @calls[:create_session].size
+    deleted = @calls[:delete_session].size
+
+    without_binding_precheck do
+      assert_raises(RecordingStudioAgents::KeyConflictError) do
+        create_chat("hello", key: "fallback-key")
+      end
+    end
+    assert_equal opened + 1, @calls[:create_session].size
+    assert_equal deleted + 1, @calls[:delete_session].size
+  end
+
+  test "a stale true index cache does not block a second workspace" do
+    create_chat("hello", key: "stale-key")
+    RecordingStudioAgents::Sessions::GlobalKey.binding_index_present = true
+
+    other = RecordingStudioAgents::Sessions::Create.call(
+      parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "hello",
+      idempotency_key: "stale-key"
+    ).value!
+
+    assert_equal @other_root, other.root_recording
+    assert_equal false, RecordingStudioAgents::Sessions::GlobalKey.binding_index_present
+  end
+
+  test "a missing global index stays cached as false" do
+    create_chat("hello", key: "cached-one")
+    assert_equal false, RecordingStudioAgents::Sessions::GlobalKey.binding_index_present
+    connection = RecordingStudioAgents::Binding.connection
+    checks = 0
+    original = connection.method(:index_exists?)
+    connection.define_singleton_method(:index_exists?) do |*args, **kwargs|
+      checks += 1
+      original.call(*args, **kwargs)
+    end
+
+    create_chat("again", key: "cached-two")
+
+    assert_equal 0, checks
+  ensure
+    if defined?(connection) && connection && defined?(original) && original
+      connection.define_singleton_method(:index_exists?, original)
+    end
+  end
+
+  test "a same-root create that loses the unique index returns the existing chat" do
+    first = create_chat("hello", key: "race-key")
+    finder = RecordingStudioAgents::Binding.method(:find_by)
+    calls = 0
+    singleton = RecordingStudioAgents::Binding.singleton_class
+    singleton.define_method(:find_by) do |*args, **kwargs|
+      calls += 1
+      next nil if calls == 1
+
+      finder.call(*args, **kwargs)
+    end
+
+    second = create_chat("hello", key: "race-key")
+
+    assert_equal first, second
+    assert_equal 2, @calls[:create_session].size
+    assert_equal 1, @calls[:delete_session].size
+  ensure
+    singleton.define_method(:find_by, finder) if defined?(singleton) && singleton && defined?(finder) && finder
   end
 
   test "append refuses a chat from another root before sending" do
@@ -343,6 +415,19 @@ class AgentSessionsTest < ActiveSupport::TestCase
                           unique: true, where: "idempotency_key IS NOT NULL",
                           name: "index_rs_agents_items_on_idempotency_key"
     RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
+  end
+
+  def without_binding_precheck
+    klass = RecordingStudioAgents::Sessions::Create
+    klass.class_eval do
+      alias_method :reject_global_binding_straggler_original!, :reject_global_binding_straggler!
+      define_method(:reject_global_binding_straggler!) { nil }
+    end
+    yield
+  ensure
+    klass.class_eval do
+      alias_method :reject_global_binding_straggler!, :reject_global_binding_straggler_original!
+    end
   end
 
   def add_global_binding_index

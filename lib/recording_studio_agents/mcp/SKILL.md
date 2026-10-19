@@ -13,4 +13,4 @@ Tools act on the workspace in the bearer token's access grant.
 - `agent_chats_append` adds a user message. Send `id`, `input`, and `idempotency_key`.
 - `agent_items_list` and `agent_items_read` read the local item projection.
 
-The same `idempotency_key` can be used again in a different workspace. Inside one workspace it returns the existing chat or message.
+The same `idempotency_key` can be used again in a different workspace. Inside one workspace it returns the existing chat or message. While an older global unique index is still in place, a key already stored in another workspace is an input error that names that clash. A missing chat stays "chat was not found".

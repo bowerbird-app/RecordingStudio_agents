@@ -83,8 +83,7 @@ module RecordingStudioAgents
       def persist(hosted)
         Session.transaction { insert_chat(hosted) }
       rescue StandardError => e
-        abandon(hosted)
-        reraise_binding_conflict!(e)
+        resume_after_binding_insert(hosted, e)
       end
 
       def insert_chat(hosted)
