@@ -1,5 +1,6 @@
 Rails.application.routes.draw do
-  devise_for :users
+  devise_for :users, skip: %i[sessions registrations passwords]
+  recording_studio_user_auth_for :users
 
   # RecordingStudio engine is data/API-focused and has no browser root route.
   # Keep legacy links working by redirecting the base path to the app home.
@@ -7,6 +8,17 @@ Rails.application.routes.draw do
   mount RecordingStudio::Engine, at: "/recording_studio"
   mount RecordingStudioAgents::Engine, at: "/recording_studio_agents"
   mount RecordingStudioRootSwitchable::Engine, at: "/recording_studio_root_switchable"
+  mount RecordingStudioUser::Engine, at: "/account", as: :recording_studio_users
+  mount RecordingStudioApi::Engine, at: "/recording_studio_api"
+  mount RecordingStudioOauth::Engine, at: "/recording_studio_oauth"
+  mount RecordingStudioMcp::Engine, at: "/recording_studio_mcp"
+  mount RecordingStudioSiteSettings::Engine, at: "/recording_studio_site_settings"
+
+  get "/.well-known/oauth-authorization-server",
+      to: "recording_studio_oauth/oauth_discoveries#authorization_server",
+      defaults: { api_key: "public" }
+  RecordingStudioMcp.draw_named_api_well_known(self)
+  RecordingStudioOauth::ProtectedResourceRegistry.draw_origin_well_known(self)
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

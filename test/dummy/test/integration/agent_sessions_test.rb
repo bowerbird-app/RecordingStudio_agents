@@ -18,6 +18,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
 
   teardown do
     restore_agents
+    RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
   end
 
   test "create records a chat binding and user item" do
@@ -35,38 +36,57 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_equal @root, @calls[:create_session].first[:context_recording]
   end
 
-  test "create is idempotent inside one root and isolated across roots" do
+  test "bindings and items copy the recording root" do
+    recording = create_chat("hello")
+    item = RecordingStudioAgents::Item.new(
+      id: SecureRandom.uuid, recording: recording, root_recording: @other_root,
+      role: "user", text: "copied", status: "done"
+    )
+    binding_record = RecordingStudioAgents::Binding.new(
+      recording: recording, root_recording: @other_root, provider: "openai",
+      create_idempotency_key: "copy-root", last_activity_at: Time.current, expires_at: 1.day.from_now
+    )
+
+    assert item.valid?
+    assert binding_record.valid?
+    assert_equal recording.root_recording_id, item.root_recording_id
+    assert_equal recording.root_recording_id, binding_record.root_recording_id
+  end
+
+  test "create is idempotent inside one root and the same key succeeds in another root" do
     first = create_chat("hello", key: "same-key")
     second = create_chat("hello", key: "same-key")
 
     assert_equal first, second
     assert_equal 1, @calls[:create_session].size
+    assert_equal @root.id, RecordingStudioAgents::Binding.find_by!(recording: first).root_recording_id
 
-    error = assert_raises(RecordingStudioAgents::IsolationError) do
-      RecordingStudioAgents::Sessions::Create.call(
-        parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "hello",
-        idempotency_key: "same-key"
-      ).value!
-    end
+    other = RecordingStudioAgents::Sessions::Create.call(
+      parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "hello",
+      idempotency_key: "same-key"
+    ).value!
 
-    assert_match(/outside this root/, error.message)
-    assert_equal 1, @calls[:create_session].size
+    assert_equal @other_root, other.root_recording
+    refute_equal first, other
+    assert_equal 2, @calls[:create_session].size
+    assert_equal 2, RecordingStudioAgents::Binding.where(create_idempotency_key: "same-key").count
+    assert_idempotency_indexes_are_scoped_to_root
   end
 
   test "an actor without access is refused and the chat inherits the parent grant" do
     stranger = User.create!(email: "stranger-#{SecureRandom.hex(4)}@example.com", password: "Password")
 
-    assert_raises(RecordingStudioAgents::Error) { create_chat("hello", actor: stranger) }
+    assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) { create_chat("hello", actor: stranger) }
     assert_empty @calls[:create_session]
 
     recording = create_chat("hello")
     assert_empty access_recordings_for(recording)
     assert RecordingStudioAccessible.authorized?(actor: @user, recording: recording, role: :edit)
 
-    assert_raises(RecordingStudioAgents::Error) { append_chat(recording, actor: stranger) }
-    assert_raises(RecordingStudioAgents::Error) { rename_chat(recording, actor: stranger) }
-    assert_raises(RecordingStudioAgents::Error) { close(recording, actor: stranger) }
-    assert_raises(RecordingStudioAgents::Error) { close_id(recording.id, actor: stranger) }
+    assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) { append_chat(recording, actor: stranger) }
+    assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) { rename_chat(recording, actor: stranger) }
+    assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) { close(recording, actor: stranger) }
+    assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) { close_id(recording.id, actor: stranger) }
     assert_empty @calls[:send_input]
     assert_empty @calls[:delete_session]
     assert RecordingStudio::Recording.exists?(recording.id)
@@ -101,6 +121,130 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_equal recording, @calls[:send_input].first[:context_recording]
     assert_operator RecordingStudioAgents::Binding.find_by!(recording: recording).expires_at, :>, original_expiry
     assert_equal 1, RecordingStudioAgents::Item.where(idempotency_key: "turn-1").count
+  end
+
+  test "the same append key succeeds in a second root and still dedupes inside one root" do
+    recording = create_chat("hello")
+    other = RecordingStudioAgents::Sessions::Create.call(
+      parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "there",
+      idempotency_key: "other-chat"
+    ).value!
+
+    RecordingStudioAgents::Sessions::Append.call(
+      root_recording: @root, recording: recording, actor: @user, input: "again", idempotency_key: "turn-1"
+    ).value!
+    RecordingStudioAgents::Sessions::Append.call(
+      root_recording: @other_root, recording: other, actor: @user, input: "again", idempotency_key: "turn-1"
+    ).value!
+
+    assert_equal 2, @calls[:send_input].size
+    assert_equal 2, RecordingStudioAgents::Item.where(idempotency_key: "turn-1").count
+
+    assert_raises(RecordingStudioAgents::Error) do
+      sibling = create_chat("sibling", key: "sibling")
+      RecordingStudioAgents::Sessions::Append.call(
+        root_recording: @root, recording: sibling, actor: @user, input: "nope", idempotency_key: "turn-1"
+      ).value!
+    end
+  end
+
+  test "append refuses an item straggler before the provider" do
+    recording = create_chat("hello")
+    insert_null_root_item("turn-straggler")
+
+    assert_raises(RecordingStudioAgents::IsolationError) do
+      RecordingStudioAgents::Sessions::Append.call(
+        root_recording: @root, recording: recording, actor: @user, input: "again", idempotency_key: "turn-straggler"
+      ).value!
+    end
+    assert_empty @calls[:send_input]
+  end
+
+  test "create refuses a cross-workspace key before it opens a provider session" do
+    RecordingStudioAgents::Sessions::Create.call(
+      parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "there",
+      idempotency_key: "taken-key"
+    ).value!
+    add_global_binding_index
+    RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
+
+    assert_raises(RecordingStudioAgents::KeyConflictError) do
+      create_chat("hello", key: "taken-key")
+    end
+    assert_equal 1, @calls[:create_session].size
+    assert_empty @calls[:delete_session]
+  end
+
+  test "create deletes the provider session when the global unique index rejects the insert" do
+    RecordingStudioAgents::Sessions::Create.call(
+      parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "there",
+      idempotency_key: "fallback-key"
+    ).value!
+    add_global_binding_index
+    opened = @calls[:create_session].size
+    deleted = @calls[:delete_session].size
+
+    without_binding_precheck do
+      assert_raises(RecordingStudioAgents::KeyConflictError) do
+        create_chat("hello", key: "fallback-key")
+      end
+    end
+    assert_equal opened + 1, @calls[:create_session].size
+    assert_equal deleted + 1, @calls[:delete_session].size
+  end
+
+  test "a stale true index cache does not block a second workspace" do
+    create_chat("hello", key: "stale-key")
+    RecordingStudioAgents::Sessions::GlobalKey.binding_index_present = true
+
+    other = RecordingStudioAgents::Sessions::Create.call(
+      parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "hello",
+      idempotency_key: "stale-key"
+    ).value!
+
+    assert_equal @other_root, other.root_recording
+    assert_equal false, RecordingStudioAgents::Sessions::GlobalKey.binding_index_present
+  end
+
+  test "a missing global index stays cached as false" do
+    create_chat("hello", key: "cached-one")
+    assert_equal false, RecordingStudioAgents::Sessions::GlobalKey.binding_index_present
+    connection = RecordingStudioAgents::Binding.connection
+    checks = 0
+    original = connection.method(:index_exists?)
+    connection.define_singleton_method(:index_exists?) do |*args, **kwargs|
+      checks += 1
+      original.call(*args, **kwargs)
+    end
+
+    create_chat("again", key: "cached-two")
+
+    assert_equal 0, checks
+  ensure
+    if defined?(connection) && connection && defined?(original) && original
+      connection.define_singleton_method(:index_exists?, original)
+    end
+  end
+
+  test "a same-root create that loses the unique index returns the existing chat" do
+    first = create_chat("hello", key: "race-key")
+    finder = RecordingStudioAgents::Binding.method(:find_by)
+    calls = 0
+    singleton = RecordingStudioAgents::Binding.singleton_class
+    singleton.define_method(:find_by) do |*args, **kwargs|
+      calls += 1
+      next nil if calls == 1
+
+      finder.call(*args, **kwargs)
+    end
+
+    second = create_chat("hello", key: "race-key")
+
+    assert_equal first, second
+    assert_equal 2, @calls[:create_session].size
+    assert_equal 1, @calls[:delete_session].size
+  ensure
+    singleton.define_method(:find_by, finder) if defined?(singleton) && singleton && defined?(finder) && finder
   end
 
   test "append refuses a chat from another root before sending" do
@@ -228,6 +372,21 @@ class AgentSessionsTest < ActiveSupport::TestCase
 
   private
 
+  def assert_idempotency_indexes_are_scoped_to_root
+    connection = ActiveRecord::Base.connection
+    binding_indexes = connection.indexes(:recording_studio_agents_bindings)
+    item_indexes = connection.indexes(:recording_studio_agents_items)
+
+    assert binding_indexes.any? { |index|
+      index.unique && index.columns == %w[root_recording_id create_idempotency_key]
+    }
+    assert item_indexes.any? { |index|
+      index.unique && index.columns == %w[root_recording_id idempotency_key]
+    }
+    refute binding_indexes.any? { |index| index.name == "index_rs_agents_bindings_on_create_key" }
+    refute item_indexes.any? { |index| index.name == "index_rs_agents_items_on_idempotency_key" }
+  end
+
   def create_chat(input, key: SecureRandom.uuid, title: nil, actor: @user)
     RecordingStudioAgents::Sessions::Create.call(
       parent_recording: @root, root_recording: @root, actor: actor, input: input, idempotency_key: key, title: title
@@ -238,6 +397,42 @@ class AgentSessionsTest < ActiveSupport::TestCase
     RecordingStudioAgents::Sessions::Append.call(
       root_recording: @root, recording: recording, actor: actor, input: "again", idempotency_key: SecureRandom.uuid
     ).value!
+  end
+
+  def insert_null_root_item(key)
+    holder = create_chat("holder", key: "holder-#{key}")
+    connection = ActiveRecord::Base.connection
+    connection.execute("ALTER TABLE recording_studio_agents_items ALTER COLUMN root_recording_id DROP NOT NULL")
+    connection.execute(<<~SQL.squish)
+      INSERT INTO recording_studio_agents_items (
+        id, recording_id, role, text, status, idempotency_key, created_at, root_recording_id
+      ) VALUES (
+        #{connection.quote(SecureRandom.uuid)}, #{connection.quote(holder.id)}, 'user', 'old', 'done',
+        #{connection.quote(key)}, #{connection.quote(Time.current)}, NULL
+      )
+    SQL
+    connection.add_index :recording_studio_agents_items, :idempotency_key,
+                          unique: true, where: "idempotency_key IS NOT NULL",
+                          name: "index_rs_agents_items_on_idempotency_key"
+    RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
+  end
+
+  def without_binding_precheck
+    klass = RecordingStudioAgents::Sessions::Create
+    klass.class_eval do
+      alias_method :reject_global_binding_straggler_original!, :reject_global_binding_straggler!
+      define_method(:reject_global_binding_straggler!) { nil }
+    end
+    yield
+  ensure
+    klass.class_eval do
+      alias_method :reject_global_binding_straggler!, :reject_global_binding_straggler_original!
+    end
+  end
+
+  def add_global_binding_index
+    ActiveRecord::Base.connection.add_index :recording_studio_agents_bindings, :create_idempotency_key,
+                                            unique: true, name: "index_rs_agents_bindings_on_create_key"
   end
 
   def rename_chat(recording, actor: @user)
@@ -332,6 +527,8 @@ class AgentSessionsTest < ActiveSupport::TestCase
   end
 
   def restore_agents
+    return if @original_agents.nil?
+
     @original_agents.each do |name, original|
       RecordingStudioAI::Agents.define_singleton_method(name) do |*args, **kwargs, &block|
         original.call(*args, **kwargs, &block)

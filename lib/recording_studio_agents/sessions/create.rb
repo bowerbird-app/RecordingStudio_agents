@@ -6,6 +6,7 @@ module RecordingStudioAgents
       include RootGuard
       include Access
       include ChatDraft
+      include GlobalKey
 
       def initialize(parent_recording:, root_recording:, actor:, input:, **options)
         super()
@@ -25,6 +26,7 @@ module RecordingStudioAgents
         @profile = options[:profile]
         @purpose = options[:purpose]
         @execution_source = options.fetch(:execution_source, :web)
+        @access_grant = options[:access_grant]
       end
 
       def perform
@@ -32,11 +34,12 @@ module RecordingStudioAgents
         found = existing_recording
         return success(found) if found
 
+        reject_global_binding_straggler!
         success(persist(open_session))
       end
 
       def existing_recording
-        record = Binding.find_by(create_idempotency_key: @idempotency_key)
+        record = Binding.find_by(root_recording_id: @root_recording.id, create_idempotency_key: @idempotency_key)
         return if record.nil?
 
         ensure_in_root!(record.recording, @root_recording)
@@ -79,9 +82,8 @@ module RecordingStudioAgents
 
       def persist(hosted)
         Session.transaction { insert_chat(hosted) }
-      rescue StandardError
-        abandon(hosted)
-        raise
+      rescue StandardError => e
+        resume_after_binding_insert(hosted, e)
       end
 
       def insert_chat(hosted)
@@ -102,7 +104,7 @@ module RecordingStudioAgents
       end
 
       def insert_item(recording)
-        Item.create!(item_attributes.merge(recording: recording))
+        Item.create!(item_attributes.merge(recording: recording, root_recording: @root_recording))
       end
 
       def abandon(hosted)

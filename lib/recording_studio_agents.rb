@@ -3,24 +3,15 @@
 require "recording_studio"
 require "recording_studio_ai"
 require "recording_studio_agents/version"
-require "recording_studio_agents/engine"
-require "recording_studio_agents/configuration"
-require "recording_studio_agents/capabilities/example"
-require "recording_studio/capabilities/agents"
-require "recording_studio_agents/provider_sessions"
-require "recording_studio_agents/sessions/root_guard"
-require "recording_studio_agents/sessions/access"
-require "recording_studio_agents/sessions/chat_lookup"
-require "recording_studio_agents/sessions/chat_draft"
-require "recording_studio_agents/sessions/create"
-require "recording_studio_agents/sessions/append"
-require "recording_studio_agents/sessions/rename"
-require "recording_studio_agents/sessions/close"
-require "recording_studio_agents/sessions/expire"
 
 module RecordingStudioAgents
   class Error < StandardError; end
   class IsolationError < Error; end
+  class KeyConflictError < IsolationError; end
+
+  module Sessions
+    class AccessDeniedError < Error; end
+  end
 
   class << self
     def configuration
@@ -32,6 +23,23 @@ module RecordingStudioAgents
     end
   end
 end
+
+require "recording_studio_agents/engine"
+require "recording_studio_agents/configuration"
+require "recording_studio_agents/capabilities/example"
+require "recording_studio/capabilities/agents"
+require "recording_studio_agents/provider_sessions"
+require "recording_studio_agents/sessions/root_guard"
+require "recording_studio_agents/sessions/global_key"
+require "recording_studio_agents/sessions/access"
+require "recording_studio_agents/sessions/chat_lookup"
+require "recording_studio_agents/sessions/chat_draft"
+require "recording_studio_agents/sessions/create"
+require "recording_studio_agents/sessions/append"
+require "recording_studio_agents/sessions/rename"
+require "recording_studio_agents/sessions/close"
+require "recording_studio_agents/sessions/expire"
+require "recording_studio_agents/mcp"
 
 require "recording_studio_agents/chatkit/protocol_error"
 require "recording_studio_agents/chatkit/payload"

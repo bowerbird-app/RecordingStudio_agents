@@ -20,6 +20,9 @@ Layout/LineLength:
 Metrics/ClassLength:
   Exclude:
     - 'test/**/*'
+    # The generator copies each migration file alone, so the SQL stays in that class.
+    - 'db/migrate/20261019040000_scope_agents_idempotency_keys_to_root.rb'
+    - 'db/migrate/20261019040100_require_agents_root_on_idempotency_keys.rb'
 
 Metrics/MethodLength:
   Exclude:

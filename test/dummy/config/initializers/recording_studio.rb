@@ -2,7 +2,21 @@
 
 RecordingStudio.configure do |config|
   # Registered delegated_type recordables (strings or classes)
-  config.recordable_types = [ "Workspace", "Folder", "Page", "RecordingStudioAgents::Session" ]
+  config.recordable_types = [
+    "Workspace",
+    "Folder",
+    "Page",
+    "RecordingStudioAgents::Session",
+    "RecordingStudioUser::People",
+    "RecordingStudioUser::Profile",
+    "RecordingStudioAttachable::Attachment",
+    "RecordingStudioSiteSettings::SiteSetting",
+    "RecordingStudio::Access",
+    "RecordingStudioApi::AdminApi",
+    "RecordingStudioApi::ApiAccessToken",
+    "RecordingStudioApi::ApiClient",
+    "RecordingStudioApi::ApiCredential"
+  ]
 
   # Require each configured ActiveRecord type to call recording_studio_recordable.
   config.require_recordable_declarations = true

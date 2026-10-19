@@ -37,10 +37,9 @@ module RecordingStudioAgents
 
       def find!(thread_id)
         recording = chats.find_by(id: thread_id)
-        raise ProtocolError.new("chat was not found", status: 404) if recording.nil?
-        return recording if viewable?(recording)
+        raise ProtocolError.new("chat was not found", status: 404) if recording.nil? || !viewable?(recording)
 
-        raise ProtocolError.new("actor cannot access this recording", status: 403)
+        recording
       end
 
       private

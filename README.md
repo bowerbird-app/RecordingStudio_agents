@@ -2,7 +2,7 @@
 
 Hosted agent chats for Recording Studio. A chat is a `Session` recordable owned by a root that opted into the `:agents` capability. Turns stay in Recording Studio AI. This gem stores the session binding, a local item projection, and the retention clock.
 
-ChatKit and the browser embed are not part of this release.
+ChatKit talks to this gem. The browser embed uses the host session. MCP uses an Oauth bearer token.
 
 ## Requirements
 
@@ -11,11 +11,17 @@ ChatKit and the browser embed are not part of this release.
 - Recording Studio `~> 4.7` (dummy GitHub tag `v4.7.0`)
 - Recording Studio AI `~> 0.15.1` (dummy GitHub tag `v0.15.1`)
 - Recording Studio Metrics dummy GitHub tag `v0.3.1`
-- Accessible dummy GitHub tag `v0.18.0`
-- Trashable dummy GitHub tag `v0.10.0`
-- Root Switchable dummy GitHub tag `v0.9.0`
-- Cache dummy GitHub tag `v0.5.0`
-- FlatPack dummy GitHub tag `v0.1.196`
+- Accessible dummy GitHub tag `v0.20.0`
+- Trashable dummy GitHub tag `v0.11.1`
+- Root Switchable dummy GitHub tag `v0.9.5`
+- Cache dummy GitHub tag `v0.5.1`
+- FlatPack dummy GitHub tag `v0.1.254`
+- Recording Studio Users dummy GitHub tag `v0.24.0`
+- Recording Studio Oauth dummy GitHub tag `v0.12.5`
+- Recording Studio MCP dummy GitHub tag `v0.19.1`
+- Recording Studio API dummy GitHub tag `v0.11.4`
+- Recording Studio Admin dummy GitHub tag `v2.3.3`
+- Site Settings dummy GitHub tag `v0.5.1`
 
 The provider API key stays in Recording Studio AI. This gem does not read one.
 
@@ -57,11 +63,11 @@ Schedule `RecordingStudioAgents::ExpireSessionsJob`. It closes chats whose `expi
 - `RecordingStudioAgents::Sessions::Close` deletes the provider session, then purges the local chat.
 - `RecordingStudioAgents::Sessions::Expire` closes every expired binding. One failure does not stop the rest. Expiry is system cleanup scoped to the recording and its root. It does not use the creator and does not check access. A user `Close` still requires edit access on the chat.
 
-Create and append are idempotent on their keys inside one root. Reusing a create key from another root raises `RecordingStudioAgents::IsolationError`.
+Create and append are idempotent on their keys inside one root. The same create key in a different root opens a second chat. The binding stores `root_recording_id`, and the unique index is `(root_recording_id, create_idempotency_key)`. Item keys use the same pair. A repeated key inside one root still returns the existing chat or message. Two creates that overlap on that key do the same: the loser drops the extra provider session and returns the chat that won.
 
 ## ChatKit
 
-`POST /recording_studio_agents/chatkit` accepts the ChatKit protocol and answers with JSON or server-sent events. The host session resolves the actor and the root. Client metadata ids are ignored. Create, append, rename, and delete go through the Sessions services. Streaming, cancel, and reading a finished first turn go through `RecordingStudioAI::Agents`.
+`POST /recording_studio_agents/chatkit` accepts the ChatKit protocol and answers with JSON or server-sent events. The host session resolves the actor. The root is the workspace selected in Root Switchable (`RecordingStudio::RootSwitchable.resolve_current_root`), not the oldest workspace. Client metadata ids are ignored. Create, append, rename, and delete go through the Sessions services. Streaming, cancel, and reading a finished first turn go through `RecordingStudioAI::Agents`. A chat the actor cannot view is a 404, the same as a missing chat.
 
 `threads.create` is not streamed by Recording Studio AI. After the session is saved, the endpoint reads the provider stream, and reads saved items when that stream has no text. `text_delta` events become ChatKit text deltas. An unsupported operation returns a protocol error.
 
@@ -86,4 +92,19 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 
 ## Dummy app
 
-The dummy app validates the engine in a host with Devise, FlatPack, and Recording Studio's default layout. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`.
+The dummy app validates the engine in a host with Recording Studio Users, Oauth, MCP, FlatPack, and Recording Studio's default layout. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. ChatKit keeps that session. MCP at `/recording_studio_mcp` uses an Oauth bearer token.
+
+## MCP
+
+The gem registers the chat tools when the host has loaded Recording Studio API, and the `agent-chats` skill when the host has loaded Recording Studio MCP. The host mounts MCP, API, and Oauth and draws the protected-resource metadata. A bearer token acts in the workspace on its access grant. The browser switcher and a session cookie on the same request do not change that grant. Reads call `access_grant.authorize!` with `:view`. Writes call it with `:edit`. Chats opened over MCP are attributed to the grant's `OauthAuthorization`.
+
+| Tool | What it does |
+| --- | --- |
+| `agent_chats_list` | Chats in the granted workspace |
+| `agent_chats_create` | Opens a chat. Requires `input` and `idempotency_key` |
+| `agent_chats_read` | One chat |
+| `agent_chats_append` | Adds a user message |
+| `agent_items_list` | Items on one chat |
+| `agent_items_read` | One item |
+
+`skill://agent-chats/SKILL.md` is the MCP resource for those tools.

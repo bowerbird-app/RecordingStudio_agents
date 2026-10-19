@@ -5,6 +5,7 @@ module RecordingStudioAgents
     class Append < RecordingStudio::Services::BaseService
       include RootGuard
       include ChatLookup
+      include GlobalKey
 
       def initialize(root_recording:, actor:, input:, idempotency_key:, **options)
         super()
@@ -15,6 +16,7 @@ module RecordingStudioAgents
         @recording = options[:recording]
         @recording_id = options[:recording_id]
         @execution_source = options.fetch(:execution_source, :web)
+        @access_grant = options[:access_grant]
       end
 
       private
@@ -43,7 +45,7 @@ module RecordingStudioAgents
       end
 
       def replay?(recording)
-        item = Item.find_by(idempotency_key: @idempotency_key)
+        item = Item.find_by(root_recording_id: @root_recording.id, idempotency_key: @idempotency_key)
         return false if item.nil?
         return true if item.recording_id == recording.id
 
@@ -56,6 +58,7 @@ module RecordingStudioAgents
       end
 
       def deliver(recording)
+        reject_global_item_straggler!
         send_input(recording)
         remember_item(recording)
         touch_binding(recording)
@@ -78,14 +81,15 @@ module RecordingStudioAgents
 
       def remember_item(recording)
         Item.create!(item_attributes(recording))
-      rescue ActiveRecord::RecordNotUnique
+      rescue ActiveRecord::RecordNotUnique => e
+        raise_global_item_conflict!(e)
         raise Error, "idempotency_key belongs to another chat" unless replay?(recording)
       end
 
       def item_attributes(recording)
         {
-          id: SecureRandom.uuid, recording: recording, role: "user", text: @input, status: "done",
-          idempotency_key: @idempotency_key
+          id: SecureRandom.uuid, recording: recording, root_recording: @root_recording, role: "user",
+          text: @input, status: "done", idempotency_key: @idempotency_key
         }
       end
 

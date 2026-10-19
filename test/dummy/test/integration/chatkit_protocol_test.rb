@@ -20,8 +20,10 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    @configuration.request_actor = @previous_actor
-    @configuration.request_root = @previous_root
+    if @configuration
+      @configuration.request_actor = @previous_actor
+      @configuration.request_root = @previous_root
+    end
     restore_agents
   end
 
@@ -246,6 +248,8 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
   end
 
   def restore_agents
+    return if @original_agents.nil?
+
     @original_agents.each do |name, original|
       RecordingStudioAI::Agents.define_singleton_method(name) do |*args, **kwargs, &block|
         original.call(*args, **kwargs, &block)

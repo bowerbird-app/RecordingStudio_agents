@@ -8,8 +8,16 @@ RecordingStudioAgents.configure do |config|
     Current.actor = user if defined?(Current)
     user
   end
-  config.request_root = lambda do |_controller|
-    workspace = Workspace.order(:created_at).first
-    workspace && RecordingStudio.root_recording_for(workspace)
+  config.request_root = lambda do |controller|
+    actor = Current.actor
+    actor ||= controller.request.env["warden"]&.user(:user) if controller.respond_to?(:request)
+    device_key = RecordingStudio::RootSwitchable::DeviceKey.fetch(controller: controller)
+    RecordingStudio::RootSwitchable.resolve_current_root(
+      controller: controller,
+      actor: actor,
+      device_key: device_key
+    ).root_recording
+  rescue RecordingStudio::RootSwitchable::DeviceKey::Unavailable
+    nil
   end
 end
