@@ -39,6 +39,8 @@ module RecordingStudioAgents
         raise InstructionsError, "instructions overrides are disabled" if gate == :none
 
         ensure_access!(@root_recording, role: gate)
+      rescue AccessDeniedError
+        raise AccessDeniedError, "actor cannot override instructions"
       end
 
       def length_message

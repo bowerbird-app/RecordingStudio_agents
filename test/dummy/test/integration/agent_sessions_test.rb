@@ -384,7 +384,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
         create_chat("hello", key: "admin-gate", instructions: "Be terse.")
       end
 
-      assert_equal "actor cannot access this recording", error.message
+      assert_equal "actor cannot override instructions", error.message
       assert_equal before, @calls[:create_session].size
     end
   end
