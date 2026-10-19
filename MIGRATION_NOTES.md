@@ -23,9 +23,13 @@ bin/rails db:migrate
 
 The generator copies `create_recording_studio_agents_sessions`, `scope_agents_idempotency_keys_to_root`, and `require_agents_root_on_idempotency_keys`, in that order. The first creates the chat snapshot table, the binding table, and the item table.
 
-Deploy the idempotency change in two steps. Migration A (`scope_agents_idempotency_keys_to_root`) adds a nullable `root_recording_id`, backfills it from each row's recording in batches, creates unique indexes on `(root_recording_id, key)` concurrently, then drops the old global unique indexes. Migration B (`require_agents_root_on_idempotency_keys`) backfills rows that showed up after A and then sets `NOT NULL`. Ship A with the app release that copies `root_recording_id` from the recording, then ship B. Do not run B first.
+A and B can run back to back. The generator copies both, and `db:migrate` runs A then B.
 
-A cannot be reversed. `down` raises `ActiveRecord::IrreversibleMigration` because putting the global unique indexes back fails once the same key exists in two workspaces. B can relax the null constraint. Recording ids are unchanged. Recording Studio AI keeps its own run history; these migrations do not delete those rows.
+Migration A (`scope_agents_idempotency_keys_to_root`) adds a nullable `root_recording_id`, a foreign key that is not validated yet, and backfills the column from each row's recording in batches. It then creates unique indexes on `(root_recording_id, key)` concurrently. It keeps the old global unique indexes, so old code still has uniqueness during a rolling deploy. A can be re-run after a partial failure: the column and foreign key use `if_not_exists`, and an invalid concurrent index is dropped before it is created again.
+
+Migration B (`require_agents_root_on_idempotency_keys`) backfills rows that arrived after A, validates the foreign keys, sets `NOT NULL` through a check constraint, and only then drops the old global unique indexes. B's `down` raises `ActiveRecord::IrreversibleMigration` because those global indexes cannot be restored once the same key exists in two workspaces.
+
+`Binding` and `Item` copy `root_recording_id` from the recording before validation, so the new app writes the column before B requires it. Recording ids are unchanged. Recording Studio AI keeps its own run history; these migrations do not delete those rows.
 
 Hosts that mount MCP also copy migrations from Recording Studio API, Oauth, MCP, and Users. Those gems own those tables.
 

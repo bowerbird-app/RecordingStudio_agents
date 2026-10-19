@@ -6,15 +6,7 @@ module RecordingStudioAgents
       module_function
 
       def list
-        {
-          fields: {
-            limit: { type: :integer, required: false, description: "Page size." },
-            root_recording_id: {
-              type: :string, required: false,
-              description: "Ignored. The access grant picks the workspace."
-            }
-          }
-        }
+        { fields: { limit: { type: :integer, required: false, description: "Page size." } } }
       end
 
       def create

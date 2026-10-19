@@ -96,12 +96,12 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     post_mcp("tools/call", name: "agent_chats_create", arguments: {
       input: "nope", idempotency_key: "view-only", title: "Nope"
     })
-    assert_equal true, JSON.parse(response.body).dig("result", "isError")
+    assert_authorization_error
 
     post_mcp("tools/call", name: "agent_chats_append", arguments: {
       id: @alpha_chat.id, input: "nope", idempotency_key: "view-only-append"
     })
-    assert_equal true, JSON.parse(response.body).dig("result", "isError")
+    assert_authorization_error
     assert_equal before, RecordingStudioAgents::Binding.count
     assert_equal 0, RecordingStudioAgents::Item.where(idempotency_key: "view-only-append").count
   end
@@ -110,11 +110,19 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     sign_in @user
     switch_to(@zulu)
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { root_recording_id: @zulu.id })
+    post_mcp("tools/call", name: "agent_chats_list", arguments: {})
     ids = tool_payload(JSON.parse(response.body)).fetch("chats").map { |chat| chat["id"] }
 
     assert_equal [@alpha_chat.id], ids
     refute_includes ids, @zulu_chat.id
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { root_recording_id: @zulu.id })
+    rejected = JSON.parse(response.body)
+    message = rejected.dig("result", "content", 0, "text").to_s
+
+    assert_equal true, rejected.dig("result", "isError")
+    assert_includes message, "Invalid input"
+    refute_includes message, @zulu_chat.id
   end
 
   test "a request with both a session and a bearer uses the grant workspace" do
@@ -142,6 +150,14 @@ class McpChatsTest < ActionDispatch::IntegrationTest
       "Accept" => "application/json",
       "Authorization" => "Bearer #{@token}"
     }
+  end
+
+  def assert_authorization_error
+    payload = JSON.parse(response.body)
+    message = payload.dig("result", "content", 0, "text").to_s
+
+    assert_equal true, payload.dig("result", "isError")
+    assert_includes message, "not authorized"
   end
 
   def tool_payload(payload)
