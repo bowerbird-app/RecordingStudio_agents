@@ -10,15 +10,37 @@ module RecordingStudioAgents
       end
 
       def create
+        { fields: create_fields }
+      end
+
+      def create_fields
         {
-          fields: {
-            input: { type: :string, required: true, allow_blank: false, description: "First user message." },
-            idempotency_key: {
-              type: :string, required: true, allow_blank: false,
-              description: "Create key. Unique inside this workspace."
-            },
-            title: { type: :string, required: false, description: "Optional chat title." }
-          }
+          input: input_field,
+          idempotency_key: create_key_field,
+          title: title_field,
+          instructions: instructions_field
+        }
+      end
+
+      def input_field
+        { type: :string, required: true, allow_blank: false, description: "First user message." }
+      end
+
+      def create_key_field
+        {
+          type: :string, required: true, allow_blank: false,
+          description: "Create key. Unique inside this workspace."
+        }
+      end
+
+      def title_field
+        { type: :string, required: false, description: "Optional chat title." }
+      end
+
+      def instructions_field
+        {
+          type: :string, required: false,
+          description: "Instructions for this chat. Defaults to the configured instructions."
         }
       end
 

@@ -11,6 +11,7 @@ module RecordingStudioAgents
         chat.model = required_model(hosted)
         chat.profile = hosted.profile
         chat.purpose = purpose
+        chat.instructions = instructions
       end
 
       def binding_attributes(recording, hosted)

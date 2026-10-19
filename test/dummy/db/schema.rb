@@ -176,6 +176,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_052008) do
     t.string "profile"
     t.string "purpose"
     t.datetime "created_at", null: false
+    t.text "instructions"
   end
 
   create_table "recording_studio_api_admin_apis", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -602,7 +603,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_052008) do
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
-    t.check_constraint "registered_with::text = ANY (ARRAY['password'::character varying::text, 'otp'::character varying::text])", name: "users_registered_with_check"
+    t.check_constraint "registered_with::text = ANY (ARRAY['password'::character varying, 'otp'::character varying]::text[])", name: "users_registered_with_check"
   end
 
   create_table "workspaces", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

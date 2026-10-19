@@ -80,7 +80,10 @@ module RecordingStudioAgents
       end
 
       def stream_new(params)
-        Result.stream(Turn.open(actor: @actor, root: @root, text: Payload.user_text(params["input"])))
+        Result.stream(Turn.open(
+                        actor: @actor, root: @root, text: Payload.user_text(params["input"]),
+                        instructions: params["instructions"]
+                      ))
       end
 
       def stream_existing(params)

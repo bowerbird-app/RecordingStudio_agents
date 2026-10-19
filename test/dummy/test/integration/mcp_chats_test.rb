@@ -98,6 +98,18 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
   end
 
+  test "create stores an instructions override from the tool call" do
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "hello", idempotency_key: "instr-#{SecureRandom.hex(4)}", instructions: "Be terse."
+    })
+    payload = JSON.parse(response.body)
+    recording = RecordingStudio::Recording.find(tool_payload(payload).fetch("id"))
+
+    assert_equal false, payload.dig("result", "isError"), response.body
+    assert_equal "Be terse.", recording.recordable.instructions
+    assert_equal "Be terse.", @calls.last[:instructions]
+  end
+
   test "the same create key opens a chat in each workspace over the bearer" do
     key = "shared-#{SecureRandom.hex(4)}"
     alpha_id = create_over_mcp(key)

@@ -41,7 +41,8 @@ module RecordingStudioAgents
           {
             parent_recording: root, root_recording: root, actor: Context.actor(context),
             input: Context.value(context, :input), idempotency_key: Context.value(context, :idempotency_key),
-            title: Context.value(context, :title), access_grant: context.access_grant
+            title: Context.value(context, :title), instructions: Context.value(context, :instructions),
+            access_grant: context.access_grant
           }
         end
         private_class_method :create_args

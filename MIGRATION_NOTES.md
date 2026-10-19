@@ -21,7 +21,7 @@ bin/rails generate recording_studio_agents:migrations
 bin/rails db:migrate
 ```
 
-The generator copies `create_recording_studio_agents_sessions`, `scope_agents_idempotency_keys_to_root`, and `require_agents_root_on_idempotency_keys`, in that order. The first creates the chat snapshot table, the binding table, and the item table.
+The generator copies `create_recording_studio_agents_sessions`, `scope_agents_idempotency_keys_to_root`, `require_agents_root_on_idempotency_keys`, and `add_instructions_to_recording_studio_agents_sessions`, in that order. The first creates the chat snapshot table, the binding table, and the item table.
 
 A and B can run back to back. The generator copies both, and `db:migrate` runs A then B.
 
@@ -32,6 +32,8 @@ Migration B (`require_agents_root_on_idempotency_keys`) backfills rows that arri
 `schema.rb` does not dump triggers. `db:schema:load` and the test suite therefore have no fill trigger. `agent_sessions_test` inserts a NULL-root item to prove the global-index clash, and that insert only stays NULL because the trigger is absent. Hosts that run A and B do get the trigger.
 
 A and B set `lock_timeout` to 5 seconds only for the short locks (columns, the trigger, backfill, foreign keys, and `NOT NULL`). Concurrent index builds and drops run outside that limit, because a 5 second cap would cancel them on a busy database. The previous `lock_timeout` is saved and restored, including a value from `database.yml` and including when the backfill raises. If Postgres cancels a short statement for the 5 second timeout, re-run the migration.
+
+`add_instructions_to_recording_studio_agents_sessions` adds a nullable `instructions` text column to `recording_studio_agents_sessions`. It sets `lock_timeout` to 5 seconds around that `ADD COLUMN` only, then restores the previous value, including a value from `database.yml`. The column has no default, so Postgres does not rewrite the table. Existing rows stay null. Old servers keep inserting without naming the column. `down` drops the column. No backfill.
 
 `Binding` and `Item` copy `root_recording_id` from the recording before validation, so the new app writes the column before B requires it. Recording ids are unchanged. Recording Studio AI keeps its own run history; these migrations do not delete those rows.
 

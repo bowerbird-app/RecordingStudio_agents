@@ -27,6 +27,14 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     restore_agents
   end
 
+  test "create stores a per-chat instructions override" do
+    events = stream_events(create_body("hello", instructions: "Be terse."))
+    recording = RecordingStudio::Recording.find(events.first.dig("thread", "id"))
+
+    assert_equal "Be terse.", recording.recordable.instructions
+    assert_equal "Be terse.", @calls[:create_session].first[:instructions]
+  end
+
   test "create streams the saved first turn and ignores client metadata ids" do
     events = stream_events(create_body("hello", root_id: @other_root.id))
 
@@ -159,8 +167,10 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     )
   end
 
-  def create_body(text, root_id: nil)
-    { type: "threads.create", params: create_params(text), metadata: { root_recording_id: root_id } }.to_json
+  def create_body(text, root_id: nil, instructions: nil)
+    params = create_params(text)
+    params[:instructions] = instructions if instructions
+    { type: "threads.create", params: params, metadata: { root_recording_id: root_id } }.to_json
   end
 
   def create_params(text)

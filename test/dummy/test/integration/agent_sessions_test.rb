@@ -33,6 +33,20 @@ class AgentSessionsTest < ActiveSupport::TestCase
     configuration.provider = previous if defined?(configuration) && configuration
   end
 
+  test "create stores the configured instructions" do
+    recording = create_chat("hello", key: "default-instructions")
+
+    assert_equal "Answer in one sentence.", recording.recordable.instructions
+    assert_equal "Answer in one sentence.", @calls[:create_session].first[:instructions]
+  end
+
+  test "create stores an instructions override" do
+    recording = create_chat("hello", key: "override-instructions", instructions: "Be terse.")
+
+    assert_equal "Be terse.", recording.recordable.instructions
+    assert_equal "Be terse.", @calls[:create_session].last[:instructions]
+  end
+
   test "create records a chat binding and user item" do
     recording = create_chat("hello")
 
@@ -336,6 +350,19 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert RecordingStudio::Recording.exists?(recording.id)
   end
 
+  test "expire deletes the stored instructions with the chat" do
+    recording = create_chat("old", key: "expired-instructions", instructions: "Keep this private")
+    session_id = recording.recordable_id
+    RecordingStudioAgents::Binding.find_by!(recording: recording).update!(expires_at: 1.minute.ago)
+
+    closed = RecordingStudioAgents::Sessions::Expire.call.value!
+
+    assert_equal [recording.id], closed
+    assert_nil RecordingStudio::Recording.find_by(id: recording.id)
+    assert_nil RecordingStudioAgents::Session.find_by(id: session_id)
+    refute RecordingStudioAgents::Session.exists?(instructions: "Keep this private")
+  end
+
   test "expire closes only expired chats and a second run is a no-op" do
     expired = create_chat("old", key: "expired-key")
     kept = create_chat("fresh", key: "fresh-key")
@@ -402,9 +429,10 @@ class AgentSessionsTest < ActiveSupport::TestCase
     refute item_indexes.any? { |index| index.name == "index_rs_agents_items_on_idempotency_key" }
   end
 
-  def create_chat(input, key: SecureRandom.uuid, title: nil, actor: @user)
+  def create_chat(input, key: SecureRandom.uuid, title: nil, actor: @user, instructions: nil)
     RecordingStudioAgents::Sessions::Create.call(
-      parent_recording: @root, root_recording: @root, actor: actor, input: input, idempotency_key: key, title: title
+      parent_recording: @root, root_recording: @root, actor: actor, input: input, idempotency_key: key, title: title,
+      instructions: instructions
     ).value!
   end
 
