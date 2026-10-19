@@ -128,7 +128,6 @@ class McpToolsTest < Minitest::Test
         RecordingStudioAgents::Mcp::Chats::Create.call(@context)
       end
       assert_equal "conflict: create_idempotency_key is already used in another workspace", taken.message
-      assert_includes taken.message, "conflict"
       assert_equal ["conflict"], taken.details
     end
 

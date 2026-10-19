@@ -540,9 +540,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
     return if @original_agents.nil?
 
     @original_agents.each do |name, original|
-      RecordingStudioAI::Agents.define_singleton_method(name) do |*args, **kwargs, &block|
-        original.call(*args, **kwargs, &block)
-      end
+      RecordingStudioAI::Agents.define_singleton_method(name, original)
     end
   end
 end
