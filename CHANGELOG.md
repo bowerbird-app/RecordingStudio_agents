@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-19
+
+### Added
+- MCP tools for chats and items, registered with Recording Studio API so Recording Studio MCP can advertise them. The `agent-chats` skill is registered when MCP is loaded.
+- Dummy host mounts Recording Studio Users, Oauth, API, and MCP. ChatKit still uses the session. MCP uses an Oauth bearer token.
+
+### Changed
+- The dummy request root is the workspace selected through Root Switchable.
+- `create_idempotency_key` is unique per root (`root_recording_id` + key). The same key in another root creates another chat. Item idempotency keys follow the same rule.
+
+### Upgrade notes
+- Pin Recording Studio Users `v0.24.0`, Oauth `v0.12.5`, MCP `v0.19.1`, and API `v0.11.0` by git tag. Oauth needs Flatpack `~> 0.1.198` (dummy uses `v0.1.213`).
+- Mount API, Oauth, and MCP, allow `RecordingStudioOauth::OauthAuthorization` as an access actor, and point `request_root` at `RecordingStudio::RootSwitchable.resolve_current_root`.
+- Run `bin/rails generate recording_studio_agents:migrations` and migrate. `scope_agents_idempotency_keys_to_root` backfills `root_recording_id` from each row's recording and replaces the global unique indexes. Recording ids are unchanged.
+- Set `request_actor` from the session for ChatKit. MCP reads the bearer token's access grant and does not use the browser switcher.
+
 ## [0.2.0] - 2026-10-17
 
 ### Added

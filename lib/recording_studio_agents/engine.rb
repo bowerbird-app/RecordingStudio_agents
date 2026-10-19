@@ -122,6 +122,10 @@ module RecordingStudioAgents
       end
     end
 
+    initializer "recording_studio_agents.mcp" do
+      config.to_prepare { RecordingStudioAgents::Mcp.register! }
+    end
+
     # Apply controller extensions
     initializer "recording_studio_agents.apply_controller_extensions" do
       config.to_prepare do

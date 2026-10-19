@@ -17,6 +17,7 @@ require "recording_studio_agents/sessions/append"
 require "recording_studio_agents/sessions/rename"
 require "recording_studio_agents/sessions/close"
 require "recording_studio_agents/sessions/expire"
+require "recording_studio_agents/mcp"
 
 module RecordingStudioAgents
   class Error < StandardError; end

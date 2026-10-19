@@ -9,7 +9,8 @@
 - Metrics dummy tag `v0.3.1`
 - Accessible dummy tag `v0.18.0`, Trashable dummy tag `v0.10.0` (`require: false`), and Root Switchable dummy tag `v0.9.0`
 - Cache dummy tag `v0.5.0`
-- FlatPack dummy tag `v0.1.196`
+- FlatPack dummy tag `v0.1.213` (Oauth requires `~> 0.1.198`)
+- Users dummy tag `v0.24.0`, Oauth dummy tag `v0.12.5`, MCP dummy tag `v0.19.1`, API dummy tag `v0.11.0`
 - Public RubyGems and GitHub access for dependency installation
 
 ## Host migration
@@ -19,7 +20,9 @@ bin/rails generate recording_studio_agents:migrations
 bin/rails db:migrate
 ```
 
-The generator copies `create_recording_studio_agents_sessions`. It creates the chat snapshot table, the binding table, and the item table. Recording Studio AI keeps its own run history; this migration does not delete those rows.
+The generator copies `create_recording_studio_agents_sessions` and `scope_agents_idempotency_keys_to_root`. The first creates the chat snapshot table, the binding table, and the item table. The second adds `root_recording_id` on bindings and items, backfills it from the recording's root, and replaces the global idempotency unique indexes with `(root_recording_id, key)`. Recording ids are unchanged. Recording Studio AI keeps its own run history; these migrations do not delete those rows.
+
+Hosts that mount MCP also copy migrations from Recording Studio API, Oauth, MCP, and Users. Those gems own those tables.
 
 ## Verification
 
