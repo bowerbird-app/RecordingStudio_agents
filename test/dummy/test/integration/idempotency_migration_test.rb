@@ -45,8 +45,9 @@ class IdempotencyMigrationTest < ActiveSupport::TestCase
     end
 
     refute_predicate status, :success?
-    assert_match(/recording_studio_agents_bindings has 1 row with a NULL root_recording_id after backfill:/, message)
-    assert_match(/[0-9a-f-]{36}/, message)
+    assert_match(/recording_studio_agents_bindings has 1 row with a NULL root_recording_id after backfill/, message)
+    assert_match(/Recordings missing a root: [0-9a-f-]{36}/, message)
+    assert_match(/re-run this migration/, message)
   end
 
   test "A backfills more than one batch" do
@@ -87,6 +88,7 @@ class IdempotencyMigrationTest < ActiveSupport::TestCase
 
   def exercise_migrations
     simulate_partial_failure
+    connection.execute("SET lock_timeout = '250ms'")
     assert_nil root_of("recording_studio_agents_bindings", @null_binding)
 
     migrate_a
@@ -100,7 +102,7 @@ class IdempotencyMigrationTest < ActiveSupport::TestCase
 
     straggler = insert_binding(@zulu_chat, "straggler-key", include_root: true, root: nil)
     assert_equal @zulu, root_of("recording_studio_agents_bindings", straggler)
-    assert_equal "0", connection.select_value("SHOW lock_timeout")
+    assert_equal "250ms", connection.select_value("SHOW lock_timeout")
     assert trigger_exists?("rs_agents_bindings_fill_root")
     assert trigger_exists?("rs_agents_items_fill_root")
 
@@ -117,7 +119,7 @@ class IdempotencyMigrationTest < ActiveSupport::TestCase
     refute check_exists?("rs_agents_items_root_present")
     assert trigger_exists?("rs_agents_bindings_fill_root")
     assert trigger_exists?("rs_agents_items_fill_root")
-    assert_equal "0", connection.select_value("SHOW lock_timeout")
+    assert_equal "250ms", connection.select_value("SHOW lock_timeout")
     assert_per_root_uniqueness
   end
 

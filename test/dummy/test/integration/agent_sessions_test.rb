@@ -18,6 +18,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
 
   teardown do
     restore_agents
+    RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
   end
 
   test "create records a chat binding and user item" do
@@ -165,11 +166,13 @@ class AgentSessionsTest < ActiveSupport::TestCase
       idempotency_key: "taken-key"
     ).value!
     add_global_binding_index
+    RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
 
     assert_raises(RecordingStudioAgents::IsolationError) do
       create_chat("hello", key: "taken-key")
     end
-    assert_equal 1, @calls[:delete_session].size
+    assert_equal 1, @calls[:create_session].size
+    assert_empty @calls[:delete_session]
   end
 
   test "append refuses a chat from another root before sending" do
@@ -339,6 +342,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
     connection.add_index :recording_studio_agents_items, :idempotency_key,
                           unique: true, where: "idempotency_key IS NOT NULL",
                           name: "index_rs_agents_items_on_idempotency_key"
+    RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
   end
 
   def add_global_binding_index

@@ -114,9 +114,20 @@ class McpToolsTest < Minitest::Test
     end
 
     RecordingStudioAgents::Sessions::Create.stub(:call, ->(**) { raise RecordingStudioAgents::IsolationError }) do
-      assert_raises(RecordingStudioApi::NotFoundError) do
+      missing = assert_raises(RecordingStudioApi::NotFoundError) do
         RecordingStudioAgents::Mcp::Chats::Create.call(@context)
       end
+      assert_equal "chat was not found", missing.message
+    end
+
+    clash = lambda { |**|
+      raise RecordingStudioAgents::IsolationError, "create_idempotency_key is already used in another workspace"
+    }
+    RecordingStudioAgents::Sessions::Create.stub(:call, clash) do
+      taken = assert_raises(RecordingStudioApi::NotFoundError) do
+        RecordingStudioAgents::Mcp::Chats::Create.call(@context)
+      end
+      assert_equal "create_idempotency_key is already used in another workspace", taken.message
     end
 
     RecordingStudioAgents::Sessions::Create.stub(:call, ->(**) { raise RecordingStudioAgents::Error, "bad input" }) do

@@ -34,6 +34,7 @@ module RecordingStudioAgents
         found = existing_recording
         return success(found) if found
 
+        reject_global_binding_straggler!
         success(persist(open_session))
       end
 
