@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 RecordingStudioApi.configure do |config|
+  config.admin_root_recordable_type_names = ["Workspace"]
   config.openapi_title = "Recording Studio API"
   config.openapi_description = "Resource server for Recording Studio. MCP calls the same actions."
   config.documentation_enabled = false

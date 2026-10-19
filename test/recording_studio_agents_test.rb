@@ -201,6 +201,9 @@ class RecordingStudioAgentsTest < Minitest::Test
     refute_includes initializer_source, '"RecordingStudioAttachable::Library"'
     refute_includes initializer_source, '"RecordingStudioAttachable::Placement"'
     assert_includes initializer_source, '"RecordingStudioSiteSettings::SiteSetting"'
+    assert_includes initializer_source, '"RecordingStudio::Access"'
+    assert_includes initializer_source, '"RecordingStudioApi::AdminApi"'
+    assert_includes initializer_source, '"RecordingStudioApi::ApiClient"'
     refute_includes initializer_source, "config.include_children"
     refute_includes initializer_source, "config.features."
     refute_includes initializer_source, "v3"

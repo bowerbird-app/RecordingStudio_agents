@@ -374,6 +374,8 @@ class AgentSessionsTest < ActiveSupport::TestCase
   end
 
   def restore_agents
+    return if @original_agents.nil?
+
     @original_agents.each do |name, original|
       RecordingStudioAI::Agents.define_singleton_method(name) do |*args, **kwargs, &block|
         original.call(*args, **kwargs, &block)
