@@ -2,8 +2,8 @@
 
 module RecordingStudioAgents
   class Configuration
-    attr_accessor :instructions, :purpose, :provider, :request_actor, :request_root, :chatkit_domain_key
-    attr_reader :hooks, :default_profile, :retention_period
+    attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key
+    attr_reader :hooks, :default_profile, :retention_period, :provider
 
     def initialize
       @instructions = "Answer in plain language."
@@ -15,6 +15,10 @@ module RecordingStudioAgents
       @request_root = ->(*) {}
       @chatkit_domain_key = nil
       @hooks = RecordingStudio::Hooks.new
+    end
+
+    def provider=(value)
+      @provider = value.to_s.strip.downcase.presence
     end
 
     def default_profile=(value)

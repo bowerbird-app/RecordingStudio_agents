@@ -21,6 +21,18 @@ class AgentSessionsTest < ActiveSupport::TestCase
     RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
   end
 
+  test "create passes a padded provider name as openai" do
+    configuration = RecordingStudioAgents.configuration
+    previous = configuration.provider
+    configuration.provider = " OpenAI "
+
+    create_chat("hello", key: "provider-name")
+
+    assert_equal "openai", @calls[:create_session].first[:provider]
+  ensure
+    configuration.provider = previous if defined?(configuration) && configuration
+  end
+
   test "create records a chat binding and user item" do
     recording = create_chat("hello")
 
