@@ -3,6 +3,26 @@
 require "recording_studio"
 require "recording_studio_ai"
 require "recording_studio_agents/version"
+
+module RecordingStudioAgents
+  class Error < StandardError; end
+  class IsolationError < Error; end
+
+  module Sessions
+    class AccessDeniedError < Error; end
+  end
+
+  class << self
+    def configuration
+      @configuration ||= Configuration.new
+    end
+
+    def configure
+      yield(configuration) if block_given?
+    end
+  end
+end
+
 require "recording_studio_agents/engine"
 require "recording_studio_agents/configuration"
 require "recording_studio_agents/capabilities/example"
@@ -18,21 +38,6 @@ require "recording_studio_agents/sessions/rename"
 require "recording_studio_agents/sessions/close"
 require "recording_studio_agents/sessions/expire"
 require "recording_studio_agents/mcp"
-
-module RecordingStudioAgents
-  class Error < StandardError; end
-  class IsolationError < Error; end
-
-  class << self
-    def configuration
-      @configuration ||= Configuration.new
-    end
-
-    def configure
-      yield(configuration) if block_given?
-    end
-  end
-end
 
 require "recording_studio_agents/chatkit/protocol_error"
 require "recording_studio_agents/chatkit/payload"

@@ -35,6 +35,23 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_equal @root, @calls[:create_session].first[:context_recording]
   end
 
+  test "bindings and items copy the recording root" do
+    recording = create_chat("hello")
+    item = RecordingStudioAgents::Item.new(
+      id: SecureRandom.uuid, recording: recording, root_recording: @other_root,
+      role: "user", text: "copied", status: "done"
+    )
+    binding_record = RecordingStudioAgents::Binding.new(
+      recording: recording, root_recording: @other_root, provider: "openai",
+      create_idempotency_key: "copy-root", last_activity_at: Time.current, expires_at: 1.day.from_now
+    )
+
+    assert item.valid?
+    assert binding_record.valid?
+    assert_equal recording.root_recording_id, item.root_recording_id
+    assert_equal recording.root_recording_id, binding_record.root_recording_id
+  end
+
   test "create is idempotent inside one root and the same key succeeds in another root" do
     first = create_chat("hello", key: "same-key")
     second = create_chat("hello", key: "same-key")
@@ -58,17 +75,17 @@ class AgentSessionsTest < ActiveSupport::TestCase
   test "an actor without access is refused and the chat inherits the parent grant" do
     stranger = User.create!(email: "stranger-#{SecureRandom.hex(4)}@example.com", password: "Password")
 
-    assert_raises(RecordingStudioAgents::Error) { create_chat("hello", actor: stranger) }
+    assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) { create_chat("hello", actor: stranger) }
     assert_empty @calls[:create_session]
 
     recording = create_chat("hello")
     assert_empty access_recordings_for(recording)
     assert RecordingStudioAccessible.authorized?(actor: @user, recording: recording, role: :edit)
 
-    assert_raises(RecordingStudioAgents::Error) { append_chat(recording, actor: stranger) }
-    assert_raises(RecordingStudioAgents::Error) { rename_chat(recording, actor: stranger) }
-    assert_raises(RecordingStudioAgents::Error) { close(recording, actor: stranger) }
-    assert_raises(RecordingStudioAgents::Error) { close_id(recording.id, actor: stranger) }
+    assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) { append_chat(recording, actor: stranger) }
+    assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) { rename_chat(recording, actor: stranger) }
+    assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) { close(recording, actor: stranger) }
+    assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) { close_id(recording.id, actor: stranger) }
     assert_empty @calls[:send_input]
     assert_empty @calls[:delete_session]
     assert RecordingStudio::Recording.exists?(recording.id)

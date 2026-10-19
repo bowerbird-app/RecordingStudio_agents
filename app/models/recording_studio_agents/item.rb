@@ -8,5 +8,15 @@ module RecordingStudioAgents
     belongs_to :root_recording, class_name: "RecordingStudio::Recording"
 
     validates :role, :text, :status, presence: true
+
+    before_validation :copy_root_recording
+
+    private
+
+    def copy_root_recording
+      return if recording.nil?
+
+      self.root_recording_id = recording.root_recording_id
+    end
   end
 end

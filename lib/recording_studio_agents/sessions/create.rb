@@ -25,6 +25,7 @@ module RecordingStudioAgents
         @profile = options[:profile]
         @purpose = options[:purpose]
         @execution_source = options.fetch(:execution_source, :web)
+        @access_grant = options[:access_grant]
       end
 
       def perform

@@ -21,7 +21,11 @@ bin/rails generate recording_studio_agents:migrations
 bin/rails db:migrate
 ```
 
-The generator copies `create_recording_studio_agents_sessions` and `scope_agents_idempotency_keys_to_root`. The first creates the chat snapshot table, the binding table, and the item table. The second adds `root_recording_id` on bindings and items, backfills it from the recording's root, and replaces the global idempotency unique indexes with `(root_recording_id, key)`. Recording ids are unchanged. Recording Studio AI keeps its own run history; these migrations do not delete those rows.
+The generator copies `create_recording_studio_agents_sessions`, `scope_agents_idempotency_keys_to_root`, and `require_agents_root_on_idempotency_keys`, in that order. The first creates the chat snapshot table, the binding table, and the item table.
+
+Deploy the idempotency change in two steps. Migration A (`scope_agents_idempotency_keys_to_root`) adds a nullable `root_recording_id`, backfills it from each row's recording in batches, creates unique indexes on `(root_recording_id, key)` concurrently, then drops the old global unique indexes. Migration B (`require_agents_root_on_idempotency_keys`) backfills rows that showed up after A and then sets `NOT NULL`. Ship A with the app release that copies `root_recording_id` from the recording, then ship B. Do not run B first.
+
+A cannot be reversed. `down` raises `ActiveRecord::IrreversibleMigration` because putting the global unique indexes back fails once the same key exists in two workspaces. B can relax the null constraint. Recording ids are unchanged. Recording Studio AI keeps its own run history; these migrations do not delete those rows.
 
 Hosts that mount MCP also copy migrations from Recording Studio API, Oauth, MCP, and Users. Those gems own those tables.
 

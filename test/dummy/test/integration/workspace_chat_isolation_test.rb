@@ -45,12 +45,32 @@ class WorkspaceChatIsolationTest < ActionDispatch::IntegrationTest
     switch_to(@zulu)
 
     assert_empty list_threads
-    assert_equal 403, chatkit("threads.get_by_id", { "thread_id" => @zulu_chat.id }).fetch("http_status")
-    assert_equal 403, chatkit(
+    assert_equal 404, chatkit("threads.get_by_id", { "thread_id" => @zulu_chat.id }).fetch("http_status")
+    assert_equal 404, chatkit(
       "threads.add_user_message",
       { "thread_id" => @zulu_chat.id, "input" => user_input("nope") }
     ).fetch("http_status")
+    assert_equal 404, chatkit("threads.update", { "thread_id" => @zulu_chat.id, "title" => "Renamed" }).fetch("http_status")
+    assert_equal 404, chatkit("threads.delete", { "thread_id" => @zulu_chat.id }).fetch("http_status")
+    refute_equal "Renamed", @zulu_chat.reload.recordable.title
     assert RecordingStudio::Recording.exists?(@zulu_chat.id)
+  end
+
+  test "the same create key opens a chat in each workspace over chatkit" do
+    grant_edit(@user, @zulu)
+    stub_create
+    key = "shared-#{SecureRandom.hex(4)}"
+
+    post_chatkit("threads.create", create_params("from alpha", key))
+    assert_response :success
+    switch_to(@zulu)
+    post_chatkit("threads.create", create_params("from zulu", key))
+    assert_response :success
+
+    roots = RecordingStudioAgents::Binding.where(create_idempotency_key: key).pluck(:root_recording_id)
+    assert_equal [@alpha.id, @zulu.id].sort, roots.sort
+  ensure
+    restore_create
   end
 
   private
@@ -86,6 +106,14 @@ class WorkspaceChatIsolationTest < ActionDispatch::IntegrationTest
 
   def user_input(text)
     { "content" => [{ "type" => "input_text", "text" => text }] }
+  end
+
+  def create_params(text, key)
+    { "input" => user_input(text), "metadata" => { "idempotency_key" => key } }
+  end
+
+  def post_chatkit(type, params)
+    post "/recording_studio_agents/chatkit", params: { type: type, params: params }, as: :json
   end
 
   def grant_edit(actor, recording)

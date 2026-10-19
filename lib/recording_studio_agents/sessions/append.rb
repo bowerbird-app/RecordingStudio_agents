@@ -15,6 +15,7 @@ module RecordingStudioAgents
         @recording = options[:recording]
         @recording_id = options[:recording_id]
         @execution_source = options.fetch(:execution_source, :web)
+        @access_grant = options[:access_grant]
       end
 
       private

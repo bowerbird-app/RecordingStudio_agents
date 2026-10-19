@@ -80,16 +80,25 @@ module RecordingStudioAgents
       end
 
       def stream_new(params)
-        Result.stream(Turn.open(actor: @actor, root: @root, text: Payload.user_text(params["input"])))
+        Result.stream(open_turn(nil, params))
       end
 
       def stream_existing(params)
-        recording = catalog.find!(params["thread_id"])
-        Result.stream(continue(recording, params))
+        Result.stream(open_turn(catalog.find!(params["thread_id"]), params))
       end
 
-      def continue(recording, params)
-        Turn.open(actor: @actor, root: @root, text: Payload.user_text(params["input"]), recording: recording)
+      def open_turn(recording, params)
+        Turn.open(
+          actor: @actor, root: @root, text: Payload.user_text(params["input"]),
+          recording: recording, idempotency_key: client_key(params)
+        )
+      end
+
+      def client_key(params)
+        metadata = params["metadata"]
+        return unless metadata.is_a?(Hash)
+
+        metadata["idempotency_key"].presence
       end
 
       def catalog

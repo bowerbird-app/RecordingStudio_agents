@@ -2,48 +2,12 @@
 
 require "test_helper"
 
-module RecordingStudioApi
-  class AuthorizationError < StandardError; end
-  class NotFoundError < StandardError; end
-  class InvalidActionInputError < StandardError; end
-
-  class << self
-    def endpoints
-      @endpoints ||= {}
-    end
-
-    def register_endpoint(name, **)
-      endpoints[name] = true
-    end
-
-    def registered_endpoint(name)
-      endpoints[name]
-    end
-  end
-end
-
-module RecordingStudioAgents
-  class Item
-    def self.find_by(**)
-      nil
-    end
-  end
-end
-
-module RecordingStudioMcp
-  class << self
-    def skills
-      @skills ||= {}
-    end
-
-    def register_skill(name, path:)
-      skills[name] = path
-    end
-  end
-end
-
 class McpToolsTest < Minitest::Test
-  Grant = Struct.new(:actor)
+  Grant = Struct.new(:actor) do
+    def authorize!(recording:, role:, include_trashed: false)
+      [recording, role, include_trashed]
+    end
+  end
   ToolContext = Struct.new(:access_grant, :root_recording, :params)
   Recording = Struct.new(:id, :recordable)
   Recordable = Struct.new(:title)
@@ -54,27 +18,21 @@ class McpToolsTest < Minitest::Test
   end
 
   def setup
+    install_fakes
     @actor = Object.new
     @root = Recording.new("root-1", nil)
     @context = ToolContext.new(Grant.new(@actor), @root, {})
   end
 
-  def test_register_publishes_chat_tools_and_the_skill_once
-    RecordingStudioAgents::Mcp.register!
-    RecordingStudioAgents::Mcp.register!
-
-    assert RecordingStudioApi.registered_endpoint(:agent_chats_list)
-    assert RecordingStudioApi.registered_endpoint(:agent_chats_create)
-    assert RecordingStudioApi.registered_endpoint(:agent_chats_read)
-    assert RecordingStudioApi.registered_endpoint(:agent_chats_append)
-    assert RecordingStudioApi.registered_endpoint(:agent_items_list)
-    assert RecordingStudioApi.registered_endpoint(:agent_items_read)
-    assert_includes RecordingStudioMcp.skills.fetch("agent-chats"), "SKILL.md"
+  def teardown
+    remove_fakes
   end
 
-  def test_list_and_read_return_catalog_chats
+  def test_list_and_read_authorize_view
     catalog = catalog_double(threads: { data: [{ id: "chat-1" }], has_more: false, after: nil })
     @context.params = { "limit" => 5, id: "chat-1" }
+    roles = []
+    watch_grant(roles)
 
     RecordingStudioAgents::ChatKit::Catalog.stub(:new, catalog) do
       listed = RecordingStudioAgents::Mcp::Chats::List.call(@context)
@@ -87,19 +45,28 @@ class McpToolsTest < Minitest::Test
       assert_equal ["chat-1"], ids
       assert_equal false, listed.fetch(:has_more)
     end
+    assert_equal %i[view view], roles
   end
 
-  def test_create_and_append_call_the_session_services
+  def test_create_and_append_authorize_edit_and_pass_the_grant
     created = Recording.new("chat-9", Recordable.new("Hello"))
     appended = Recording.new("chat-9", nil)
     @context.params = { input: "Hello", idempotency_key: "key-1", title: "Hello", id: "chat-9" }
+    seen = []
 
-    RecordingStudioAgents::Sessions::Create.stub(:call, ServiceResult.new(created)) do
-      RecordingStudioAgents::Sessions::Append.stub(:call, ServiceResult.new(appended)) do
+    RecordingStudioAgents::Sessions::Create.stub(:call, lambda { |**kwargs|
+      seen << kwargs[:access_grant]
+      ServiceResult.new(created)
+    }) do
+      RecordingStudioAgents::Sessions::Append.stub(:call, lambda { |**kwargs|
+        seen << kwargs[:access_grant]
+        ServiceResult.new(appended)
+      }) do
         assert_equal({ id: "chat-9", title: "Hello" }, RecordingStudioAgents::Mcp::Chats::Create.call(@context))
         assert_equal({ id: "chat-9" }, RecordingStudioAgents::Mcp::Chats::Append.call(@context))
       end
     end
+    assert_equal [@context.access_grant, @context.access_grant], seen
   end
 
   def test_item_list_and_read_use_the_chat_payload
@@ -157,6 +124,13 @@ class McpToolsTest < Minitest::Test
         RecordingStudioAgents::Mcp::Chats::Create.call(@context)
       end
     end
+
+    denied = ->(**) { raise RecordingStudioAgents::Sessions::AccessDeniedError, "actor cannot access this recording" }
+    RecordingStudioAgents::Sessions::Create.stub(:call, denied) do
+      assert_raises(RecordingStudioApi::AuthorizationError) do
+        RecordingStudioAgents::Mcp::Chats::Create.call(@context)
+      end
+    end
   end
 
   def test_missing_root_and_missing_item_are_rejected
@@ -180,10 +154,72 @@ class McpToolsTest < Minitest::Test
 
   private
 
+  def watch_grant(roles)
+    grant = @context.access_grant
+    grant.define_singleton_method(:authorize!) do |recording:, role:, include_trashed: false|
+      roles << role
+      [recording, include_trashed]
+    end
+  end
+
   def catalog_double(threads: nil, found: nil)
     catalog = Object.new
     catalog.define_singleton_method(:list_threads) { |_params| threads }
     catalog.define_singleton_method(:find!) { |_id| found || Recording.new("chat-1", nil) }
     catalog
+  end
+
+  def install_fakes
+    @remove_api = !defined?(::RecordingStudioApi)
+    @remove_mcp = !defined?(::RecordingStudioMcp)
+    @remove_item = !RecordingStudioAgents.const_defined?(:Item, false)
+    Object.const_set(:RecordingStudioApi, fake_api) if @remove_api
+    Object.const_set(:RecordingStudioMcp, fake_mcp) if @remove_mcp
+    RecordingStudioAgents.const_set(:Item, fake_item) if @remove_item
+  end
+
+  def remove_fakes
+    Object.send(:remove_const, :RecordingStudioApi) if @remove_api
+    Object.send(:remove_const, :RecordingStudioMcp) if @remove_mcp
+    RecordingStudioAgents.send(:remove_const, :Item) if @remove_item
+  end
+
+  def fake_api
+    mod = Module.new
+    mod.const_set(:AuthorizationError, Class.new(StandardError))
+    mod.const_set(:NotFoundError, Class.new(StandardError))
+    mod.const_set(:InvalidActionInputError, Class.new(StandardError))
+    def mod.endpoints
+      @endpoints ||= {}
+    end
+
+    def mod.register_endpoint(name, **)
+      endpoints[name] = true
+    end
+
+    def mod.registered_endpoint(name)
+      endpoints[name]
+    end
+    mod
+  end
+
+  def fake_item
+    Class.new do
+      def self.find_by(**)
+        nil
+      end
+    end
+  end
+
+  def fake_mcp
+    mod = Module.new
+    def mod.skills
+      @skills ||= {}
+    end
+
+    def mod.register_skill(name, path:)
+      skills[name] = path
+    end
+    mod
   end
 end

@@ -6,6 +6,7 @@ module RecordingStudioAgents
       class List
         def self.call(context)
           Context.call do
+            Context.authorize!(context, Context.root(context), :view)
             page = Context.catalog(context).list_threads("limit" => Context.value(context, :limit))
             { chats: page[:data], has_more: page[:has_more], after: page[:after] }
           end
@@ -15,10 +16,16 @@ module RecordingStudioAgents
       class Read
         def self.call(context)
           Context.call do
-            recording = Context.catalog(context).find!(Context.value(context, :id))
-            ChatKit::Payload.thread(recording)
+            ChatKit::Payload.thread(viewed(context))
           end
         end
+
+        def self.viewed(context)
+          recording = Context.catalog(context).find!(Context.value(context, :id))
+          Context.authorize!(context, recording, :view)
+          recording
+        end
+        private_class_method :viewed
       end
 
       class Create
@@ -30,17 +37,21 @@ module RecordingStudioAgents
         end
 
         def self.create_args(context)
-          root = Context.root(context)
+          root = editable_root(context)
           {
-            parent_recording: root,
-            root_recording: root,
-            actor: Context.actor(context),
-            input: Context.value(context, :input),
-            idempotency_key: Context.value(context, :idempotency_key),
-            title: Context.value(context, :title)
+            parent_recording: root, root_recording: root, actor: Context.actor(context),
+            input: Context.value(context, :input), idempotency_key: Context.value(context, :idempotency_key),
+            title: Context.value(context, :title), access_grant: context.access_grant
           }
         end
         private_class_method :create_args
+
+        def self.editable_root(context)
+          root = Context.root(context)
+          Context.authorize!(context, root, :edit)
+          root
+        end
+        private_class_method :editable_root
       end
 
       class Append
@@ -52,11 +63,11 @@ module RecordingStudioAgents
         end
 
         def self.append_args(context)
+          root = Context.root(context)
+          Context.authorize!(context, root, :edit)
           {
-            root_recording: Context.root(context),
-            actor: Context.actor(context),
-            recording_id: Context.value(context, :id),
-            input: Context.value(context, :input),
+            root_recording: root, actor: Context.actor(context), access_grant: context.access_grant,
+            recording_id: Context.value(context, :id), input: Context.value(context, :input),
             idempotency_key: Context.value(context, :idempotency_key)
           }
         end

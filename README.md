@@ -67,7 +67,7 @@ Create and append are idempotent on their keys inside one root. The same create 
 
 ## ChatKit
 
-`POST /recording_studio_agents/chatkit` accepts the ChatKit protocol and answers with JSON or server-sent events. The host session resolves the actor. The root is the workspace selected in Root Switchable (`RecordingStudio::RootSwitchable.resolve_current_root`), not the oldest workspace. Client metadata ids are ignored. Create, append, rename, and delete go through the Sessions services. Streaming, cancel, and reading a finished first turn go through `RecordingStudioAI::Agents`.
+`POST /recording_studio_agents/chatkit` accepts the ChatKit protocol and answers with JSON or server-sent events. The host session resolves the actor. The root is the workspace selected in Root Switchable (`RecordingStudio::RootSwitchable.resolve_current_root`), not the oldest workspace. Client metadata ids are ignored. `params.metadata.idempotency_key` is used when present; otherwise ChatKit generates a key. Create, append, rename, and delete go through the Sessions services. Streaming, cancel, and reading a finished first turn go through `RecordingStudioAI::Agents`. A chat the actor cannot view is a 404, the same as a missing chat.
 
 `threads.create` is not streamed by Recording Studio AI. After the session is saved, the endpoint reads the provider stream, and reads saved items when that stream has no text. `text_delta` events become ChatKit text deltas. An unsupported operation returns a protocol error.
 
@@ -96,11 +96,11 @@ The dummy app validates the engine in a host with Recording Studio Users, Oauth,
 
 ## MCP
 
-The gem registers the chat tools when the host has loaded Recording Studio API, and the `agent-chats` skill when the host has loaded Recording Studio MCP. The host mounts MCP, API, and Oauth and draws the protected-resource metadata. A bearer token acts in the workspace on its access grant. The browser switcher does not change that grant.
+The gem registers the chat tools when the host has loaded Recording Studio API, and the `agent-chats` skill when the host has loaded Recording Studio MCP. The host mounts MCP, API, and Oauth and draws the protected-resource metadata. A bearer token acts in the workspace on its access grant. The browser switcher, a session cookie on the same request, and a `root_recording_id` argument do not change that grant. Reads call `access_grant.authorize!` with `:view`. Writes call it with `:edit`. Chats opened over MCP are attributed to the grant's `OauthAuthorization`.
 
 | Tool | What it does |
 | --- | --- |
-| `agent_chats_list` | Chats in the granted workspace |
+| `agent_chats_list` | Chats in the granted workspace. `root_recording_id` is accepted and ignored |
 | `agent_chats_create` | Opens a chat. Requires `input` and `idempotency_key` |
 | `agent_chats_read` | One chat |
 | `agent_chats_append` | Adds a user message |

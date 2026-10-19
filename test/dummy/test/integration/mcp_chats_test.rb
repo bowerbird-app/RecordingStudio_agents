@@ -1,14 +1,16 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "devise/test/integration_helpers"
 
 class McpChatsTest < ActionDispatch::IntegrationTest
+  include Devise::Test::IntegrationHelpers
   setup do
     @user = User.create!(email: "mcp-#{SecureRandom.hex(4)}@example.com", password: "Password")
     @alpha = workspace_root("Alpha")
     @zulu = workspace_root("Zulu")
     @alpha_access = grant_admin(@user, @alpha)
-    grant_admin(@user, @zulu)
+    @zulu_access = grant_admin(@user, @zulu)
     @calls = []
     stub_agents
     @alpha_chat = create_chat(@alpha, "alpha hello", "alpha-key")
@@ -70,6 +72,60 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
     post_mcp("tools/call", name: "agent_items_list", arguments: { id: @zulu_chat.id })
     assert_equal true, JSON.parse(response.body).dig("result", "isError")
+
+    item = RecordingStudioAgents::Item.find_by!(recording_id: @zulu_chat.id)
+    post_mcp("tools/call", name: "agent_items_read", arguments: { id: @zulu_chat.id, item_id: item.id })
+    assert_equal true, JSON.parse(response.body).dig("result", "isError")
+  end
+
+  test "the same create key opens a chat in each workspace over the bearer" do
+    key = "shared-#{SecureRandom.hex(4)}"
+    alpha_id = create_over_mcp(key)
+    @token = delegated_token(@zulu_access)
+    zulu_id = create_over_mcp(key)
+
+    refute_equal alpha_id, zulu_id
+    roots = RecordingStudioAgents::Binding.where(create_idempotency_key: key).pluck(:root_recording_id)
+    assert_equal [@alpha.id, @zulu.id].sort, roots.sort
+  end
+
+  test "a view-only token cannot create or append" do
+    @token = delegated_token(@alpha_access, role: "view")
+    before = RecordingStudioAgents::Binding.count
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "nope", idempotency_key: "view-only", title: "Nope"
+    })
+    assert_equal true, JSON.parse(response.body).dig("result", "isError")
+
+    post_mcp("tools/call", name: "agent_chats_append", arguments: {
+      id: @alpha_chat.id, input: "nope", idempotency_key: "view-only-append"
+    })
+    assert_equal true, JSON.parse(response.body).dig("result", "isError")
+    assert_equal before, RecordingStudioAgents::Binding.count
+    assert_equal 0, RecordingStudioAgents::Item.where(idempotency_key: "view-only-append").count
+  end
+
+  test "a bearer ignores the switcher cookie and a root argument" do
+    sign_in @user
+    switch_to(@zulu)
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { root_recording_id: @zulu.id })
+    ids = tool_payload(JSON.parse(response.body)).fetch("chats").map { |chat| chat["id"] }
+
+    assert_equal [@alpha_chat.id], ids
+    refute_includes ids, @zulu_chat.id
+  end
+
+  test "a request with both a session and a bearer uses the grant workspace" do
+    sign_in @user
+    switch_to(@zulu)
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: {})
+    ids = tool_payload(JSON.parse(response.body)).fetch("chats").map { |chat| chat["id"] }
+
+    assert_equal [@alpha_chat.id], ids
+    refute_includes ids, @zulu_chat.id
   end
 
   private
@@ -95,13 +151,30 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     JSON.parse(result.dig("content", 0, "text"))
   end
 
-  def delegated_token(access_recording)
+  def create_over_mcp(key)
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "shared", idempotency_key: key, title: "Shared"
+    })
+    payload = JSON.parse(response.body)
+    assert_equal false, payload.dig("result", "isError"), response.body
+    tool_payload(payload).fetch("id")
+  end
+
+  def switch_to(root)
+    patch "/recording_studio_root_switchable/v1/root_switch", params: {
+      scope: "all_workspaces",
+      root_switch: { root_recording_id: root.id, return_to: "/" }
+    }
+    assert_response :redirect
+  end
+
+  def delegated_token(access_recording, role: "edit")
     verifier = "V#{SecureRandom.urlsafe_base64(32)}".ljust(43, "a")
     approved = RecordingStudioOauth::Services::CreateOauthAuthorization.call(
       oauth_client: @oauth_client,
       manager_actor: @user,
       access_recording: access_recording,
-      role: "edit",
+      role: role,
       redirect_uri: "http://127.0.0.1/callback",
       code_challenge: RecordingStudioOauth::Pkce.s256_challenge(verifier),
       code_challenge_method: "S256"
