@@ -11,6 +11,7 @@ module RecordingStudioAgents
         chat.model = required_model(hosted)
         chat.profile = hosted.profile
         chat.purpose = purpose
+        chat.instructions = instructions
       end
 
       def binding_attributes(recording, hosted)
@@ -34,12 +35,6 @@ module RecordingStudioAgents
         raise Error, "provider session did not include a model" if model.empty?
 
         model
-      end
-
-      def instructions
-        return if @instructions.is_a?(String) && @instructions.strip.empty?
-
-        @instructions || configuration.instructions
       end
 
       def profile

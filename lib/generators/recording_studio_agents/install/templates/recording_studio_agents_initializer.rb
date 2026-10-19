@@ -2,6 +2,9 @@
 
 RecordingStudioAgents.configure do |config|
   # config.instructions = "Answer in plain language."
+  # Nobody may pass a per-chat override until this is :admin or :edit. There is no replace mode.
+  # config.instructions_override = :none
+  # config.max_instructions_length = 4000
   # config.default_profile = :medium
   # config.purpose = "agent_chat"
   # config.provider = "openai"

@@ -4,6 +4,7 @@ require "test_helper"
 require "timeout"
 require Rails.root.join("db/migrate/20261019040000_scope_agents_idempotency_keys_to_root")
 require Rails.root.join("db/migrate/20261019040100_require_agents_root_on_idempotency_keys")
+require Rails.root.join("db/migrate/20261019040200_add_instructions_to_recording_studio_agents_sessions")
 
 class IdempotencyMigrationTest < ActiveSupport::TestCase
   self.use_transactional_tests = false
@@ -51,6 +52,31 @@ class IdempotencyMigrationTest < ActiveSupport::TestCase
         raise "lock_timeout is #{shown}" unless shown == "250ms"
       end
       raise "expected backfill to raise" unless raised
+    end
+    assert_predicate status, :success?, message
+  end
+
+  test "the instructions column is nullable and reversible" do
+    status, message = fork_migration do
+      connection.execute(<<~SQL)
+        CREATE TABLE recording_studio_agents_sessions (
+          id uuid PRIMARY KEY,
+          status varchar NOT NULL,
+          model varchar NOT NULL,
+          created_at timestamp NOT NULL
+        );
+      SQL
+      connection.execute("SET lock_timeout = '250ms'")
+      AddInstructionsToRecordingStudioAgentsSessions.new.exec_migration(connection, :up)
+      column = instructions_column
+      raise "instructions column is missing" if column.nil?
+      raise "instructions column is not nullable" unless column.null
+      shown = connection.select_value("SHOW lock_timeout")
+      raise "lock_timeout is #{shown}" unless shown == "250ms"
+      AddInstructionsToRecordingStudioAgentsSessions.new.exec_migration(connection, :down)
+      raise "instructions column remained" if instructions_column
+      shown = connection.select_value("SHOW lock_timeout")
+      raise "lock_timeout is #{shown} after down" unless shown == "250ms"
     end
     assert_predicate status, :success?, message
   end
@@ -159,6 +185,10 @@ class IdempotencyMigrationTest < ActiveSupport::TestCase
 
   def migrate_a
     ScopeAgentsIdempotencyKeysToRoot.new.exec_migration(connection, :up)
+  end
+
+  def instructions_column
+    connection.columns(:recording_studio_agents_sessions).find { |entry| entry.name == "instructions" }
   end
 
   def migrate_b

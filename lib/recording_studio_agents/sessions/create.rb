@@ -6,6 +6,7 @@ module RecordingStudioAgents
       include RootGuard
       include Access
       include ChatDraft
+      include InstructionsText
       include GlobalKey
 
       def initialize(parent_recording:, root_recording:, actor:, input:, **options)

@@ -98,6 +98,97 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
   end
 
+  test "create stores an instructions override from the tool call" do
+    with_instruction_settings(override: :edit) do
+      post_mcp("tools/call", name: "agent_chats_create", arguments: {
+        input: "hello", idempotency_key: "instr-#{SecureRandom.hex(4)}", instructions: "Be terse."
+      })
+      payload = JSON.parse(response.body)
+      recording = RecordingStudio::Recording.find(tool_payload(payload).fetch("id"))
+
+      assert_equal false, payload.dig("result", "isError"), response.body
+      assert_equal "Answer in one sentence.\n\nBe terse.", recording.recordable.instructions
+      assert_equal "Answer in one sentence.\n\nBe terse.", @calls.last[:instructions]
+    end
+  end
+
+  test "a blank instructions value stores the host default" do
+    before = @calls.size
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "hello", idempotency_key: "blank-#{SecureRandom.hex(4)}", instructions: "  \n "
+    })
+    payload = JSON.parse(response.body)
+    recording = RecordingStudio::Recording.find(tool_payload(payload).fetch("id"))
+
+    assert_equal false, payload.dig("result", "isError"), response.body
+    assert_equal "Answer in one sentence.", recording.recordable.instructions
+    assert_equal before + 1, @calls.size
+  end
+
+  test "a real override is rejected when the host has not opted in" do
+    before = @calls.size
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "hello", idempotency_key: "none-#{SecureRandom.hex(4)}", instructions: "Be terse."
+    })
+
+    assert_tool_error("instructions overrides are disabled")
+    assert_equal before, @calls.size
+  end
+
+  test "an edit token cannot override when only admins may" do
+    before = @calls.size
+
+    with_instruction_settings(override: :admin) do
+      post_mcp("tools/call", name: "agent_chats_create", arguments: {
+        input: "hello", idempotency_key: "edit-admin-#{SecureRandom.hex(4)}", instructions: "Be terse."
+      })
+
+      assert_tool_error("not authorized")
+      assert_equal before, @calls.size
+    end
+  end
+
+  test "an admin token can append an override when the host opts in" do
+    @token = delegated_token(@alpha_access, role: "admin")
+
+    with_instruction_settings(override: :admin) do
+      post_mcp("tools/call", name: "agent_chats_create", arguments: {
+        input: "hello", idempotency_key: "admin-#{SecureRandom.hex(4)}", instructions: "Be terse."
+      })
+      payload = JSON.parse(response.body)
+      recording = RecordingStudio::Recording.find(tool_payload(payload).fetch("id"))
+
+      assert_equal false, payload.dig("result", "isError"), response.body
+      assert_equal "Answer in one sentence.\n\nBe terse.", recording.recordable.instructions
+    end
+  end
+
+  test "a non-string instructions value is rejected" do
+    before = @calls.size
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "hello", idempotency_key: "type-#{SecureRandom.hex(4)}", instructions: { tone: "terse" }
+    })
+
+    assert_tool_error("instructions must be a string")
+    assert_equal before, @calls.size
+  end
+
+  test "instructions longer than 4000 characters are rejected" do
+    before = @calls.size
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "hello", idempotency_key: "long-#{SecureRandom.hex(4)}", instructions: "a" * 4001
+    })
+
+    assert_tool_error("instructions must be at most 4000 characters")
+    assert_equal before, @calls.size
+  end
+
+  test "the create contract caps instructions at 4000 characters" do
+    contract = RecordingStudioApi.registered_endpoint(:agent_chats_create).input_contract
+
+    assert_equal 4000, contract.as_json.dig(:fields, :instructions, :maxLength)
+  end
+
   test "the same create key opens a chat in each workspace over the bearer" do
     key = "shared-#{SecureRandom.hex(4)}"
     alpha_id = create_over_mcp(key)
@@ -170,6 +261,23 @@ class McpChatsTest < ActionDispatch::IntegrationTest
       "Accept" => "application/json",
       "Authorization" => "Bearer #{@token}"
     }
+  end
+
+  def with_instruction_settings(override:)
+    configuration = RecordingStudioAgents.configuration
+    previous = configuration.instructions_override
+    configuration.instructions_override = override
+    yield
+  ensure
+    configuration.instructions_override = previous
+  end
+
+  def assert_tool_error(fragment)
+    payload = JSON.parse(response.body)
+    message = payload.dig("result", "content", 0, "text").to_s
+
+    assert_equal true, payload.dig("result", "isError")
+    assert_includes message, fragment
   end
 
   def assert_authorization_error

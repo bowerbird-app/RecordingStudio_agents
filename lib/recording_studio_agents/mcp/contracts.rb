@@ -10,15 +10,43 @@ module RecordingStudioAgents
       end
 
       def create
+        return { fields: create_fields } unless defined?(RecordingStudioApi::ActionInputContract)
+
+        require "recording_studio_agents/mcp/instructions_contract"
+        InstructionsContract.new(fields: create_fields)
+      end
+
+      def create_fields
         {
-          fields: {
-            input: { type: :string, required: true, allow_blank: false, description: "First user message." },
-            idempotency_key: {
-              type: :string, required: true, allow_blank: false,
-              description: "Create key. Unique inside this workspace."
-            },
-            title: { type: :string, required: false, description: "Optional chat title." }
-          }
+          input: input_field,
+          idempotency_key: create_key_field,
+          title: title_field,
+          instructions: instructions_field
+        }
+      end
+
+      def input_field
+        { type: :string, required: true, allow_blank: false, description: "First user message." }
+      end
+
+      def create_key_field
+        {
+          type: :string, required: true, allow_blank: false,
+          description: "Create key. Unique inside this workspace."
+        }
+      end
+
+      def title_field
+        { type: :string, required: false, description: "Optional chat title." }
+      end
+
+      def instructions_field
+        limit = RecordingStudioAgents.configuration.max_instructions_length
+        {
+          type: :string, required: false, maxLength: limit,
+          description: "Optional extra instructions, at most #{limit} characters. " \
+                       "Blank uses the host default. A real override is appended after that default " \
+                       "when config.instructions_override allows it."
         }
       end
 

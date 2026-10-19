@@ -3,6 +3,7 @@
 module RecordingStudioAgents
   class Session < ApplicationRecord
     self.table_name = "recording_studio_agents_sessions"
+    self.filter_attributes += [:instructions]
 
     recording_studio_recordable label: "Chat", root: false
 

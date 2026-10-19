@@ -176,6 +176,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_052008) do
     t.string "profile"
     t.string "purpose"
     t.datetime "created_at", null: false
+    t.text "instructions"
   end
 
   create_table "recording_studio_api_admin_apis", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

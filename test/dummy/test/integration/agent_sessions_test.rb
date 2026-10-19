@@ -336,6 +336,161 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert RecordingStudio::Recording.exists?(recording.id)
   end
 
+  test "create stores the configured instructions" do
+    recording = create_chat("hello", key: "default-instructions")
+
+    assert_equal "Answer in one sentence.", recording.recordable.instructions
+    assert_equal "Answer in one sentence.", @calls[:create_session].first[:instructions]
+  end
+
+  test "a repeated create key does not check a new instructions override" do
+    with_instruction_settings(override: :edit) do
+      first = create_chat("hello", key: "replay-instructions", instructions: "Be terse.")
+      again = create_chat("hello", key: "replay-instructions", instructions: "Say more.")
+
+      assert_equal first.id, again.id
+      assert_equal "Answer in one sentence.\n\nBe terse.", again.recordable.instructions
+      assert_equal 1, @calls[:create_session].size
+    end
+  end
+
+  test "an editor override is appended after the host default" do
+    with_instruction_settings(override: :edit) do
+      recording = create_chat("hello", key: "override-instructions", instructions: "Be terse.")
+      expected = "Answer in one sentence.\n\nBe terse."
+
+      assert_equal expected, recording.recordable.instructions
+      assert_equal expected, @calls[:create_session].last[:instructions]
+    end
+  end
+
+  test "nobody may override instructions by default" do
+    before = @calls[:create_session].size
+
+    error = assert_raises(RecordingStudioAgents::InstructionsError) do
+      create_chat("hello", key: "blocked-override", instructions: "Be terse.")
+    end
+
+    assert_equal "instructions overrides are disabled", error.message
+    assert_equal before, @calls[:create_session].size
+    refute RecordingStudioAgents::Binding.exists?(create_idempotency_key: "blocked-override")
+  end
+
+  test "an editor cannot override when only admins may" do
+    with_instruction_settings(override: :admin) do
+      before = @calls[:create_session].size
+
+      error = assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) do
+        create_chat("hello", key: "admin-gate", instructions: "Be terse.")
+      end
+
+      assert_equal "actor cannot override instructions", error.message
+      assert_equal before, @calls[:create_session].size
+    end
+  end
+
+  test "an admin override is appended after the host default" do
+    admin = User.create!(email: "admin-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    revoke_edit(admin, @root)
+    revoke_edit(@user, @root)
+    grant_admin(admin, @root)
+
+    with_instruction_settings(override: :admin) do
+      recording = create_chat("hello", key: "admin-override", actor: admin, instructions: "  Be terse.  ")
+
+      assert_equal "Answer in one sentence.\n\nBe terse.", recording.recordable.instructions
+    end
+  end
+
+  test "a viewer cannot store an instructions override" do
+    viewer = User.create!(email: "viewer-#{SecureRandom.hex(4)}@example.com", password: "Password")
+
+    with_instruction_settings(override: :edit) do
+      before = @calls[:create_session].size
+
+      assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) do
+        create_chat("hello", key: "viewer-override", actor: viewer, instructions: "Be terse.")
+      end
+
+      assert_equal before, @calls[:create_session].size
+    end
+  end
+
+  test "a non-string instructions override is rejected" do
+    with_instruction_settings(override: :edit) do
+      before = @calls[:create_session].size
+
+      error = assert_raises(RecordingStudioAgents::InstructionsError) do
+        create_chat("hello", key: "bad-type", instructions: { tone: "terse" })
+      end
+
+      assert_equal "instructions must be a string", error.message
+      assert_equal before, @calls[:create_session].size
+    end
+  end
+
+  test "an override longer than the cap is rejected" do
+    with_instruction_settings(override: :edit) do
+      before = @calls[:create_session].size
+
+      error = assert_raises(RecordingStudioAgents::InstructionsError) do
+        create_chat("hello", key: "too-long", instructions: "a" * 4001)
+      end
+
+      assert_equal "instructions must be at most 4000 characters", error.message
+      assert_equal before, @calls[:create_session].size
+    end
+  end
+
+  test "the length cap applies to the override text" do
+    with_instruction_settings(override: :edit, instructions: "x" * 50) do
+      recording = create_chat("hello", key: "cap-override", instructions: "a" * 4000)
+
+      assert_equal "#{'x' * 50}\n\n#{'a' * 4000}", recording.recordable.instructions
+    end
+  end
+
+  test "a blank instructions override stores the host default" do
+    recording = create_chat("hello", key: "blank-instructions", instructions: "  \n\t ")
+
+    assert_equal "Answer in one sentence.", recording.recordable.instructions
+    assert_equal "Answer in one sentence.", @calls[:create_session].last[:instructions]
+  end
+
+  test "expire deletes the stored instructions with the chat" do
+    text = "Keep this private"
+    with_instruction_settings(instructions: text) do
+      recording = create_chat("old", key: "expired-instructions")
+      session_id = recording.recordable_id
+      RecordingStudioAgents::Binding.find_by!(recording: recording).update!(expires_at: 1.minute.ago)
+
+      closed = RecordingStudioAgents::Sessions::Expire.call.value!
+
+      assert_equal [recording.id], closed
+      assert_nil RecordingStudio::Recording.find_by(id: recording.id)
+      assert_nil RecordingStudioAgents::Session.find_by(id: session_id)
+      refute RecordingStudioAgents::Session.exists?(instructions: text)
+    end
+  end
+
+  test "expire deletes instructions after a rename" do
+    text = "Snapshot #{SecureRandom.hex(4)}"
+    with_instruction_settings(instructions: text) do
+      recording = create_chat("old", key: "rename-expire")
+      previous_id = recording.recordable_id
+      renamed = RecordingStudioAgents::Sessions::Rename.call(
+        root_recording: @root, recording: recording, actor: @user, title: "Launch plan"
+      ).value!
+      RecordingStudioAgents::Binding.find_by!(recording: renamed).update!(expires_at: 1.minute.ago)
+
+      assert_equal text, RecordingStudioAgents::Session.find(previous_id).instructions
+      assert_equal text, renamed.recordable.instructions
+      assert_equal [renamed.id], RecordingStudioAgents::Sessions::Expire.call.value!
+      refute RecordingStudioAgents::Session.exists?(instructions: text)
+      assert_nil RecordingStudio::Recording.find_by(id: renamed.id)
+    end
+  end
+
   test "expire closes only expired chats and a second run is a no-op" do
     expired = create_chat("old", key: "expired-key")
     kept = create_chat("fresh", key: "fresh-key")
@@ -402,9 +557,10 @@ class AgentSessionsTest < ActiveSupport::TestCase
     refute item_indexes.any? { |index| index.name == "index_rs_agents_items_on_idempotency_key" }
   end
 
-  def create_chat(input, key: SecureRandom.uuid, title: nil, actor: @user)
+  def create_chat(input, key: SecureRandom.uuid, title: nil, actor: @user, instructions: nil)
     RecordingStudioAgents::Sessions::Create.call(
-      parent_recording: @root, root_recording: @root, actor: actor, input: input, idempotency_key: key, title: title
+      parent_recording: @root, root_recording: @root, actor: actor, input: input, idempotency_key: key, title: title,
+      instructions: instructions
     ).value!
   end
 
@@ -459,6 +615,31 @@ class AgentSessionsTest < ActiveSupport::TestCase
     RecordingStudioAgents::Sessions::Close.call(
       root_recording: @root, recording_id: recording_id, actor: actor
     ).value!
+  end
+
+  def with_instruction_settings(override: nil, length: nil, instructions: nil)
+    configuration = RecordingStudioAgents.configuration
+    previous = [
+      configuration.instructions_override,
+      configuration.max_instructions_length,
+      configuration.instructions
+    ]
+    configuration.instructions_override = override unless override.nil?
+    configuration.max_instructions_length = length unless length.nil?
+    configuration.instructions = instructions unless instructions.nil?
+    yield
+  ensure
+    configuration.instructions_override = previous[0]
+    configuration.max_instructions_length = previous[1]
+    configuration.instructions = previous[2]
+  end
+
+  def grant_admin(actor, recording)
+    Current.actor = actor if defined?(Current)
+    result = RecordingStudioAccessible.bootstrap_owner_access!(recording: recording, actor: actor)
+    raise result.error.to_s unless result.success?
+
+    result.value
   end
 
   def grant_edit(actor, recording)
