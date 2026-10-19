@@ -33,20 +33,6 @@ class AgentSessionsTest < ActiveSupport::TestCase
     configuration.provider = previous if defined?(configuration) && configuration
   end
 
-  test "create stores the configured instructions" do
-    recording = create_chat("hello", key: "default-instructions")
-
-    assert_equal "Answer in one sentence.", recording.recordable.instructions
-    assert_equal "Answer in one sentence.", @calls[:create_session].first[:instructions]
-  end
-
-  test "create stores an instructions override" do
-    recording = create_chat("hello", key: "override-instructions", instructions: "Be terse.")
-
-    assert_equal "Be terse.", recording.recordable.instructions
-    assert_equal "Be terse.", @calls[:create_session].last[:instructions]
-  end
-
   test "create records a chat binding and user item" do
     recording = create_chat("hello")
 
@@ -350,6 +336,27 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert RecordingStudio::Recording.exists?(recording.id)
   end
 
+  test "create stores the configured instructions" do
+    recording = create_chat("hello", key: "default-instructions")
+
+    assert_equal "Answer in one sentence.", recording.recordable.instructions
+    assert_equal "Answer in one sentence.", @calls[:create_session].first[:instructions]
+  end
+
+  test "create stores an instructions override" do
+    recording = create_chat("hello", key: "override-instructions", instructions: "Be terse.")
+
+    assert_equal "Be terse.", recording.recordable.instructions
+    assert_equal "Be terse.", @calls[:create_session].last[:instructions]
+  end
+
+  test "a blank instructions override stores the host default" do
+    recording = create_chat("hello", key: "blank-instructions", instructions: "  \n\t ")
+
+    assert_equal "Answer in one sentence.", recording.recordable.instructions
+    assert_equal "Answer in one sentence.", @calls[:create_session].last[:instructions]
+  end
+
   test "expire deletes the stored instructions with the chat" do
     recording = create_chat("old", key: "expired-instructions", instructions: "Keep this private")
     session_id = recording.recordable_id
@@ -361,6 +368,22 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_nil RecordingStudio::Recording.find_by(id: recording.id)
     assert_nil RecordingStudioAgents::Session.find_by(id: session_id)
     refute RecordingStudioAgents::Session.exists?(instructions: "Keep this private")
+  end
+
+  test "expire deletes instructions after a rename" do
+    text = "Snapshot #{SecureRandom.hex(4)}"
+    recording = create_chat("old", key: "rename-expire", instructions: text)
+    previous_id = recording.recordable_id
+    renamed = RecordingStudioAgents::Sessions::Rename.call(
+      root_recording: @root, recording: recording, actor: @user, title: "Launch plan"
+    ).value!
+    RecordingStudioAgents::Binding.find_by!(recording: renamed).update!(expires_at: 1.minute.ago)
+
+    assert_equal text, RecordingStudioAgents::Session.find(previous_id).instructions
+    assert_equal text, renamed.recordable.instructions
+    assert_equal [renamed.id], RecordingStudioAgents::Sessions::Expire.call.value!
+    refute RecordingStudioAgents::Session.exists?(instructions: text)
+    assert_nil RecordingStudio::Recording.find_by(id: renamed.id)
   end
 
   test "expire closes only expired chats and a second run is a no-op" do

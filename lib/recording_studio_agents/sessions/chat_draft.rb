@@ -38,7 +38,7 @@ module RecordingStudioAgents
       end
 
       def instructions
-        return if @instructions.is_a?(String) && @instructions.strip.empty?
+        return configuration.instructions if @instructions.is_a?(String) && @instructions.strip.empty?
 
         @instructions || configuration.instructions
       end

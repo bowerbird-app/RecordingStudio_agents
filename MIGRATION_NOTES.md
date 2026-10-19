@@ -33,7 +33,7 @@ Migration B (`require_agents_root_on_idempotency_keys`) backfills rows that arri
 
 A and B set `lock_timeout` to 5 seconds only for the short locks (columns, the trigger, backfill, foreign keys, and `NOT NULL`). Concurrent index builds and drops run outside that limit, because a 5 second cap would cancel them on a busy database. The previous `lock_timeout` is saved and restored, including a value from `database.yml` and including when the backfill raises. If Postgres cancels a short statement for the 5 second timeout, re-run the migration.
 
-`add_instructions_to_recording_studio_agents_sessions` adds a nullable `instructions` text column to `recording_studio_agents_sessions`. It sets `lock_timeout` to 5 seconds around that `ADD COLUMN` only, then restores the previous value, including a value from `database.yml`. The column has no default, so Postgres does not rewrite the table. Existing rows stay null. Old servers keep inserting without naming the column. `down` drops the column. No backfill.
+`add_instructions_to_recording_studio_agents_sessions` adds a nullable `instructions` text column to `recording_studio_agents_sessions`. Run it before booting servers that read or write that column. It sets `lock_timeout` to 5 seconds around that `ADD COLUMN` only, then restores the previous value, including a value from `database.yml`. The column has no default, so Postgres does not rewrite the table. Existing rows stay null. `down` drops the column. No backfill.
 
 `Binding` and `Item` copy `root_recording_id` from the recording before validation, so the new app writes the column before B requires it. Recording ids are unchanged. Recording Studio AI keeps its own run history; these migrations do not delete those rows.
 
