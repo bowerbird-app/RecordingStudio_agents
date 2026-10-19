@@ -43,7 +43,7 @@ module RecordingStudioAgents
       end
 
       def replay?(recording)
-        item = Item.find_by(idempotency_key: @idempotency_key)
+        item = Item.find_by(root_recording_id: @root_recording.id, idempotency_key: @idempotency_key)
         return false if item.nil?
         return true if item.recording_id == recording.id
 
@@ -84,8 +84,8 @@ module RecordingStudioAgents
 
       def item_attributes(recording)
         {
-          id: SecureRandom.uuid, recording: recording, role: "user", text: @input, status: "done",
-          idempotency_key: @idempotency_key
+          id: SecureRandom.uuid, recording: recording, root_recording: @root_recording, role: "user",
+          text: @input, status: "done", idempotency_key: @idempotency_key
         }
       end
 

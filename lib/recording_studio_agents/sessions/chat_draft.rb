@@ -15,7 +15,8 @@ module RecordingStudioAgents
 
       def binding_attributes(recording, hosted)
         {
-          recording: recording, provider: hosted.provider.to_s, provider_session_id: hosted.provider_session_id,
+          recording: recording, root_recording: @root_recording,
+          provider: hosted.provider.to_s, provider_session_id: hosted.provider_session_id,
           last_activity_at: Time.current, expires_at: expires_at, preview: preview,
           create_idempotency_key: @idempotency_key
         }

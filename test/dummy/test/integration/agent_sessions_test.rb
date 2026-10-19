@@ -35,22 +35,24 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_equal @root, @calls[:create_session].first[:context_recording]
   end
 
-  test "create is idempotent inside one root and isolated across roots" do
+  test "create is idempotent inside one root and the same key succeeds in another root" do
     first = create_chat("hello", key: "same-key")
     second = create_chat("hello", key: "same-key")
 
     assert_equal first, second
     assert_equal 1, @calls[:create_session].size
+    assert_equal @root.id, RecordingStudioAgents::Binding.find_by!(recording: first).root_recording_id
 
-    error = assert_raises(RecordingStudioAgents::IsolationError) do
-      RecordingStudioAgents::Sessions::Create.call(
-        parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "hello",
-        idempotency_key: "same-key"
-      ).value!
-    end
+    other = RecordingStudioAgents::Sessions::Create.call(
+      parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "hello",
+      idempotency_key: "same-key"
+    ).value!
 
-    assert_match(/outside this root/, error.message)
-    assert_equal 1, @calls[:create_session].size
+    assert_equal @other_root, other.root_recording
+    refute_equal first, other
+    assert_equal 2, @calls[:create_session].size
+    assert_equal 2, RecordingStudioAgents::Binding.where(create_idempotency_key: "same-key").count
+    assert_idempotency_indexes_are_scoped_to_root
   end
 
   test "an actor without access is refused and the chat inherits the parent grant" do
@@ -101,6 +103,31 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_equal recording, @calls[:send_input].first[:context_recording]
     assert_operator RecordingStudioAgents::Binding.find_by!(recording: recording).expires_at, :>, original_expiry
     assert_equal 1, RecordingStudioAgents::Item.where(idempotency_key: "turn-1").count
+  end
+
+  test "the same append key succeeds in a second root and still dedupes inside one root" do
+    recording = create_chat("hello")
+    other = RecordingStudioAgents::Sessions::Create.call(
+      parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "there",
+      idempotency_key: "other-chat"
+    ).value!
+
+    RecordingStudioAgents::Sessions::Append.call(
+      root_recording: @root, recording: recording, actor: @user, input: "again", idempotency_key: "turn-1"
+    ).value!
+    RecordingStudioAgents::Sessions::Append.call(
+      root_recording: @other_root, recording: other, actor: @user, input: "again", idempotency_key: "turn-1"
+    ).value!
+
+    assert_equal 2, @calls[:send_input].size
+    assert_equal 2, RecordingStudioAgents::Item.where(idempotency_key: "turn-1").count
+
+    assert_raises(RecordingStudioAgents::Error) do
+      sibling = create_chat("sibling", key: "sibling")
+      RecordingStudioAgents::Sessions::Append.call(
+        root_recording: @root, recording: sibling, actor: @user, input: "nope", idempotency_key: "turn-1"
+      ).value!
+    end
   end
 
   test "append refuses a chat from another root before sending" do
@@ -227,6 +254,21 @@ class AgentSessionsTest < ActiveSupport::TestCase
   end
 
   private
+
+  def assert_idempotency_indexes_are_scoped_to_root
+    connection = ActiveRecord::Base.connection
+    binding_indexes = connection.indexes(:recording_studio_agents_bindings)
+    item_indexes = connection.indexes(:recording_studio_agents_items)
+
+    assert binding_indexes.any? { |index|
+      index.unique && index.columns == %w[root_recording_id create_idempotency_key]
+    }
+    assert item_indexes.any? { |index|
+      index.unique && index.columns == %w[root_recording_id idempotency_key]
+    }
+    refute binding_indexes.any? { |index| index.name == "index_rs_agents_bindings_on_create_key" }
+    refute item_indexes.any? { |index| index.name == "index_rs_agents_items_on_idempotency_key" }
+  end
 
   def create_chat(input, key: SecureRandom.uuid, title: nil, actor: @user)
     RecordingStudioAgents::Sessions::Create.call(

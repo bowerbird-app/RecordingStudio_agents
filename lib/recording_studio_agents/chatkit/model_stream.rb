@@ -63,8 +63,8 @@ module RecordingStudioAgents
         return unless assistant.savable?
 
         Item.create!(
-          id: assistant.item_id, recording: @recording, role: "assistant", text: assistant.text, status: "done",
-          created_at: assistant.created_at
+          id: assistant.item_id, recording: @recording, root_recording: @root, role: "assistant",
+          text: assistant.text, status: "done", created_at: assistant.created_at
         )
       end
 
