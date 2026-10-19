@@ -43,6 +43,12 @@ class ConfigurationTest < Minitest::Test
     assert_instance_of RecordingStudio::Hooks, configuration.hooks
   end
 
+  def test_provider_is_stripped_and_downcased
+    @configuration.provider = " OpenAI "
+
+    assert_equal "openai", @configuration.provider
+  end
+
   def test_retention_period_accepts_a_numeric_second_count
     @configuration.retention_period = 90
 

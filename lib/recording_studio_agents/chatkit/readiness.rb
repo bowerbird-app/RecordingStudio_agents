@@ -39,10 +39,16 @@ module RecordingStudioAgents
       end
 
       def hosted_agent?
-        provider = hosted_provider
-        RecordingStudioAI.models.all.any? do |definition|
-          definition.provider == provider && definition.operations.include?(:hosted_agent)
-        end
+        profile_entries_for(hosted_provider).any? { |entry| hosted_model?(entry) }
+      end
+
+      def profile_entries_for(provider)
+        profile_entries.select { |entry| normalize_provider(entry_value(entry, :provider)) == provider }
+      end
+
+      def profile_entries
+        profile = RecordingStudioAgents.configuration.default_profile
+        Array(RecordingStudioAI.configuration.profiles[profile])
       end
 
       def credential_gap
@@ -69,9 +75,7 @@ module RecordingStudioAgents
       end
 
       def profile_hosted_provider
-        profile = RecordingStudioAgents.configuration.default_profile
-        entries = Array(RecordingStudioAI.configuration.profiles[profile])
-        entry = entries.find { |candidate| hosted_model?(candidate) }
+        entry = profile_entries.find { |candidate| hosted_model?(candidate) }
         provider_from(entry)
       end
 

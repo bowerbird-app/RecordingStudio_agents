@@ -12,6 +12,7 @@ class ChatkitReadinessTest < Minitest::Test
     @openai_client = @ai.openai_client
     @gemini_api_key = @ai.gemini_api_key
     @gemini_client = @ai.gemini_client
+    @profiles = @ai.profiles
     @agents.chatkit_domain_key = "domain_pk_test"
   end
 
@@ -22,6 +23,7 @@ class ChatkitReadinessTest < Minitest::Test
     @ai.openai_client = @openai_client
     @ai.gemini_api_key = @gemini_api_key
     @ai.gemini_client = @gemini_client
+    @ai.profiles = @profiles
   end
 
   def test_openai_provider_reports_a_missing_api_key
@@ -58,6 +60,15 @@ class ChatkitReadinessTest < Minitest::Test
     assert_equal "Provider credential", readiness.credential_label
     assert_equal [:hosted_agent_unsupported], readiness.missing
     refute_includes readiness.missing, :made_up_api_key
+  end
+
+  def test_a_set_provider_uses_only_that_providers_profile_entries
+    @agents.provider = "openai"
+    @ai.openai_api_key = "sk-test"
+    @ai.openai_client = nil
+    @ai.profiles = { medium: [{ provider: :openai, model: "gpt-5" }] }
+
+    assert_includes readiness.missing, :hosted_agent_unsupported
   end
 
   def test_provider_names_are_stripped_and_downcased
