@@ -5,6 +5,7 @@ module RecordingStudioAgents
     class Append < RecordingStudio::Services::BaseService
       include RootGuard
       include ChatLookup
+      include GlobalKey
 
       def initialize(root_recording:, actor:, input:, idempotency_key:, **options)
         super()
@@ -57,6 +58,7 @@ module RecordingStudioAgents
       end
 
       def deliver(recording)
+        reject_global_item_straggler!
         send_input(recording)
         remember_item(recording)
         touch_binding(recording)
@@ -79,7 +81,8 @@ module RecordingStudioAgents
 
       def remember_item(recording)
         Item.create!(item_attributes(recording))
-      rescue ActiveRecord::RecordNotUnique
+      rescue ActiveRecord::RecordNotUnique => e
+        raise_global_item_conflict!(e)
         raise Error, "idempotency_key belongs to another chat" unless replay?(recording)
       end
 

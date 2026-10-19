@@ -147,6 +147,31 @@ class AgentSessionsTest < ActiveSupport::TestCase
     end
   end
 
+  test "append refuses an item straggler before the provider" do
+    recording = create_chat("hello")
+    insert_null_root_item("turn-straggler")
+
+    assert_raises(RecordingStudioAgents::IsolationError) do
+      RecordingStudioAgents::Sessions::Append.call(
+        root_recording: @root, recording: recording, actor: @user, input: "again", idempotency_key: "turn-straggler"
+      ).value!
+    end
+    assert_empty @calls[:send_input]
+  end
+
+  test "create maps a global idempotency conflict to isolation and drops the provider session" do
+    RecordingStudioAgents::Sessions::Create.call(
+      parent_recording: @other_root, root_recording: @other_root, actor: @user, input: "there",
+      idempotency_key: "taken-key"
+    ).value!
+    add_global_binding_index
+
+    assert_raises(RecordingStudioAgents::IsolationError) do
+      create_chat("hello", key: "taken-key")
+    end
+    assert_equal 1, @calls[:delete_session].size
+  end
+
   test "append refuses a chat from another root before sending" do
     recording = create_chat("hello")
 
@@ -297,6 +322,28 @@ class AgentSessionsTest < ActiveSupport::TestCase
     RecordingStudioAgents::Sessions::Append.call(
       root_recording: @root, recording: recording, actor: actor, input: "again", idempotency_key: SecureRandom.uuid
     ).value!
+  end
+
+  def insert_null_root_item(key)
+    holder = create_chat("holder", key: "holder-#{key}")
+    connection = ActiveRecord::Base.connection
+    connection.execute("ALTER TABLE recording_studio_agents_items ALTER COLUMN root_recording_id DROP NOT NULL")
+    connection.execute(<<~SQL.squish)
+      INSERT INTO recording_studio_agents_items (
+        id, recording_id, role, text, status, idempotency_key, created_at, root_recording_id
+      ) VALUES (
+        #{connection.quote(SecureRandom.uuid)}, #{connection.quote(holder.id)}, 'user', 'old', 'done',
+        #{connection.quote(key)}, #{connection.quote(Time.current)}, NULL
+      )
+    SQL
+    connection.add_index :recording_studio_agents_items, :idempotency_key,
+                          unique: true, where: "idempotency_key IS NOT NULL",
+                          name: "index_rs_agents_items_on_idempotency_key"
+  end
+
+  def add_global_binding_index
+    ActiveRecord::Base.connection.add_index :recording_studio_agents_bindings, :create_idempotency_key,
+                                            unique: true, name: "index_rs_agents_bindings_on_create_key"
   end
 
   def rename_chat(recording, actor: @user)

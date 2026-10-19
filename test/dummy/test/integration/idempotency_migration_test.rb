@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "timeout"
 require Rails.root.join("db/migrate/20261019040000_scope_agents_idempotency_keys_to_root")
 require Rails.root.join("db/migrate/20261019040100_require_agents_root_on_idempotency_keys")
 
@@ -23,29 +24,65 @@ class IdempotencyMigrationTest < ActiveSupport::TestCase
   end
 
   test "A backfills and can be re-run, then B requires the root and drops the global indexes" do
-    pid = fork do
-      run_forked_migration
-    rescue StandardError => e
-      warn "#{e.class}: #{e.message}"
-      warn e.backtrace.first(20).join("\n")
-      exit! 1
+    status, message = fork_migration do
+      load_pre_migration_schema
+      @alpha, @zulu, @alpha_chat, @zulu_chat = seed_workspaces
+      @null_binding = insert_binding(@alpha_chat, "null-root-key")
+      insert_item(@alpha_chat, "item-alpha", "alpha-item")
+      insert_item(@zulu_chat, "item-zulu", "zulu-item")
+      insert_binding(@zulu_chat, "zulu-key")
+      exercise_migrations
     end
-    _, status = Process.wait2(pid)
-    assert_predicate status, :success?
+    assert_predicate status, :success?, message
   end
 
-  def run_forked_migration
-    ActiveRecord::Base.connection_pool.disconnect!
-    ActiveRecord::Base.establish_connection(scratch_config)
-    load_pre_migration_schema
-    @alpha, @zulu, @alpha_chat, @zulu_chat = seed_workspaces
-    @null_binding = insert_binding(@alpha_chat, "null-root-key")
-    insert_item(@alpha_chat, "item-alpha", "alpha-item")
-    insert_item(@zulu_chat, "item-zulu", "zulu-item")
-    insert_binding(@zulu_chat, "zulu-key")
-    exercise_migrations
-    ActiveRecord::Base.connection_pool.disconnect!
-    exit! 0
+  test "A raises when a recording has no root and does not hang" do
+    status, message = fork_migration do
+      load_pre_migration_schema
+      orphan = insert_recording(nil)
+      insert_binding(orphan, "orphan-key")
+      migrate_a
+    end
+
+    refute_predicate status, :success?
+    assert_match(/recording_studio_agents_bindings has 1 row with a NULL root_recording_id after backfill:/, message)
+    assert_match(/[0-9a-f-]{36}/, message)
+  end
+
+  test "A backfills more than one batch" do
+    status, message = fork_migration do
+      load_pre_migration_schema
+      root = insert_recording(nil)
+      connection.execute(<<~SQL.squish)
+        UPDATE recording_studio_recordings SET root_recording_id = id
+        WHERE id = #{connection.quote(root)}
+      SQL
+      chat = insert_recording(root)
+      1001.times { |index| insert_binding(chat, "batch-#{index}") }
+      migrate_a
+      remaining = connection.select_value(<<~SQL.squish)
+        SELECT COUNT(*) FROM recording_studio_agents_bindings WHERE root_recording_id IS NULL
+      SQL
+      raise "remaining #{remaining}" unless remaining.to_i.zero?
+    end
+    assert_predicate status, :success?, message
+  end
+
+  test "B keeps the old indexes when a replacement index is invalid" do
+    status, message = fork_migration do
+      load_pre_migration_schema
+      @alpha, @zulu, @alpha_chat, @zulu_chat = seed_workspaces
+      insert_binding(@alpha_chat, "alpha-key")
+      migrate_a
+      connection.execute(<<~SQL.squish)
+        UPDATE pg_index SET indisvalid = false
+        WHERE indexrelid = #{connection.quote(BINDING_INDEX)}::regclass
+      SQL
+      migrate_b
+    end
+
+    refute_predicate status, :success?
+    assert_match(/#{BINDING_INDEX} is not a valid index/, message)
   end
 
   def exercise_migrations
@@ -62,6 +99,11 @@ class IdempotencyMigrationTest < ActiveSupport::TestCase
     assert_backfilled
 
     straggler = insert_binding(@zulu_chat, "straggler-key", include_root: true, root: nil)
+    assert_equal @zulu, root_of("recording_studio_agents_bindings", straggler)
+    assert_equal "0", connection.select_value("SHOW lock_timeout")
+    assert trigger_exists?("rs_agents_bindings_fill_root")
+    assert trigger_exists?("rs_agents_items_fill_root")
+
     migrate_b
 
     assert_equal @zulu, root_of("recording_studio_agents_bindings", straggler)
@@ -73,6 +115,9 @@ class IdempotencyMigrationTest < ActiveSupport::TestCase
     refute index_exists?(OLD_ITEM_INDEX)
     refute check_exists?("rs_agents_bindings_root_present")
     refute check_exists?("rs_agents_items_root_present")
+    assert trigger_exists?("rs_agents_bindings_fill_root")
+    assert trigger_exists?("rs_agents_items_fill_root")
+    assert_equal "0", connection.select_value("SHOW lock_timeout")
     assert_per_root_uniqueness
   end
 
@@ -243,6 +288,47 @@ class IdempotencyMigrationTest < ActiveSupport::TestCase
       WHERE c.conrelid = #{connection.quote(table_name)}::regclass
         AND c.contype = 'f'
         AND a.attname = 'root_recording_id'
+    SQL
+  end
+
+  def fork_migration
+    result_path = Rails.root.join("tmp/idempotency-migration-#{SecureRandom.hex(4)}.txt")
+    pid = Process.fork do
+      run_in_scratch { yield }
+      File.write(result_path, "ok")
+      exit! 0
+    rescue StandardError => e
+      File.write(result_path, "#{e.class}: #{e.message}")
+      exit! 1
+    end
+    [wait_for_child(pid), result_text(result_path)]
+  ensure
+    FileUtils.rm_f(result_path) if result_path
+  end
+
+  def run_in_scratch
+    ActiveRecord::Base.connection_pool.disconnect!
+    ActiveRecord::Base.establish_connection(scratch_config)
+    yield
+  ensure
+    ActiveRecord::Base.connection_pool.disconnect!
+  end
+
+  def wait_for_child(pid)
+    Timeout.timeout(60) { Process.wait2(pid).last }
+  rescue Timeout::Error
+    Process.kill("TERM", pid)
+    Process.wait(pid)
+    flunk "migration hung"
+  end
+
+  def result_text(path)
+    File.exist?(path) ? File.read(path) : ""
+  end
+
+  def trigger_exists?(name)
+    connection.select_value(<<~SQL.squish).present?
+      SELECT 1 FROM pg_trigger WHERE tgname = #{connection.quote(name)} AND NOT tgisinternal
     SQL
   end
 

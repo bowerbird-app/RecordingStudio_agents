@@ -6,6 +6,7 @@ module RecordingStudioAgents
       include RootGuard
       include Access
       include ChatDraft
+      include GlobalKey
 
       def initialize(parent_recording:, root_recording:, actor:, input:, **options)
         super()
@@ -80,9 +81,9 @@ module RecordingStudioAgents
 
       def persist(hosted)
         Session.transaction { insert_chat(hosted) }
-      rescue StandardError
+      rescue StandardError => e
         abandon(hosted)
-        raise
+        reraise_binding_conflict!(e)
       end
 
       def insert_chat(hosted)
