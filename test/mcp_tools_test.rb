@@ -127,7 +127,7 @@ class McpToolsTest < Minitest::Test
       taken = assert_raises(RecordingStudioApi::InvalidActionInputError) do
         RecordingStudioAgents::Mcp::Chats::Create.call(@context)
       end
-      assert_equal "create_idempotency_key is already used in another workspace", taken.message
+      assert_equal "conflict: create_idempotency_key is already used in another workspace", taken.message
       assert_equal ["conflict"], taken.details
     end
 

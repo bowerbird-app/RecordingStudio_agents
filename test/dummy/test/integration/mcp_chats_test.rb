@@ -78,6 +78,26 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_equal true, JSON.parse(response.body).dig("result", "isError")
   end
 
+  test "a cross-workspace key is a conflict over the bearer" do
+    key = "clash-#{SecureRandom.hex(4)}"
+    create_chat(@zulu, "taken", key)
+    add_global_binding_index
+    RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
+    before = @calls.size
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "hello", idempotency_key: key, title: "Clash"
+    })
+    message = JSON.parse(response.body).dig("result", "content", 0, "text").to_s
+
+    assert_equal true, JSON.parse(response.body).dig("result", "isError")
+    assert_includes message, "conflict"
+    assert_equal before, @calls.size
+  ensure
+    drop_global_binding_index
+    RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
+  end
+
   test "the same create key opens a chat in each workspace over the bearer" do
     key = "shared-#{SecureRandom.hex(4)}"
     alpha_id = create_over_mcp(key)
@@ -208,6 +228,27 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     JSON.parse(response.body).fetch("access_token")
   end
 
+  def add_global_binding_index
+    connection = ActiveRecord::Base.connection
+    return if connection.index_exists?(
+      :recording_studio_agents_bindings, :create_idempotency_key, name: "index_rs_agents_bindings_on_create_key"
+    )
+
+    connection.add_index(
+      :recording_studio_agents_bindings, :create_idempotency_key,
+      unique: true, name: "index_rs_agents_bindings_on_create_key"
+    )
+  end
+
+  def drop_global_binding_index
+    connection = ActiveRecord::Base.connection
+    return unless connection.index_exists?(
+      :recording_studio_agents_bindings, :create_idempotency_key, name: "index_rs_agents_bindings_on_create_key"
+    )
+
+    connection.remove_index :recording_studio_agents_bindings, name: "index_rs_agents_bindings_on_create_key"
+  end
+
   def create_chat(root, input, key)
     RecordingStudioAgents::Sessions::Create.call(
       parent_recording: root, root_recording: root, actor: @user, input: input, idempotency_key: key
@@ -244,9 +285,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     return if @original.nil?
 
     @original.each do |name, original|
-      RecordingStudioAI::Agents.define_singleton_method(name) do |*args, **kwargs, &block|
-        original.call(*args, **kwargs, &block)
-      end
+      RecordingStudioAI::Agents.define_singleton_method(name, original)
     end
   end
 end
