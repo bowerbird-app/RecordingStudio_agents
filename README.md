@@ -11,15 +11,17 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Recording Studio `~> 4.7` (dummy GitHub tag `v4.7.0`)
 - Recording Studio AI `~> 0.15.1` (dummy GitHub tag `v0.15.1`)
 - Recording Studio Metrics dummy GitHub tag `v0.3.1`
-- Accessible dummy GitHub tag `v0.18.0`
-- Trashable dummy GitHub tag `v0.10.0`
-- Root Switchable dummy GitHub tag `v0.9.0`
-- Cache dummy GitHub tag `v0.5.0`
-- FlatPack dummy GitHub tag `v0.1.213`
+- Accessible dummy GitHub tag `v0.20.0`
+- Trashable dummy GitHub tag `v0.11.1`
+- Root Switchable dummy GitHub tag `v0.9.5`
+- Cache dummy GitHub tag `v0.5.1`
+- FlatPack dummy GitHub tag `v0.1.254`
 - Recording Studio Users dummy GitHub tag `v0.24.0`
 - Recording Studio Oauth dummy GitHub tag `v0.12.5`
 - Recording Studio MCP dummy GitHub tag `v0.19.1`
-- Recording Studio API dummy GitHub tag `v0.11.0`
+- Recording Studio API dummy GitHub tag `v0.11.4`
+- Recording Studio Admin dummy GitHub tag `v2.3.3`
+- Site Settings dummy GitHub tag `v0.5.1`
 
 The provider API key stays in Recording Studio AI. This gem does not read one.
 

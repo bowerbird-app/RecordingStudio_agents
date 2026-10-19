@@ -7,10 +7,11 @@
 - Recording Studio `~> 4.7` (dummy GitHub tag `v4.7.0`)
 - Recording Studio AI `~> 0.15.1` (dummy GitHub tag `v0.15.1`)
 - Metrics dummy tag `v0.3.1`
-- Accessible dummy tag `v0.18.0`, Trashable dummy tag `v0.10.0` (`require: false`), and Root Switchable dummy tag `v0.9.0`
-- Cache dummy tag `v0.5.0`
-- FlatPack dummy tag `v0.1.213` (Oauth requires `~> 0.1.198`)
-- Users dummy tag `v0.24.0`, Oauth dummy tag `v0.12.5`, MCP dummy tag `v0.19.1`, API dummy tag `v0.11.0`
+- Accessible dummy tag `v0.20.0`, Trashable dummy tag `v0.11.1` (`require: false`), and Root Switchable dummy tag `v0.9.5`
+- Cache dummy tag `v0.5.1`
+- FlatPack dummy tag `v0.1.254` (Oauth requires `~> 0.1.198`)
+- Users dummy tag `v0.24.0`, Oauth dummy tag `v0.12.5`, MCP dummy tag `v0.19.1`, API dummy tag `v0.11.4`, Admin dummy tag `v2.3.3`, Site Settings dummy tag `v0.5.1`
+- Metrics stays `v0.3.1` because MCP, Root Switchable, and Trashable `v0.11.1` require metrics `< 0.4`
 - Public RubyGems and GitHub access for dependency installation
 
 ## Host migration
