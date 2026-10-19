@@ -18,7 +18,7 @@ module RecordingStudioAgents
     end
 
     def provider=(value)
-      @provider = value.nil? ? nil : value.to_s.strip.downcase
+      @provider = value.to_s.strip.downcase.presence
     end
 
     def default_profile=(value)

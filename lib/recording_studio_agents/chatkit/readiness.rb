@@ -3,6 +3,8 @@
 module RecordingStudioAgents
   module ChatKit
     module Readiness
+      # TypeSafe stays because Recording Studio AI v0.15.1 defines config.typesafe_api_key
+      # in lib/recording_studio_ai/configuration.rb.
       PROVIDER_LABELS = { openai: "OpenAI", gemini: "Gemini", typesafe: "TypeSafe" }.freeze
 
       module_function

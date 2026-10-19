@@ -49,6 +49,12 @@ class ConfigurationTest < Minitest::Test
     assert_equal "openai", @configuration.provider
   end
 
+  def test_a_blank_provider_is_nil
+    @configuration.provider = "  "
+
+    assert_nil @configuration.provider
+  end
+
   def test_retention_period_accepts_a_numeric_second_count
     @configuration.retention_period = 90
 
