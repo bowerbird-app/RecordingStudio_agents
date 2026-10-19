@@ -9,6 +9,7 @@ class InstructionsPrivacyTest < ActiveSupport::TestCase
     session = RecordingStudioAgents::Session.new(instructions: secret)
 
     assert_equal "[FILTERED]", filtered.filter(instructions: secret)[:instructions]
+    assert_equal "ship-me", filtered.filter(shipping_instructions: "ship-me")[:shipping_instructions]
     assert_includes session.inspect, "[FILTERED]"
     refute_includes session.inspect, secret
   end

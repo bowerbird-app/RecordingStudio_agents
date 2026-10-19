@@ -25,7 +25,7 @@ module RecordingStudioAgents
         text = value.strip
         return if text.empty? || text.length <= instruction_limit
 
-        raise invalid_instructions("instructions is too long")
+        raise invalid_instructions(length_message)
       end
 
       def sent_instructions(raw_params)
@@ -40,6 +40,10 @@ module RecordingStudioAgents
 
       def instruction_limit
         RecordingStudioAgents.configuration.max_instructions_length
+      end
+
+      def length_message
+        "instructions must be at most #{instruction_limit} characters"
       end
 
       def invalid_instructions(message)

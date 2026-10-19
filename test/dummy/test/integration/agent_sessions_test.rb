@@ -343,6 +343,17 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_equal "Answer in one sentence.", @calls[:create_session].first[:instructions]
   end
 
+  test "a repeated create key does not check a new instructions override" do
+    with_instruction_settings(override: :edit) do
+      first = create_chat("hello", key: "replay-instructions", instructions: "Be terse.")
+      again = create_chat("hello", key: "replay-instructions", instructions: "Say more.")
+
+      assert_equal first.id, again.id
+      assert_equal "Answer in one sentence.\n\nBe terse.", again.recordable.instructions
+      assert_equal 1, @calls[:create_session].size
+    end
+  end
+
   test "an editor override is appended after the host default" do
     with_instruction_settings(override: :edit) do
       recording = create_chat("hello", key: "override-instructions", instructions: "Be terse.")
@@ -373,7 +384,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
         create_chat("hello", key: "admin-gate", instructions: "Be terse.")
       end
 
-      assert_equal "actor cannot override instructions", error.message
+      assert_equal "actor cannot access this recording", error.message
       assert_equal before, @calls[:create_session].size
     end
   end
@@ -426,7 +437,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
         create_chat("hello", key: "too-long", instructions: "a" * 4001)
       end
 
-      assert_equal "instructions is too long", error.message
+      assert_equal "instructions must be at most 4000 characters", error.message
       assert_equal before, @calls[:create_session].size
     end
   end

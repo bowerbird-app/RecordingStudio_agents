@@ -143,7 +143,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
         input: "hello", idempotency_key: "edit-admin-#{SecureRandom.hex(4)}", instructions: "Be terse."
       })
 
-      assert_tool_error("actor cannot override instructions")
+      assert_tool_error("not authorized")
       assert_equal before, @calls.size
     end
   end
@@ -179,7 +179,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
       input: "hello", idempotency_key: "long-#{SecureRandom.hex(4)}", instructions: "a" * 4001
     })
 
-    assert_tool_error("instructions is too long")
+    assert_tool_error("instructions must be at most 4000 characters")
     assert_equal before, @calls.size
   end
 

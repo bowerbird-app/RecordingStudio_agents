@@ -41,9 +41,10 @@ module RecordingStudioAgents
       end
 
       def instructions_field
+        limit = RecordingStudioAgents.configuration.max_instructions_length
         {
-          type: :string, required: false, maxLength: 4000,
-          description: "Optional extra instructions, at most 4000 characters. " \
+          type: :string, required: false, maxLength: limit,
+          description: "Optional extra instructions, at most #{limit} characters. " \
                        "Blank uses the host default. A real override is appended after that default " \
                        "when config.instructions_override allows it."
         }

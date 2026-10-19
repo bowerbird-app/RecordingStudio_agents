@@ -3,16 +3,16 @@
 module RecordingStudioAgents
   module ChatKit
     class Turn
-      def self.open(actor:, root:, text:, recording: nil, instructions: nil)
+      def self.open(actor:, root:, text:, recording: nil)
         created = recording.nil?
-        recording = created ? create(actor, root, text, instructions) : append(actor, root, recording, text)
+        recording = created ? create(actor, root, text) : append(actor, root, recording, text)
         new(actor, root, recording, created: created)
       end
 
-      def self.create(actor, root, text, instructions)
+      def self.create(actor, root, text)
         Sessions::Create.call(
           parent_recording: root, root_recording: root, actor: actor, input: text,
-          idempotency_key: SecureRandom.uuid, title: text.truncate(60), instructions: instructions
+          idempotency_key: SecureRandom.uuid, title: text.truncate(60)
         ).value!
       end
 

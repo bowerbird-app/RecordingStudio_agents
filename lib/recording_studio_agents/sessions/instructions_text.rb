@@ -6,6 +6,16 @@ module RecordingStudioAgents
       private
 
       def instructions
+        resolved_instructions
+      end
+
+      def resolved_instructions
+        return @resolved_instructions if defined?(@resolved_instructions)
+
+        @resolved_instructions = build_instructions
+      end
+
+      def build_instructions
         override = stripped_override
         return host_instructions if override.nil?
 
@@ -19,7 +29,7 @@ module RecordingStudioAgents
 
         text = @instructions.strip
         return if text.empty?
-        raise InstructionsError, "instructions is too long" if over_limit?(text)
+        raise InstructionsError, length_message if over_limit?(text)
 
         text
       end
@@ -27,13 +37,12 @@ module RecordingStudioAgents
       def accept_override!
         gate = configuration.instructions_override
         raise InstructionsError, "instructions overrides are disabled" if gate == :none
-        return if override_allowed?(gate)
 
-        raise AccessDeniedError, "actor cannot override instructions"
+        ensure_access!(@root_recording, role: gate)
       end
 
-      def override_allowed?(gate)
-        RecordingStudioAccessible.authorized?(actor: @actor, recording: @root_recording, role: gate)
+      def length_message
+        "instructions must be at most #{configuration.max_instructions_length} characters"
       end
 
       def composed_instructions(override)
