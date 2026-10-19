@@ -196,12 +196,16 @@ class AgentSessionsTest < ActiveSupport::TestCase
     opened = @calls[:create_session].size
     deleted = @calls[:delete_session].size
 
-    without_binding_precheck do
-      assert_raises(RecordingStudioAgents::KeyConflictError) do
-        create_chat("hello", key: "fallback-key")
+    ActiveRecord::Base.transaction do
+      without_binding_precheck do
+        assert_raises(RecordingStudioAgents::KeyConflictError) do
+          create_chat("hello", key: "fallback-key")
+        end
       end
+      follow = create_chat("after", key: "after-conflict")
+      assert RecordingStudio::Recording.exists?(follow.id)
     end
-    assert_equal opened + 1, @calls[:create_session].size
+    assert_equal opened + 2, @calls[:create_session].size
     assert_equal deleted + 1, @calls[:delete_session].size
   end
 
@@ -224,7 +228,8 @@ class AgentSessionsTest < ActiveSupport::TestCase
     connection = RecordingStudioAgents::Binding.connection
     checks = 0
     original = connection.method(:index_exists?)
-    connection.define_singleton_method(:index_exists?) do |*args, **kwargs|
+    singleton = connection.singleton_class
+    singleton.define_method(:index_exists?) do |*args, **kwargs|
       checks += 1
       original.call(*args, **kwargs)
     end
@@ -233,9 +238,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
 
     assert_equal 0, checks
   ensure
-    if defined?(connection) && connection && defined?(original) && original
-      connection.define_singleton_method(:index_exists?, original)
-    end
+    singleton.remove_method(:index_exists?) if defined?(singleton) && singleton
   end
 
   test "a same-root create that loses the unique index returns the existing chat" do
@@ -256,7 +259,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_equal 2, @calls[:create_session].size
     assert_equal 1, @calls[:delete_session].size
   ensure
-    singleton.define_method(:find_by, finder) if defined?(singleton) && singleton && defined?(finder) && finder
+    singleton.remove_method(:find_by) if defined?(singleton) && singleton
   end
 
   test "append refuses a chat from another root before sending" do
@@ -431,15 +434,10 @@ class AgentSessionsTest < ActiveSupport::TestCase
 
   def without_binding_precheck
     klass = RecordingStudioAgents::Sessions::Create
-    klass.class_eval do
-      alias_method :reject_global_binding_straggler_original!, :reject_global_binding_straggler!
-      define_method(:reject_global_binding_straggler!) { nil }
-    end
+    klass.define_method(:reject_global_binding_straggler!) { nil }
     yield
   ensure
-    klass.class_eval do
-      alias_method :reject_global_binding_straggler!, :reject_global_binding_straggler_original!
-    end
+    klass.remove_method(:reject_global_binding_straggler!)
   end
 
   def add_global_binding_index

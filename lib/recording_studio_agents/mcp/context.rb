@@ -40,7 +40,8 @@ module RecordingStudioAgents
       end
 
       def raise_conflict!(error)
-        raise RecordingStudioApi::InvalidActionInputError.new(error.message, details: ["conflict"])
+        message = "conflict: #{error.message}"
+        raise RecordingStudioApi::InvalidActionInputError.new(message, details: ["conflict"])
       end
 
       def raise_protocol!(error)

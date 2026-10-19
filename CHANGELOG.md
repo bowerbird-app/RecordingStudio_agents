@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-19
+
+### Fixed
+- Creating a chat uses a savepoint, so a rescued idempotency clash does not abort the surrounding transaction.
+- An MCP idempotency clash says `conflict` in the error message. Recording Studio MCP `v0.19.1` shows that message and does not show error details.
+
 ## [0.4.0] - 2026-10-19
 
 ### Changed
