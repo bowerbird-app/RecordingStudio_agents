@@ -25,8 +25,7 @@ module RecordingStudioAgents
         endpoint: endpoint || recording_studio_agents.chatkit_path,
         missing: ChatKit::Readiness.missing,
         credential: ChatKit::Readiness.credential,
-        credential_label: ChatKit::Readiness.credential_label,
-        provider_label: ChatKit::Readiness.provider_label
+        credential_label: ChatKit::Readiness.credential_label
       }
     end
   end

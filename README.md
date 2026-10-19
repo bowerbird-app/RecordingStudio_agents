@@ -73,7 +73,7 @@ Create and append are idempotent on their keys inside one root. The same create 
 
 `recording_studio_agents_chatkit` renders the official `<openai-chatkit>` web component from `https://cdn.platform.openai.com/deployments/chatkit/chatkit.js`. Its custom backend is this endpoint. The component's `fetch` sends the session cookie and the CSRF token. `domainKey` comes from `config.chatkit_domain_key`. The browser does not receive an OpenAI API key, a client secret, or an Agent Builder workflow.
 
-The component renders when the ChatKit domain key is set and the configured hosted-agent provider is ready. The default provider is OpenAI, which needs `config.openai_api_key` or `config.openai_client`. Another provider needs that provider's own credential. The setup notice names the missing requirement. The self-hosted ChatKit server is unchanged.
+The component renders when the ChatKit domain key is set and the configured provider has a hosted-agent model and its credential. The default provider is OpenAI, which needs `config.openai_api_key` or `config.openai_client`. A provider with no hosted-agent model, such as Gemini on the current Recording Studio AI release, shows a setup notice instead of asking for an invented key. The self-hosted ChatKit server is unchanged.
 
 Set the OpenAI API key through Recording Studio AI, in `config/initializers/recording_studio_ai.rb`:
 

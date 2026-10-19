@@ -12,33 +12,52 @@ module RecordingStudioAgents
       end
 
       def missing
-        [credential_gap, domain_gap].compact
+        [support_gap, credential_gap, domain_gap].compact
       end
 
       def credential
+        return :provider_credential unless known_provider?
+
         :"#{hosted_provider}_api_key"
       end
 
       def credential_label
-        "#{provider_label} API key"
+        return "Provider credential" unless known_provider?
+
+        "#{PROVIDER_LABELS.fetch(hosted_provider)} API key"
       end
 
       def hosted_provider
         named = RecordingStudioAgents.configuration.provider
-        return named.to_s.downcase.to_sym if named.present?
+        return normalize_provider(named) if named.present?
 
         profile_hosted_provider || :openai
       end
 
-      def credential_gap
-        provider = hosted_provider
-        return if provider_ready?(provider)
+      def support_gap
+        :hosted_agent_unsupported unless hosted_agent?
+      end
 
-        :"#{provider}_api_key"
+      def hosted_agent?
+        provider = hosted_provider
+        RecordingStudioAI.models.all.any? do |definition|
+          definition.provider == provider && definition.operations.include?(:hosted_agent)
+        end
+      end
+
+      def credential_gap
+        return if support_gap
+        return if provider_ready?(hosted_provider)
+
+        credential
       end
 
       def domain_gap
         :domain_key if RecordingStudioAgents.configuration.chatkit_domain_key.blank?
+      end
+
+      def known_provider?
+        PROVIDER_LABELS.key?(hosted_provider)
       end
 
       def provider_ready?(provider)
@@ -58,7 +77,7 @@ module RecordingStudioAgents
 
       def hosted_model?(entry)
         model = entry_value(entry, :model).to_s
-        provider = entry_value(entry, :provider).to_s.downcase.to_sym
+        provider = normalize_provider(entry_value(entry, :provider))
         RecordingStudioAI.models.all.any? { |definition| hosted_definition?(definition, model, provider) }
       end
 
@@ -70,15 +89,15 @@ module RecordingStudioAgents
         value = entry_value(entry, :provider) if entry
         return if value.nil?
 
-        value.to_s.downcase.to_sym
+        normalize_provider(value)
       end
 
       def entry_value(entry, key)
         entry[key] || entry[key.to_s]
       end
 
-      def provider_label
-        PROVIDER_LABELS.fetch(hosted_provider) { hosted_provider.to_s.tr("_", " ").split.map(&:capitalize).join(" ") }
+      def normalize_provider(value)
+        value.to_s.strip.downcase.to_sym
       end
     end
   end

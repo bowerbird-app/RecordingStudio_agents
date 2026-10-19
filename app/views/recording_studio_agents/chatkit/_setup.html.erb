@@ -2,7 +2,7 @@
   <% card.header do %>
     <%= render FlatPack::PageTitle::Component.new(
       title: "ChatKit setup",
-      subtitle: "This page uses the official ChatKit web component. It does not open a chat until both keys below are set.",
+      subtitle: "This page uses the official ChatKit web component. It does not open a chat until the provider can host one and the keys below are set.",
       variant: :h2,
       class: "mb-0 pb-0"
     ) %>
@@ -11,8 +11,17 @@
   <% card.body do %>
     <div class="space-y-6 text-sm leading-6" data-chatkit-setup>
       <section class="space-y-2">
+        <% if missing.include?(:hosted_agent_unsupported) %>
+          <h3 class="font-medium">Hosted agent — not available</h3>
+          <p>
+            This provider has no hosted-agent model, so this page cannot open a chat with it.
+            Choose a provider that supports a hosted agent.
+          </p>
+        <% else %>
         <h3 class="font-medium"><%= credential_label %> — <%= missing.include?(credential) ? "not set" : "set" %></h3>
-        <% if credential == :openai_api_key %>
+        <% if credential == :provider_credential %>
+          <p>Set this provider's credential in Recording Studio AI. The key stays on the server.</p>
+        <% elsif credential == :openai_api_key %>
           <p>
             Recording Studio AI sends model calls with <code>config.openai_api_key</code>.
             Set the <code>OPENAI_API_KEY</code> environment variable, or store the key in Rails credentials at
@@ -22,10 +31,11 @@
           <p>The API key stays on the server. The browser never receives it, and this page does not use a client secret or Agent Builder.</p>
         <% else %>
           <p>
-            This chat uses the <%= provider_label %> provider.
+            This chat uses the <%= credential_label %>.
             Assign <code>config.<%= credential %></code> in <code>config/initializers/recording_studio_ai.rb</code>.
             The key stays on the server.
           </p>
+        <% end %>
         <% end %>
       </section>
 

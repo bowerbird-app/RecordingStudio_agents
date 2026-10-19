@@ -41,24 +41,32 @@ class ChatkitReadinessTest < Minitest::Test
     assert_empty readiness.missing
   end
 
-  def test_another_provider_reports_its_own_missing_key
-    @agents.provider = "gemini"
-    @ai.openai_api_key = nil
-    @ai.gemini_api_key = nil
-    @ai.gemini_client = nil
-
-    assert_equal [:gemini_api_key], readiness.missing
-    assert_equal "Gemini API key", readiness.credential_label
-    refute_includes readiness.missing, :openai_api_key
-  end
-
-  def test_another_provider_is_ready_with_its_own_key
+  def test_gemini_reports_that_hosted_agent_is_unsupported
     @agents.provider = "gemini"
     @ai.openai_api_key = nil
     @ai.gemini_api_key = "gem-test"
 
+    assert_equal [:hosted_agent_unsupported], readiness.missing
+    refute_includes readiness.missing, :openai_api_key
+    refute_includes readiness.missing, :gemini_api_key
+  end
+
+  def test_an_unknown_provider_uses_a_generic_gap
+    @agents.provider = " made-up "
+
+    assert_equal :provider_credential, readiness.credential
+    assert_equal "Provider credential", readiness.credential_label
+    assert_equal [:hosted_agent_unsupported], readiness.missing
+    refute_includes readiness.missing, :made_up_api_key
+  end
+
+  def test_provider_names_are_stripped_and_downcased
+    @agents.provider = " OpenAI "
+    @ai.openai_api_key = "sk-test"
+    @ai.openai_client = nil
+
+    assert_equal :openai, readiness.hosted_provider
     assert_empty readiness.missing
-    assert readiness.configured?
   end
 
   def test_a_blank_provider_follows_the_profile_hosted_model

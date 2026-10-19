@@ -58,23 +58,7 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
     assert_select "openai-chatkit", count: 0
   end
 
-  test "a gemini provider names its own missing key" do
-    @configuration.provider = "gemini"
-    @ai.gemini_api_key = nil
-    @ai.gemini_client = nil
-    @configuration.chatkit_domain_key = "domain_pk_test"
-
-    get agent_chat_path
-
-    assert_response :success
-    assert_includes response.body, "Gemini API key — not set"
-    assert_includes response.body, "config.gemini_api_key"
-    assert_includes response.body, "ChatKit domain key — set"
-    refute_includes response.body, "OpenAI API key"
-    assert_select "openai-chatkit", count: 0
-  end
-
-  test "a gemini provider with its key mounts chatkit without an openai key" do
+  test "a gemini provider reports that a hosted agent is unsupported" do
     @configuration.provider = "gemini"
     @ai.gemini_api_key = "gem-test"
     @configuration.chatkit_domain_key = "domain_pk_test"
@@ -82,9 +66,27 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
     get agent_chat_path
 
     assert_response :success
-    assert_select "openai-chatkit", count: 1
-    refute_includes response.body, "ChatKit setup"
-    refute_includes response.body, "gem-test"
+    assert_includes response.body, "Hosted agent — not available"
+    assert_includes response.body, "no hosted-agent model"
+    assert_includes response.body, "ChatKit domain key — set"
+    refute_includes response.body, "OpenAI API key"
+    refute_includes response.body, "Gemini API key"
+    refute_includes response.body, "config.gemini_api_key"
+    assert_select "openai-chatkit", count: 0
+  end
+
+  test "an unknown provider uses a generic setup message" do
+    @configuration.provider = " made-up "
+    @configuration.chatkit_domain_key = "domain_pk_test"
+
+    get agent_chat_path
+
+    assert_response :success
+    assert_includes response.body, "Hosted agent — not available"
+    refute_includes response.body, "Made Up API key"
+    refute_includes response.body, "config.made_up_api_key"
+    refute_includes response.body, "config.made-up_api_key"
+    assert_select "openai-chatkit", count: 0
   end
 
   test "a configured page mounts the official component against this endpoint" do
