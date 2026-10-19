@@ -21,7 +21,13 @@ module RecordingStudioAgents
     end
 
     def chatkit_locals(endpoint)
-      { endpoint: endpoint || recording_studio_agents.chatkit_path, missing: ChatKit::Readiness.missing }
+      {
+        endpoint: endpoint || recording_studio_agents.chatkit_path,
+        missing: ChatKit::Readiness.missing,
+        credential: ChatKit::Readiness.credential,
+        credential_label: ChatKit::Readiness.credential_label,
+        provider_label: ChatKit::Readiness.provider_label
+      }
     end
   end
 end

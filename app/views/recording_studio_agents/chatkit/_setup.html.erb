@@ -11,14 +11,22 @@
   <% card.body do %>
     <div class="space-y-6 text-sm leading-6" data-chatkit-setup>
       <section class="space-y-2">
-        <h3 class="font-medium">OpenAI API key — <%= missing.include?(:openai_api_key) ? "not set" : "set" %></h3>
-        <p>
-          Recording Studio AI sends model calls with <code>config.openai_api_key</code>.
-          Set the <code>OPENAI_API_KEY</code> environment variable, or store the key in Rails credentials at
-          <code>openai.api_key</code> and assign it in <code>config/initializers/recording_studio_ai.rb</code>:
-        </p>
-        <pre class="overflow-x-auto rounded-xl bg-(--surface-muted-background-color,#f4f4f5) p-3 text-xs">config.openai_api_key = Rails.application.credentials.dig(:openai, :api_key) || ENV.fetch("OPENAI_API_KEY", nil)</pre>
-        <p>The API key stays on the server. The browser never receives it, and this page does not use a client secret or Agent Builder.</p>
+        <h3 class="font-medium"><%= credential_label %> — <%= missing.include?(credential) ? "not set" : "set" %></h3>
+        <% if credential == :openai_api_key %>
+          <p>
+            Recording Studio AI sends model calls with <code>config.openai_api_key</code>.
+            Set the <code>OPENAI_API_KEY</code> environment variable, or store the key in Rails credentials at
+            <code>openai.api_key</code> and assign it in <code>config/initializers/recording_studio_ai.rb</code>:
+          </p>
+          <pre class="overflow-x-auto rounded-xl bg-(--surface-muted-background-color,#f4f4f5) p-3 text-xs">config.openai_api_key = Rails.application.credentials.dig(:openai, :api_key) || ENV.fetch("OPENAI_API_KEY", nil)</pre>
+          <p>The API key stays on the server. The browser never receives it, and this page does not use a client secret or Agent Builder.</p>
+        <% else %>
+          <p>
+            This chat uses the <%= provider_label %> provider.
+            Assign <code>config.<%= credential %></code> in <code>config/initializers/recording_studio_ai.rb</code>.
+            The key stays on the server.
+          </p>
+        <% end %>
       </section>
 
       <section class="space-y-2">
