@@ -10,10 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2026-10-19
 
 ### Added
-- A chat stores the instructions it was opened with. The default is `config.instructions`. ChatKit `threads.create` and MCP `agent_chats_create` accept an optional `instructions` override. Later turns keep the provider session, so instructions are not stored again per message. The 30-day cleanup deletes the stored instructions with the chat.
+- A chat stores the instructions it was opened with on the session snapshot. The host default is `config.instructions`. When `config.instructions_override` is `:admin` or `:edit`, a string override is appended after that default with a blank line. The default is `:none`, which rejects a real override. Blank text uses the host default. The cap is `config.max_instructions_length` (4000). ChatKit does not accept `instructions`. MCP `agent_chats_create` and `Sessions::Create` can pass it when the host opts in. Later turns keep the provider session, so instructions are not stored again per message. The stored copy is personal data, and the 30-day cleanup deletes it with the chat.
 
 ### Upgrade notes
 - Run `add_instructions_to_recording_studio_agents_sessions` before booting servers that read or write `recording_studio_agents_sessions.instructions`. It adds a nullable text column, takes a 5 second `lock_timeout` only for that add, then restores the previous value. There is no default and no backfill, so the table is not rewritten. `down` drops the column.
+- `config.instructions_override` defaults to `:none`. Set `:admin` or `:edit` to allow an override. An override is appended after the host default. There is no replace mode.
+- `config.max_instructions_length` defaults to 4000. A longer override is rejected.
+- The engine appends `:instructions` to `filter_parameters` and to Active Record `filter_attributes`. Stored instructions stay out of logs and `inspect`.
 
 ## [0.4.0] - 2026-10-19
 

@@ -10,7 +10,10 @@ module RecordingStudioAgents
       end
 
       def create
-        { fields: create_fields }
+        return { fields: create_fields } unless defined?(RecordingStudioApi::ActionInputContract)
+
+        require "recording_studio_agents/mcp/instructions_contract"
+        InstructionsContract.new(fields: create_fields)
       end
 
       def create_fields
@@ -39,8 +42,10 @@ module RecordingStudioAgents
 
       def instructions_field
         {
-          type: :string, required: false,
-          description: "Instructions for this chat. Defaults to the configured instructions."
+          type: :string, required: false, maxLength: 4000,
+          description: "Optional extra instructions, at most 4000 characters. " \
+                       "Blank uses the host default. A real override is appended after that default " \
+                       "when config.instructions_override allows it."
         }
       end
 

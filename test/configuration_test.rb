@@ -36,6 +36,8 @@ class ConfigurationTest < Minitest::Test
     configuration = RecordingStudioAgents::Configuration.new
 
     assert_equal "Answer in plain language.", configuration.instructions
+    assert_equal :none, configuration.instructions_override
+    assert_equal 4000, configuration.max_instructions_length
     assert_equal :medium, configuration.default_profile
     assert_equal "agent_chat", configuration.purpose
     assert_equal "openai", configuration.provider
@@ -77,6 +79,38 @@ class ConfigurationTest < Minitest::Test
 
     assert_equal 2, result.fetch(:hooks_registered).fetch(:before_initialize)
     assert_equal 1, result.fetch(:hooks_registered).fetch(:after_service)
+  end
+
+  def test_instructions_override_accepts_admin_and_edit
+    @configuration.instructions_override = "edit"
+    assert_equal :edit, @configuration.instructions_override
+
+    @configuration.merge!(instructions_override: "admin")
+    assert_equal :admin, @configuration.instructions_override
+    assert_equal :admin, @configuration.to_h.fetch(:instructions_override)
+  end
+
+  def test_instructions_override_rejects_an_unknown_gate
+    @configuration.instructions_override = :edit
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.instructions_override = :owner }
+
+    assert_equal :edit, @configuration.instructions_override
+    assert_match "instructions_override", error.message
+  end
+
+  def test_max_instructions_length_accepts_a_numeric_string
+    @configuration.max_instructions_length = "20"
+
+    assert_equal 20, @configuration.max_instructions_length
+    assert_equal 20, @configuration.to_h.fetch(:max_instructions_length)
+  end
+
+  def test_max_instructions_length_rejects_a_non_positive_value
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.max_instructions_length = 0 }
+
+    assert_equal 4000, @configuration.max_instructions_length
+    assert_match "positive", error.message
   end
 
   def test_configure_without_block_is_safe

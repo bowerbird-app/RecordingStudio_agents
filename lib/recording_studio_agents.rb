@@ -8,6 +8,7 @@ module RecordingStudioAgents
   class Error < StandardError; end
   class IsolationError < Error; end
   class KeyConflictError < IsolationError; end
+  class InstructionsError < Error; end
 
   module Sessions
     class AccessDeniedError < Error; end
@@ -34,6 +35,7 @@ require "recording_studio_agents/sessions/global_key"
 require "recording_studio_agents/sessions/access"
 require "recording_studio_agents/sessions/chat_lookup"
 require "recording_studio_agents/sessions/chat_draft"
+require "recording_studio_agents/sessions/instructions_text"
 require "recording_studio_agents/sessions/create"
 require "recording_studio_agents/sessions/append"
 require "recording_studio_agents/sessions/rename"

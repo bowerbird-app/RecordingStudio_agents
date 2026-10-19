@@ -37,12 +37,6 @@ module RecordingStudioAgents
         model
       end
 
-      def instructions
-        return configuration.instructions if @instructions.is_a?(String) && @instructions.strip.empty?
-
-        @instructions || configuration.instructions
-      end
-
       def profile
         (@profile || configuration.default_profile).to_sym
       end

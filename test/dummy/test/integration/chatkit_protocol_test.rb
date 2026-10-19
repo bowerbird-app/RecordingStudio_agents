@@ -27,12 +27,30 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     restore_agents
   end
 
-  test "create stores a per-chat instructions override" do
-    events = stream_events(create_body("hello", instructions: "Be terse."))
+  test "create stores the host default instructions" do
+    events = stream_events(create_body("hello"))
     recording = RecordingStudio::Recording.find(events.first.dig("thread", "id"))
 
-    assert_equal "Be terse.", recording.recordable.instructions
-    assert_equal "Be terse.", @calls[:create_session].first[:instructions]
+    assert_equal "Answer in one sentence.", recording.recordable.instructions
+  end
+
+  test "threads.create rejects instructions" do
+    result = call_server("threads.create", create_params("hello").merge(instructions: "Be terse."))
+
+    assert_equal 400, result.status
+    assert_equal "ChatKit does not accept instructions", result.body[:message]
+    assert_empty @calls[:create_session]
+  end
+
+  test "threads.create rejects blank non-string and too-long instructions" do
+    ["  ", { tone: "terse" }, "a" * 4001].each do |instructions|
+      result = call_server("threads.create", create_params("hello").merge(instructions: instructions))
+
+      assert_equal 400, result.status
+      assert_equal "ChatKit does not accept instructions", result.body[:message]
+    end
+
+    assert_empty @calls[:create_session]
   end
 
   test "create streams the saved first turn and ignores client metadata ids" do

@@ -80,10 +80,14 @@ module RecordingStudioAgents
       end
 
       def stream_new(params)
-        Result.stream(Turn.open(
-                        actor: @actor, root: @root, text: Payload.user_text(params["input"]),
-                        instructions: params["instructions"]
-                      ))
+        reject_client_instructions!(params)
+        Result.stream(Turn.open(actor: @actor, root: @root, text: Payload.user_text(params["input"])))
+      end
+
+      def reject_client_instructions!(params)
+        return if params["instructions"].nil?
+
+        raise ProtocolError, "ChatKit does not accept instructions"
       end
 
       def stream_existing(params)
