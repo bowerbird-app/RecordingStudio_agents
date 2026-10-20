@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-20
+
+### Fixed
+- The ChatKit frame script assigns `endpoint` and `domainKey` as JSON string literals. The quotes stay quotes, so the inline script parses and the ChatKit component can load.
+
+### Upgrade notes
+- No host change. Upgrade the gem. `recording_studio_agents_chatkit` emits a script the browser can parse.
+
 ## [0.4.0] - 2026-10-19
 
 ### Added

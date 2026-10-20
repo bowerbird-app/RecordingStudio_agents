@@ -106,4 +106,34 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "sk-test"
     refute_includes response.body, "data-composer"
   end
+
+  test "the frame script embeds the endpoint and domain key as json string literals" do
+    domain_key = %(domain_pk_"&<\u2028)
+    @configuration.chatkit_domain_key = domain_key
+    @ai.openai_api_key = "sk-test"
+
+    get agent_chat_path
+
+    assert_response :success
+    script = inline_chatkit_script(response.body)
+    refute_includes script, "&quot;"
+
+    assert_equal "/recording_studio_agents/chatkit", json_assignment(script, "endpoint")
+    assert_equal domain_key, json_assignment(script, "domainKey")
+  end
+
+  private
+
+  def inline_chatkit_script(body)
+    scripts = body.scan(%r{<script>\s*//<!\[CDATA\[(.*?)//\]\]>\s*</script>}m).flatten
+    script = scripts.find { |candidate| candidate.include?("const domainKey") }
+    assert script, "expected an inline ChatKit script"
+    script
+  end
+
+  def json_assignment(script, name)
+    literal = script[/const #{Regexp.escape(name)} = (.+)\s*$/, 1]
+    assert literal, "expected a #{name} assignment"
+    JSON.parse(literal)
+  end
 end
