@@ -81,7 +81,7 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     refute RecordingStudio.capability_enabled?(:example, for: Folder)
     refute RecordingStudio.capability_enabled?(:example, for: Page)
     refute RecordingStudio.capability_enabled?(:agents, for: Folder)
-    refute RecordingStudio.capability_enabled?(:agents, for: Page)
+    assert RecordingStudio.capability_enabled?(:agents, for: Page)
     assert_equal [ "Workspace" ], RecordingStudio.configuration.enabled_recordable_types_for(:example)
     assert_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
   end

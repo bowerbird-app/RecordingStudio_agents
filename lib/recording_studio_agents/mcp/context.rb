@@ -25,8 +25,8 @@ module RecordingStudioAgents
         params[key] || params[key.to_s] || params[key.to_sym]
       end
 
-      def catalog(context)
-        ChatKit::Catalog.new(actor(context), root(context))
+      def catalog(context, page_recording: nil)
+        ChatKit::Catalog.new(actor(context), root(context), page_recording: page_recording)
       end
 
       def call

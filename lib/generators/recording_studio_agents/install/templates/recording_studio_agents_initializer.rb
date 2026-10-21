@@ -10,4 +10,7 @@ RecordingStudioAgents.configure do |config|
   # config.provider = "openai"
   # config.retention_period = 30.days
   # config.chatkit_domain_key = ENV.fetch("CHATKIT_DOMAIN_KEY", nil)
+  # Hash or lambda { |controller, purpose| }. Per-call chatkit_options override this.
+  # Keys match ChatKit: startScreen, theme, header, composer, history, initialThread.
+  # config.chatkit_options = {}
 end

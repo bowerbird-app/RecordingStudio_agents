@@ -6,11 +6,23 @@ module RecordingStudioAgents
       class List
         def self.call(context)
           Context.call do
-            Context.authorize!(context, Context.root(context), :view)
-            page = Context.catalog(context).list_threads("limit" => Context.value(context, :limit))
-            { chats: page[:data], has_more: page[:has_more], after: page[:after] }
+            root = Context.root(context)
+            page = parent_recording(context, root)
+            Context.authorize!(context, root, :view) if page.nil?
+            listed = Context.catalog(context, page_recording: page).list_threads(
+              "limit" => Context.value(context, :limit)
+            )
+            { chats: listed[:data], has_more: listed[:has_more], after: listed[:after] }
           end
         end
+
+        def self.parent_recording(context, root)
+          id = Context.value(context, :parent)
+          return if id.blank?
+
+          ScopedParent.resolve!(id, root: root, access_grant: context.access_grant)
+        end
+        private_class_method :parent_recording
       end
 
       class Read
@@ -37,15 +49,26 @@ module RecordingStudioAgents
         end
 
         def self.create_args(context)
-          root = editable_root(context)
+          root = Context.root(context)
+          parent = parent_recording(context, root) || editable_root(context)
           {
-            parent_recording: root, root_recording: root, actor: Context.actor(context),
+            parent_recording: parent, root_recording: root, actor: Context.actor(context),
             input: Context.value(context, :input), idempotency_key: Context.value(context, :idempotency_key),
             title: Context.value(context, :title), instructions: Context.value(context, :instructions),
             access_grant: context.access_grant
           }
         end
         private_class_method :create_args
+
+        def self.parent_recording(context, root)
+          id = Context.value(context, :parent)
+          return if id.blank?
+
+          recording = ScopedParent.resolve!(id, root: root, access_grant: context.access_grant)
+          Context.authorize!(context, recording, :edit)
+          recording
+        end
+        private_class_method :parent_recording
 
         def self.editable_root(context)
           root = Context.root(context)

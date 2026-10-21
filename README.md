@@ -73,7 +73,11 @@ Create and append are idempotent on their keys inside one root. The same create 
 
 `threads.create` is not streamed by Recording Studio AI. After the session is saved, the endpoint reads the provider stream, and reads saved items when that stream has no text. `text_delta` events become ChatKit text deltas. An unsupported operation returns a protocol error.
 
-`recording_studio_agents_chatkit` renders the official `<openai-chatkit>` web component from `https://cdn.platform.openai.com/deployments/chatkit/chatkit.js`. Its custom backend is this endpoint. The component's `fetch` sends the session cookie and the CSRF token. `domainKey` comes from `config.chatkit_domain_key`. The inline script assigns `endpoint` and `domainKey` from JSON string literals, so a quote in either value stays a quote the browser can parse. The browser does not receive an OpenAI API key, a client secret, or an Agent Builder workflow.
+`recording_studio_agents_chatkit` renders the official `<openai-chatkit>` web component from `https://cdn.platform.openai.com/deployments/chatkit/chatkit.js`. Its custom backend is this endpoint. The component's `fetch` sends the session cookie and the CSRF token. `domainKey` comes from `config.chatkit_domain_key`. The inline script assigns `endpoint`, `domainKey`, and `hostOptions` from JSON literals, so a quote in any of those values stays a quote the browser can parse. The browser does not receive an OpenAI API key, a client secret, or an Agent Builder workflow.
+
+Pass `page_recording:` with the page's recording to scope that embed to the page. The helper adds `page_recording_id` to the endpoint. The server loads that recording again, checks it sits inside the current workspace, and checks the actor can view it. A missing or cross-workspace id is a 404. An id inside the workspace that the actor cannot view is a 403. With a valid id, new chats use that recording as their parent and `threads.list` returns only those chats. Leave it off and the endpoint behaves as before: new chats belong to the workspace and the list includes every chat in it. The same checks apply to MCP `parent` on `agent_chats_list` and `agent_chats_create`. Omit `parent` and those tools keep the workspace behavior. A parent can own a chat only when its type includes `RecordingStudio::Capabilities::Agents`. The dummy `Page` model opts in that way. A folder still cannot.
+
+`chatkit_options:` is merged over `config.chatkit_options` and sent to `setOptions`. The config value is a hash, or a lambda called with the controller and `config.purpose`. Use the ChatKit keys you need: `startScreen` (greeting and prompts with `label`, `prompt`, and optional `icon`), `theme`, `header`, `composer` (`placeholder`), `history`, and `initialThread`. `setOptions` replaces the previous options, so the frame always sets `api` itself. A host `api` key is dropped. `initialThread: nil` keeps the new-thread start screen. One host declaration can pass the same page into `page_recording:` and the start screen into `chatkit_options:`. The dummy page at `/agent-chat/page` does that for the Press kit page. `/agent-chat` stays the workspace chat.
 
 The component renders when the ChatKit domain key is set and the configured provider has a hosted-agent model and its credential. The default provider is OpenAI, which needs `config.openai_api_key` or `config.openai_client`. A provider with no hosted-agent model, such as Gemini on the current Recording Studio AI release, shows a setup notice instead of asking for an invented key. The self-hosted ChatKit server is unchanged.
 
@@ -102,8 +106,8 @@ The gem registers the chat tools when the host has loaded Recording Studio API, 
 
 | Tool | What it does |
 | --- | --- |
-| `agent_chats_list` | Chats in the granted workspace |
-| `agent_chats_create` | Opens a chat. Requires `input` and `idempotency_key` |
+| `agent_chats_list` | Chats in the granted workspace. Optional `parent` limits the list to that parent |
+| `agent_chats_create` | Opens a chat. Requires `input` and `idempotency_key`. Optional `parent` chooses the parent |
 | `agent_chats_read` | One chat |
 | `agent_chats_append` | Adds a user message |
 | `agent_items_list` | Items on one chat |

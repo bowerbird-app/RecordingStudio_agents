@@ -37,6 +37,18 @@ module RecordingStudioAgents
       @retention_period = normalize_retention(value)
     end
 
+    def chatkit_options=(value)
+      unless value.nil? || value.is_a?(Hash) || value.respond_to?(:call)
+        raise Error, "chatkit_options must be a hash or a lambda"
+      end
+
+      @chatkit_options = value.nil? ? {} : value
+    end
+
+    def chatkit_options
+      @chatkit_options || {}
+    end
+
     def to_h
       {
         instructions: instructions,

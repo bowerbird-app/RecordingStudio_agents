@@ -104,6 +104,18 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert RecordingStudio::Recording.exists?(recording.id)
   end
 
+  test "a page can parent a chat when the type opts into agents" do
+    page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
+
+    recording = RecordingStudioAgents::Sessions::Create.call(
+      parent_recording: page, root_recording: @root, actor: @user, input: "hello",
+      idempotency_key: "page-key"
+    ).value!
+
+    assert_equal page, recording.parent_recording
+    assert_equal 1, @calls[:create_session].size
+  end
+
   test "a folder cannot parent a chat" do
     folder = @root.record(Folder, actor: @user) { |record| record.name = "Notes" }
 

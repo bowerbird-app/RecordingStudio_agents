@@ -4,6 +4,7 @@
   const frame = document.getElementById("recording-studio-agents-chatkit")
   const endpoint = <%= raw json_escape(endpoint.to_json) %>
   const domainKey = <%= raw json_escape(RecordingStudioAgents.configuration.chatkit_domain_key.to_json) %>
+  const hostOptions = <%= raw json_escape(chatkit_options.to_json) %>
   const csrf = document.querySelector("meta[name='csrf-token']")?.content
 
   function csrfHeaders(headers) {
@@ -13,17 +14,29 @@
     return next
   }
 
-  customElements.whenDefined("openai-chatkit").then(() => {
-    frame.setOptions({
-      api: {
-        url: endpoint,
-        domainKey: domainKey,
-        fetch: (url, options) => fetch(url, {
-          ...options,
-          headers: csrfHeaders(options && options.headers),
-          credentials: "same-origin"
-        })
-      }
+  function mergeChatkitOptions(base, extra) {
+    if (!extra || typeof extra !== "object" || Array.isArray(extra)) return base
+    const merged = (base && typeof base === "object" && !Array.isArray(base)) ? { ...base } : {}
+    Object.keys(extra).forEach((key) => {
+      const next = extra[key]
+      const current = merged[key]
+      const bothObjects = next && current && typeof next === "object" && typeof current === "object" && !Array.isArray(next) && !Array.isArray(current)
+      merged[key] = bothObjects ? mergeChatkitOptions(current, next) : next
     })
+    return merged
+  }
+
+  customElements.whenDefined("openai-chatkit").then(() => {
+    const chatOptions = mergeChatkitOptions({}, hostOptions)
+    chatOptions.api = {
+      url: endpoint,
+      domainKey: domainKey,
+      fetch: (url, requestOptions) => fetch(url, {
+        ...requestOptions,
+        headers: csrfHeaders(requestOptions && requestOptions.headers),
+        credentials: "same-origin"
+      })
+    }
+    frame.setOptions(chatOptions)
   })
 <% end %>

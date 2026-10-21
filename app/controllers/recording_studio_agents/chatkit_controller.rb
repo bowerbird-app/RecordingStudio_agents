@@ -9,8 +9,11 @@ module RecordingStudioAgents
       root = resolve(:request_root)
       return render_error("sign in is required", 401) if actor.blank? || root.blank?
 
-      result = ChatKit::Server.call(request.raw_post, actor: actor, root_recording: root)
+      page = ScopedParent.resolve!(params[ScopedParent::QUERY_PARAM], root: root, actor: actor)
+      result = ChatKit::Server.call(request.raw_post, actor: actor, root_recording: root, page_recording: page)
       result.streaming? ? stream_result(result) : render(json: result.body, status: result.status)
+    rescue ChatKit::ProtocolError => e
+      render_error(e.message, e.status)
     end
 
     private

@@ -6,7 +6,7 @@ module RecordingStudioAgents
       module_function
 
       def list
-        { fields: { limit: { type: :integer, required: false, description: "Page size." } } }
+        { fields: { limit: { type: :integer, required: false, description: "Page size." }, parent: parent_field } }
       end
 
       def create
@@ -21,7 +21,16 @@ module RecordingStudioAgents
           input: input_field,
           idempotency_key: create_key_field,
           title: title_field,
-          instructions: instructions_field
+          instructions: instructions_field,
+          parent: parent_field
+        }
+      end
+
+      def parent_field
+        {
+          type: :string, required: false,
+          description: "Optional parent id. Chats are created under it and listed only there. " \
+                       "Omit it for the whole workspace. The parent must be inside this workspace and viewable."
         }
       end
 

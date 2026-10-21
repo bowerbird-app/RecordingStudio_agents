@@ -236,6 +236,71 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     refute_includes message, @zulu_chat.id
   end
 
+  test "parent limits list and create to that page" do
+    page = @alpha.record(Page, actor: @user) { |record| record.title = "Press kit" }
+    key = "page-#{SecureRandom.hex(4)}"
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "on the page", idempotency_key: key, title: "On the page", parent: page.id
+    })
+    payload = JSON.parse(response.body)
+    created_id = tool_payload(payload).fetch("id")
+    recording = RecordingStudio::Recording.find(created_id)
+
+    assert_equal false, payload.dig("result", "isError"), response.body
+    assert_equal page.id, recording.parent_recording_id
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: page.id })
+    scoped_ids = tool_payload(JSON.parse(response.body)).fetch("chats").map { |chat| chat["id"] }
+
+    assert_equal [created_id], scoped_ids
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: {})
+    all_ids = tool_payload(JSON.parse(response.body)).fetch("chats").map { |chat| chat["id"] }
+
+    assert_includes all_ids, created_id
+    assert_includes all_ids, @alpha_chat.id
+    refute_includes all_ids, @zulu_chat.id
+  end
+
+  test "a parent in another workspace is rejected" do
+    page = @zulu.record(Page, actor: @user) { |record| record.title = "Elsewhere" }
+    before = RecordingStudioAgents::Binding.count
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: page.id })
+    assert_tool_error("page was not found")
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "nope", idempotency_key: "cross-page-#{SecureRandom.hex(4)}", parent: page.id
+    })
+    assert_tool_error("page was not found")
+    assert_equal before, RecordingStudioAgents::Binding.count
+  end
+
+  test "a parent the grant cannot view is rejected" do
+    page = @alpha.record(Page, actor: @user) { |record| record.title = "Detached" }
+    page.update_columns(parent_recording_id: @zulu.id)
+    before = RecordingStudioAgents::Binding.count
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: page.id })
+    assert_tool_error("not authorized")
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "nope", idempotency_key: "hidden-#{SecureRandom.hex(4)}", parent: page.id
+    })
+    assert_tool_error("not authorized")
+    assert_equal before, RecordingStudioAgents::Binding.count
+    assert_equal @alpha.id, page.reload.root_recording_id
+  end
+
+  test "list and create contracts accept an optional parent" do
+    list = RecordingStudioApi.registered_endpoint(:agent_chats_list).input_contract.as_json
+    created = RecordingStudioApi.registered_endpoint(:agent_chats_create).input_contract.as_json
+
+    assert_equal false, list.dig(:fields, :parent, :required)
+    assert_equal false, created.dig(:fields, :parent, :required)
+  end
+
   test "a request with both a session and a bearer uses the grant workspace" do
     sign_in @user
     switch_to(@zulu)

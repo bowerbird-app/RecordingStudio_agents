@@ -160,6 +160,68 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_equal before + 1, RecordingStudioAgents::Binding.count
   end
 
+  test "a page recording parents the new chat and the catalog hides the others" do
+    page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
+    workspace_id = stream_events(create_body("workspace hello")).first.dig("thread", "id")
+
+    page_events = RecordingStudioAgents::ChatKit::Server.call(
+      create_body("page hello"), actor: @user, root_recording: @root, page_recording: page
+    ).each.map { |json| JSON.parse(json) }
+    page_id = page_events.first.dig("thread", "id")
+    scoped = RecordingStudioAgents::ChatKit::Catalog.new(@user, @root, page_recording: page)
+    listed = scoped.list_threads("limit" => 20)
+    whole = RecordingStudioAgents::ChatKit::Catalog.new(@user, @root).list_threads("limit" => 20)
+
+    assert_equal page, RecordingStudio::Recording.find(page_id).parent_recording
+    assert_equal [page_id], listed[:data].map { |thread| thread[:id] }
+    assert_equal [page_id, workspace_id].sort, whole[:data].map { |thread| thread[:id] }.sort
+    missing = assert_raises(RecordingStudioAgents::ChatKit::ProtocolError) { scoped.find!(workspace_id) }
+    assert_equal 404, missing.status
+  end
+
+  test "the endpoint scopes list and create when page_recording_id is present" do
+    page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
+    workspace_id = stream_events(create_body("workspace hello")).first.dig("thread", "id")
+
+    post chatkit_path(page.id), params: { type: "threads.create", params: create_params("page hello") }, as: :json
+    page_id = created_thread_id
+
+    listed = chatkit_json("threads.list", { "limit" => 20 }, page.id)
+    whole = chatkit_json("threads.list", { "limit" => 20 })
+
+    assert_equal page, RecordingStudio::Recording.find(page_id).parent_recording
+    assert_equal [page_id], listed.fetch("data").map { |thread| thread["id"] }
+    assert_equal [page_id, workspace_id].sort, whole.fetch("data").map { |thread| thread["id"] }.sort
+  end
+
+  test "a cross workspace page id is not found" do
+    grant_edit(@user, @other_root)
+    page = @other_root.record(Page, actor: @user) { |record| record.title = "Elsewhere" }
+
+    listed = chatkit_json("threads.list", { "limit" => 20 }, page.id)
+
+    assert_equal 404, listed.fetch("http_status")
+    assert_equal "page was not found", listed.fetch("message")
+  end
+
+  test "a page inside the workspace that the actor cannot view is rejected" do
+    page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
+    stranger = User.create!(email: "page-stranger-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    @configuration.request_actor = ->(*) { stranger }
+
+    listed = chatkit_json("threads.list", { "limit" => 20 }, page.id)
+
+    assert_equal 403, listed.fetch("http_status")
+    assert_equal "actor cannot access this recording", listed.fetch("message")
+  end
+
+  test "a page id that is not a uuid is not found" do
+    listed = chatkit_json("threads.list", { "limit" => 20 }, "not-a-page")
+
+    assert_equal 404, listed.fetch("http_status")
+    assert_equal "page was not found", listed.fetch("message")
+  end
+
   test "the endpoint streams server sent events for the signed in root" do
     post "/recording_studio_agents/chatkit",
          params: { type: "threads.create", params: create_params("hello"), metadata: { root_recording_id: @other_root.id } },
@@ -172,6 +234,28 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def chatkit_path(page_id = nil)
+    path = "/recording_studio_agents/chatkit"
+    return path if page_id.blank?
+
+    "#{path}?#{RecordingStudioAgents::ScopedParent::QUERY_PARAM}=#{page_id}"
+  end
+
+  def chatkit_json(type, params, page_id = nil)
+    post chatkit_path(page_id), params: { type: type, params: params }, as: :json
+    JSON.parse(response.body).merge("http_status" => response.status)
+  end
+
+  def created_thread_id
+    response.body.each_line do |line|
+      next unless line.start_with?("data: ")
+
+      payload = JSON.parse(line.delete_prefix("data: ").strip)
+      return payload.dig("thread", "id") if payload["type"] == "thread.created"
+    end
+    flunk "thread.created was missing"
+  end
 
   def stream_events(raw)
     result = RecordingStudioAgents::ChatKit::Server.call(raw, actor: @user, root_recording: @root)
