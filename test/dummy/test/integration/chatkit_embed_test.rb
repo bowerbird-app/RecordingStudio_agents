@@ -99,6 +99,11 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "openai-chatkit", count: 1
+    assert_includes response.body, "h-[min(40rem,calc(100dvh-16rem))]"
+    assert_includes response.body, "overflow-hidden rounded-[var(--card-radius)]"
+    refute_includes response.body, "style=\"height:"
+    css = Rails.root.join("app/assets/builds/tailwind.css").read
+    assert_match(/min\(40rem,\s*(?:calc\(\s*)?100dvh\s*-\s*16rem\)/, css)
     assert_includes response.body, "https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
     assert_includes response.body, "/recording_studio_agents/chatkit"
     assert_includes response.body, "domain_pk_test"
@@ -140,6 +145,23 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
     assert_equal "/recording_studio_agents/chatkit", json_assignment(script, "endpoint")
     assert_equal domain_key, json_assignment(script, "domainKey")
     assert_equal %(Say "hi" & <), json_assignment(script, "hostOptions").dig("startScreen", "greeting")
+  end
+
+  test "a missing press kit page shows a seed notice instead of the workspace chat" do
+    @configuration.chatkit_domain_key = "domain_pk_test"
+    @ai.openai_api_key = "sk-test"
+    root = RecordingStudio.root_recording_for(Workspace.create!(name: "Empty #{SecureRandom.hex(4)}"))
+    previous_root = @configuration.request_root
+    @configuration.request_root = ->(*) { root }
+
+    get page_agent_chat_path
+
+    assert_response :success
+    assert_includes response.body, "Run bin/rails db:seed"
+    assert_select "openai-chatkit", count: 0
+    refute_includes response.body, "page_recording_id"
+  ensure
+    @configuration.request_root = previous_root
   end
 
   test "a page declaration scopes the endpoint and sends its start screen" do

@@ -1,5 +1,7 @@
-<%= render FlatPack::Card::Component.new(style: :default, padding: :none, class: "w-full overflow-hidden") do %>
-  <openai-chatkit id="recording-studio-agents-chatkit" class="block w-full" style="height: min(40rem, calc(100dvh - 16rem));"></openai-chatkit>
+<%= render FlatPack::Card::Component.new(style: :default, padding: :none, class: "w-full") do %>
+  <div class="overflow-hidden rounded-[var(--card-radius)]">
+    <openai-chatkit id="recording-studio-agents-chatkit" class="block w-full h-[min(40rem,calc(100dvh-16rem))]"></openai-chatkit>
+  </div>
 <% end %>
 <script src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js" async></script>
 <%= javascript_tag do %>

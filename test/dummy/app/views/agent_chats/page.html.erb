@@ -11,6 +11,10 @@
     <% chat = PressKitPageChat.for(@page_recording) %>
     <%= recording_studio_agents_chatkit(page_recording: chat.page_recording, chatkit_options: chat.chatkit_options) %>
   <% else %>
-    <%= recording_studio_agents_chatkit %>
+    <%= render FlatPack::Alert::Component.new(
+      title: "Press kit is not on this workspace yet",
+      description: "Run bin/rails db:seed",
+      style: :info
+    ) %>
   <% end %>
 </div>

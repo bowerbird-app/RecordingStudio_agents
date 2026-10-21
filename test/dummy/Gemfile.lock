@@ -188,6 +188,7 @@ PATH
   remote: ../..
   specs:
     recording_studio_agents (0.5.0)
+      flat_pack (~> 0.1)
       rails (~> 8.1.0)
       recording_studio (~> 4.7)
       recording_studio_ai (~> 0.15.1)

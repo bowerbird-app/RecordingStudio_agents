@@ -233,6 +233,15 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_equal "page was not found", listed.fetch("message")
   end
 
+  test "a hash page id is not found" do
+    post "/recording_studio_agents/chatkit?page_recording_id[id]=not-a-page",
+         params: { type: "threads.list", params: { limit: 20 } }, as: :json
+    listed = JSON.parse(response.body).merge("http_status" => response.status)
+
+    assert_equal 404, listed.fetch("http_status")
+    assert_equal "page was not found", listed.fetch("message")
+  end
+
   test "a trashed page is not found" do
     page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
     page.update_columns(trashed_at: Time.current)

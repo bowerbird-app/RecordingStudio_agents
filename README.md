@@ -15,7 +15,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Trashable dummy GitHub tag `v0.11.1`
 - Root Switchable dummy GitHub tag `v0.9.5`
 - Cache dummy GitHub tag `v0.5.1`
-- FlatPack dummy GitHub tag `v0.1.254`
+- FlatPack `~> 0.1` (dummy GitHub tag `v0.1.254`)
 - Recording Studio Users dummy GitHub tag `v0.24.0`
 - Recording Studio Oauth dummy GitHub tag `v0.12.5`
 - Recording Studio MCP dummy GitHub tag `v0.19.1`
@@ -29,6 +29,7 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 
 ```ruby
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
+gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.254"
 gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v4.7.0"
 gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.15.1"
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.3.1"
@@ -73,7 +74,7 @@ Create and append are idempotent on their keys inside one root. The same create 
 
 `threads.create` is not streamed by Recording Studio AI. After the session is saved, the endpoint reads the provider stream, and reads saved items when that stream has no text. `text_delta` events become ChatKit text deltas. An unsupported operation returns a protocol error.
 
-`recording_studio_agents_chatkit` renders the official `<openai-chatkit>` web component from `https://cdn.platform.openai.com/deployments/chatkit/chatkit.js`. Its custom backend is this endpoint. The component's `fetch` sends the session cookie and the CSRF token. `domainKey` comes from `config.chatkit_domain_key`. The inline script assigns `endpoint`, `domainKey`, and `hostOptions` from JSON literals, so a quote in any of those values stays a quote the browser can parse. The browser does not receive an OpenAI API key, a client secret, or an Agent Builder workflow.
+`recording_studio_agents_chatkit` renders the official `<openai-chatkit>` web component from `https://cdn.platform.openai.com/deployments/chatkit/chatkit.js`. Its custom backend is this endpoint. The component's `fetch` sends the session cookie and the CSRF token. `domainKey` comes from `config.chatkit_domain_key`. The inline script assigns `endpoint`, `domainKey`, and `hostOptions` from JSON literals, so a quote in any of those values stays a quote the browser can parse. The browser does not receive an OpenAI API key, a client secret, or an Agent Builder workflow. The panel sits in a FlatPack card. Its height is the Tailwind class `h-[min(40rem,calc(100dvh-16rem))]`, so the host Tailwind build has to scan this gem's views. An inner wrapper uses the card radius and `overflow-hidden` so the ChatKit iframe follows the rounded corners.
 
 Pass `page_recording:` with the page's recording to scope that embed to the page. The helper adds `page_recording_id` to the endpoint. The server loads that recording again, checks it sits inside the current workspace, and checks the actor can view it. A missing or cross-workspace id is a 404. An id inside the workspace that the actor cannot view is a 403. With a valid id, new chats use that recording as their parent and `threads.list` returns only those chats. Leave it off and the endpoint behaves as before: new chats belong to the workspace and the list includes every chat in it. The same checks apply to MCP `parent` on `agent_chats_list` and `agent_chats_create`. Omit `parent` and those tools keep the workspace behavior. A parent can own a chat only when its type includes the agents capability:
 
