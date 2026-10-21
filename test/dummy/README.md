@@ -33,8 +33,8 @@ Then open the app and sign in with:
 - `/recording_studio` - redirects to `/` while the mounted Recording Studio engine stays available under that prefix for non-root routes
 - `/users/sign_in` - Devise sign-in page
 - `/docs/install`, `/docs/config`, `/docs/recordable_types`, `/docs/recordings_tree`, `/docs/gem_views`, `/docs/methods` - dummy-only starter pages
-- `/press_kits` - press kit list with a workspace chat
-- `/press_kits/:id` - one press kit with a chat scoped to that kit
+- `/press_kits` - press kit list with a workspace chat. The chat column is one quarter on a wide screen. Flatpack Grid is equal columns and SidebarLayout is the app shell, so that split stays a Tailwind grid.
+- `/press_kits/:id` - one press kit with a chat scoped to that kit. Photos use Attachable's delivery URL, and the copy is stored as heading, paragraph, and quote blocks. A kit opts into Accessible so a grant can sit on that kit. The list shows kits the person can view. A kit in this workspace they cannot view is 403. A kit in another workspace is 404.
 - `/agent-chat` and `/agent-chat/page` - workspace chat and the Press kit page chat
 - `/up` - Rails health check
 

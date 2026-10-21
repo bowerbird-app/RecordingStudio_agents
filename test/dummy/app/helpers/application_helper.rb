@@ -1,15 +1,28 @@
 module ApplicationHelper
   def press_kit_slides(images)
     images.filter_map do |image|
-      file = image.recordable.file
-      next unless file.attached?
+      attachment = image.recordable
+      next unless attachment.file.attached?
 
       {
         type: :image,
-        src: url_for(file),
-        alt: image.recordable.alt_text.presence || image.recordable.name,
-        caption: image.recordable.name
+        src: press_kit_image_url(image, attachment),
+        alt: attachment.alt_text.presence || attachment.name,
+        caption: attachment.alt_text.presence || attachment.name
       }
+    end
+  end
+
+  def press_kit_image_url(image, attachment)
+    if attachment.preview_target_named(:med)
+      attachment.url_for_variant(
+        :med,
+        rails_url: recording_studio_attachable.attachment_preview_file_path(image, variant_name: :med)
+      )
+    else
+      attachment.original_url(
+        rails_url: recording_studio_attachable.attachment_file_path(image)
+      )
     end
   end
 

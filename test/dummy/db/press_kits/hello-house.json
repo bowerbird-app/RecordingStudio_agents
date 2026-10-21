@@ -10,7 +10,7 @@
     },
     {
       "file": "02.jpg",
-      "alt": "OOF - HELLO HOUSE (1).jpg"
+      "alt": "HELLO HOUSE street wall, white bricks spelling HELLO, with a narrow window. Photograph by Nic Granleese."
     },
     {
       "file": "03.jpg",
@@ -22,11 +22,94 @@
     },
     {
       "file": "05.jpg",
-      "alt": "OOF - HELLO HOUSE (6).jpg"
+      "alt": "HELLO HOUSE interior: plywood wall, white door, and a dark brick pier with a wall light. Photograph by Nic Granleese."
     },
     {
       "file": "06.jpg",
       "alt": "BEFORE | the original \"Renovator's Nightmare\" | photo: OOF! architecture"
+    }
+  ],
+  "slug": "hello-house",
+  "sections": [
+    {
+      "kind": "heading",
+      "text": "RICHMOND"
+    },
+    {
+      "kind": "paragraph",
+      "text": "Photographs | Nic Granleese"
+    },
+    {
+      "kind": "heading",
+      "text": "VIDEO"
+    },
+    {
+      "kind": "paragraph",
+      "text": "Video | Nic Granleese"
+    },
+    {
+      "kind": "paragraph",
+      "text": "Although limited in area, the comfort + generosity of the new addition is maximised by making every inch of the site’s available space visible from the main living area but protected from the busy street."
+    },
+    {
+      "kind": "paragraph",
+      "text": "The Hello wall, designed in collaboration with artist Rose Nolan, is big but it's not dumb. The wall protects the house interiors while offering to start a conversation with passersby and its toothy brickwork contributes a new chapter to the brick + blockwork story of its 19th century heritage neighbours and their more recent descendants."
+    },
+    {
+      "kind": "paragraph",
+      "text": "Rather than blending in or blanding out, Hello House is a slightly loud but friendly new face in the street."
+    },
+    {
+      "kind": "heading",
+      "text": "THIS HOUSE IS FOR"
+    },
+    {
+      "kind": "paragraph",
+      "text": "🤴 + 👸 + 👦 + 🐈 + 🐈"
+    },
+    {
+      "kind": "paragraph",
+      "text": "BEFORE | the original \"Renovator's Nightmare\" | photo: OOF! architecture"
+    },
+    {
+      "kind": "heading",
+      "text": "DESIGN TEAM"
+    },
+    {
+      "kind": "paragraph",
+      "text": "Architect: Fooi-Ling Khoo\nPlanning + Heritage: David Brand\nCollaborating Artist: Rose Nolan\nEngineer: A M Daly Structural & Civil Engineers\nBuilding Surveyor: Anthony Middling & Associates"
+    },
+    {
+      "kind": "heading",
+      "text": "CONSTRUCTION TEAM"
+    },
+    {
+      "kind": "paragraph",
+      "text": "Builder: Anthony Adams | CBI Complete Builder's Insight\nBricklayer: Rob Fuchshofer | R&K Fuchshofer\nJoiner: John Matkowsky | M & J Cabinets and Joinery\nElectrician | Linked Electrical Services\nPainter | All Shades Painting\nConcrete Floor Polishing | JV concrete"
+    },
+    {
+      "kind": "heading",
+      "text": "AWARDS"
+    },
+    {
+      "kind": "paragraph",
+      "text": "2015 Think Brick National Awards | WINNER | Horbury Hunt Residential Award"
+    },
+    {
+      "kind": "paragraph",
+      "text": "2014 ArchiTeam Awards | WINNER | People's Choice Award"
+    },
+    {
+      "kind": "paragraph",
+      "text": "2015 Master Builders Association | WINNER | Excellence in Housing Awards"
+    },
+    {
+      "kind": "paragraph",
+      "text": "Hello House is proud to be a part of OPEN HOUSE MELBOURNE 2015"
+    },
+    {
+      "kind": "paragraph",
+      "text": "Hello House (10 Years) is proud to be a part of OPEN HOUSE MELBOURNE 2025"
     }
   ]
 }

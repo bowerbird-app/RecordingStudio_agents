@@ -20,6 +20,7 @@ class RecordingStudioDeclarationsTest < ActiveSupport::TestCase
     assert_equal ["Workspace"], RecordingStudio.allowed_parent_types_for("PressKit")
     assert RecordingStudio.capability_enabled?(:agents, for: PressKit)
     assert RecordingStudio.capability_enabled?(:attachable, for: PressKit)
+    assert RecordingStudio.capability_enabled?(:accessible, for: PressKit)
     refute RecordingStudio.capability_enabled?(:agents, for: Folder)
     refute RecordingStudio.capability_enabled?(:attachable, for: Page)
   end

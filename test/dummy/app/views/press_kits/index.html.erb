@@ -1,5 +1,6 @@
 <% dummy_page_nav(title: "Press kits", back_url: root_path) %>
 
+<%# Flatpack Grid is equal columns. SidebarLayout is the app shell. Neither is a 1/4 + 3/4 split, so this page keeps the Tailwind grid. %>
 <div class="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-4">
   <div class="min-w-0 lg:col-span-1">
     <%= recording_studio_agents_chatkit(chatkit_options: PressKitChat.workspace) %>

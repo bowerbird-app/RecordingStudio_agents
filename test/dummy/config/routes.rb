@@ -13,6 +13,7 @@ Rails.application.routes.draw do
   mount RecordingStudioOauth::Engine, at: "/recording_studio_oauth"
   mount RecordingStudioMcp::Engine, at: "/recording_studio_mcp"
   mount RecordingStudioSiteSettings::Engine, at: "/recording_studio_site_settings"
+  mount RecordingStudioAttachable::Engine, at: "/recording_studio_attachable"
 
   get "/.well-known/oauth-authorization-server",
       to: "recording_studio_oauth/oauth_discoveries#authorization_server",

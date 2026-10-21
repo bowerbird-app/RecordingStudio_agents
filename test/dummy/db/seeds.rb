@@ -99,20 +99,45 @@ end
 
 seed_press_kit = lambda do |demo_root, source_path|
   source = JSON.parse(File.read(source_path))
-  slug = File.basename(source_path, ".json")
-  recording = RecordingStudio::Recording.for_root(demo_root.id).where(recordable_type: "PressKit").find do |candidate|
-    candidate.recordable.name == source.fetch("name")
-  end
-  recording ||= demo_root.record(PressKit, actor: user, parent_recording: demo_root) do |press_kit|
-    press_kit.name = source.fetch("name")
-    press_kit.description = source.fetch("description")
-    press_kit.content = source.fetch("content")
+  slug = source.fetch("slug")
+  kits = RecordingStudio::Recording.for_root(demo_root.id).where(recordable_type: "PressKit").to_a
+  recording = kits.find { |candidate| candidate.recordable.slug == slug }
+  recording ||= kits.find { |candidate| candidate.recordable.slug.blank? && candidate.recordable.name == source.fetch("name") }
+  if recording
+    kit = recording.recordable
+    if kit.slug.blank? || kit.sections.blank?
+      recording = demo_root.revise(recording, actor: user) do |press_kit|
+        press_kit.slug = slug if press_kit.slug.blank?
+        press_kit.sections = source.fetch("sections") if press_kit.sections.blank?
+      end
+    end
+  else
+    recording = demo_root.record(PressKit, actor: user, parent_recording: demo_root) do |press_kit|
+      press_kit.slug = slug
+      press_kit.name = source.fetch("name")
+      press_kit.description = source.fetch("description")
+      press_kit.content = source.fetch("content")
+      press_kit.sections = source.fetch("sections")
+    end
   end
 
-  attached_names = recording.images(per_page: 50).map { |image| image.recordable.original_filename }
+  attached = recording.images(per_page: 50).index_by { |image| image.recordable.original_filename }
   source.fetch("images").each do |image|
     filename = "#{slug}-#{image.fetch("file")}"
-    next if attached_names.include?(filename)
+    alt = image.fetch("alt")
+    existing = attached[filename]
+    if existing
+      label = existing.recordable.alt_text.presence || existing.recordable.name
+      next if label == alt
+
+      blob = existing.recordable.file.blob if existing.recordable.file.attached?
+      demo_root.revise(existing, actor: user) do |attachment|
+        attachment.name = alt
+        attachment.alt_text = alt
+        attachment.file.attach(blob) if blob
+      end
+      next
+    end
 
     File.open(Rails.root.join("db/press_kit_images", slug, image.fetch("file")), "rb") do |io|
       result = RecordingStudioAttachable::Services::ImportAttachment.call(
@@ -121,12 +146,11 @@ seed_press_kit = lambda do |demo_root, source_path|
         filename: filename,
         content_type: "image/jpeg",
         actor: user,
-        name: image.fetch("alt"),
+        name: alt,
         description: source.fetch("source")
       )
       raise result.error.to_s unless result.success?
     end
-    attached_names << filename
   end
   recording
 end

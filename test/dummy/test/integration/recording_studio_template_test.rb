@@ -60,8 +60,18 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     assert_empty private_kits
     hello = press_kits.find { |recording| recording.recordable.name == "HELLO HOUSE" }
     assert_equal 6, hello.images(per_page: 20).size
+    assert_equal "hello-house", hello.recordable.slug
     assert_includes hello.recordable.description, "Victorian shophouse"
     assert_includes hello.recordable.content, "Rose Nolan"
+    assert_includes hello.recordable.sections.map { |section| section["kind"] }, "heading"
+    facade = hello.images(per_page: 20).find { |image| image.recordable.original_filename == "hello-house-02.jpg" }
+    assert_includes facade.recordable.name, "white bricks spelling HELLO"
+    assert facade.recordable.file.attached?
+
+    admin = User.find_by!(email: "admin@admin.com")
+    Current.actor = admin
+    root_recording.revise(hello, actor: admin) { |press_kit| press_kit.name = "HELLO HOUSE renamed" }
+    Current.actor = nil
 
     assert_no_difference -> { User.count } do
       assert_no_difference -> { RecordingStudio::Recording.count } do
@@ -71,6 +81,29 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
       end
     end
     assert_nil Current.actor
+    renamed = RecordingStudio::Recording.for_root(root_recording.id).where(recordable_type: "PressKit")
+    assert_equal [ "ACUTE HOUSE", "HELLO HOUSE renamed" ], renamed.map { |recording| recording.recordable.name }.sort
+    kept = renamed.find { |recording| recording.recordable.slug == "hello-house" }
+    assert_equal "hello-house", kept.recordable.slug
+
+    stale = kept.images(per_page: 20).find { |image| image.recordable.original_filename == "hello-house-02.jpg" }
+    blob_id = stale.recordable.file.blob.id
+    Current.actor = admin
+    root_recording.revise(stale, actor: admin) do |attachment|
+      attachment.name = "filename only"
+      attachment.alt_text = ""
+      attachment.file.attach(stale.recordable.file.blob)
+    end
+
+    load Rails.root.join("db/seeds.rb").to_s
+    repaired = RecordingStudio::Recording.find(stale.id)
+    assert_includes repaired.recordable.name, "white bricks spelling HELLO"
+    assert repaired.recordable.file.attached?
+    assert_equal blob_id, repaired.recordable.file.blob.id
+
+    assert_no_difference -> { RecordingStudioAttachable::Attachment.count } do
+      load Rails.root.join("db/seeds.rb").to_s
+    end
   ensure
     Current.actor = nil
   end

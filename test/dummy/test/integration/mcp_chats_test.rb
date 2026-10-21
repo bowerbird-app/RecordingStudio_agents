@@ -279,7 +279,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
   test "a parent the grant cannot view is rejected" do
     page = @alpha.record(Page, actor: @user) { |record| record.title = "Detached" }
-    page.update_columns(parent_recording_id: @zulu.id)
+    @token = delegated_token(kit_grant(@alpha))
     before = RecordingStudioAgents::Binding.count
 
     post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: page.id })
@@ -389,7 +389,54 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
     assert_equal true, refused.dig("result", "isError")
     assert_includes message, "Unknown tool update"
+
+    patch "/recording_studio_api/api/v1/press_kits/#{kit.id}",
+      params: { description: "Nope" }.to_json,
+      headers: {
+        "Authorization" => "Bearer #{@token}",
+        "Content-Type" => "application/json",
+        "Accept" => "application/json"
+      }
+
+    assert_response :forbidden
+    assert_includes response.body, "not authorized"
     assert_equal "Richmond lane", kit.reload.recordable.description
+  end
+
+  test "press kit show and update stay inside the granted workspace" do
+    kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
+    foreign = record_press_kit(@zulu, "ACUTE HOUSE", "Albert Park wedge")
+
+    post_mcp("tools/call", name: "show", arguments: { type: "PressKit", id: foreign.id })
+    assert_tool_error("not found")
+
+    post_mcp("tools/call", name: "update", arguments: {
+      type: "PressKit", id: foreign.id, description: "Stolen"
+    })
+    assert_tool_error("not found")
+    assert_equal "Albert Park wedge", foreign.reload.recordable.description
+
+    post_mcp("tools/call", name: "update", arguments: {
+      type: "PressKit", id: kit.id, description: "Still ours", root_recording_id: @zulu.id
+    })
+    moved = JSON.parse(response.body)
+    moved_message = moved.dig("result", "content", 0, "text").to_s
+
+    assert_equal true, moved.dig("result", "isError")
+    assert_includes moved_message, "Unknown fields root_recording_id"
+    assert_equal "Richmond lane", kit.reload.recordable.description
+    assert_equal @alpha.id, kit.root_recording_id
+
+    post_mcp("tools/call", name: "update", arguments: {
+      type: "PressKit", id: kit.id, name: ""
+    })
+    blank = JSON.parse(response.body)
+    blank_message = blank.dig("error", "message").to_s
+    blank_message = blank.dig("result", "content", 0, "text").to_s if blank_message.empty?
+
+    assert_includes blank_message, "Name can't be blank"
+    assert_equal "HELLO HOUSE", kit.reload.recordable.name
+    assert_equal "Richmond lane", kit.recordable.description
   end
 
   test "parent limits list and create to a press kit" do
@@ -415,7 +462,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   test "press kit parent rules still reject another workspace a hidden kit and a trashed kit" do
     foreign = record_press_kit(@zulu, "ACUTE HOUSE", "Albert Park wedge")
     hidden = record_press_kit(@alpha, "Hidden kit", "Off the grant")
-    hidden.update_columns(parent_recording_id: @zulu.id)
+    @token = delegated_token(kit_grant(@alpha))
     trashed = record_press_kit(@alpha, "Gone kit", "Removed")
     trashed.update_columns(trashed_at: Time.current)
     before = RecordingStudioAgents::Binding.count
@@ -461,6 +508,16 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def kit_grant(root)
+    kit = record_press_kit(root, "Drawer #{SecureRandom.hex(2)}", "The grant lives on this kit")
+    granted = RecordingStudioAccessible.grant_access(
+      recording: kit, actor: @user, role: "edit", manager_actor: @user
+    )
+    raise granted.error.to_s unless granted.success?
+
+    granted.value
+  end
 
   def record_press_kit(root, name, description)
     root.record(PressKit, actor: @user) do |press_kit|

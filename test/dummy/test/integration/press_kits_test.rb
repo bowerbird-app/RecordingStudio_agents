@@ -19,6 +19,9 @@ class PressKitsTest < ActionDispatch::IntegrationTest
     @configuration.provider = "openai"
     @configuration.request_root = ->(*) { @root }
     RecordingStudioAI.configuration.openai_api_key = "sk-test"
+    Current.actor = @user
+    access = RecordingStudioAccessible.bootstrap_owner_access!(recording: @root, actor: @user)
+    assert access.success?, access.error.to_s
   end
 
   teardown do
@@ -66,7 +69,34 @@ class PressKitsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "h-[min(40rem,calc(100dvh-16rem))]"
     assert_includes response.body, "The Hello wall"
     assert_includes response.body, "Most architects would probably run."
-    assert_select "img[alt='The Hello wall']"
+    assert_select "img[alt='The Hello wall']" do |images|
+      src = images.first["src"].to_s
+      assert_includes src, "/recording_studio_attachable/attachments/"
+      refute_includes src, "active_storage"
+    end
+  end
+
+  test "a kit in this workspace that the actor cannot view is forbidden" do
+    shown = record_kit("HELLO HOUSE", "Shown to you.")
+    hidden = record_kit("SECRET HOUSE", "Not for you.")
+    viewer = User.create!(email: "viewer-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    grant = RecordingStudioAccessible.grant_access(
+      recording: shown, actor: viewer, role: :view, manager_actor: @user
+    )
+    assert grant.success?, grant.error.to_s
+    sign_in viewer
+
+    get press_kits_path
+
+    assert_response :success
+    assert_includes response.body, "HELLO HOUSE"
+    refute_includes response.body, "SECRET HOUSE"
+
+    get press_kit_path(hidden)
+
+    assert_response :forbidden
+    assert_includes response.body, "You can&#39;t open this press kit"
+    refute_includes response.body, "page_recording_id="
   end
 
   test "a kit outside the current workspace is not shown" do
