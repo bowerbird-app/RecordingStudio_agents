@@ -2,8 +2,8 @@
 <script src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js" async></script>
 <%= javascript_tag do %>
   const frame = document.getElementById("recording-studio-agents-chatkit")
-  const endpoint = <%= json_escape(endpoint.to_json) %>
-  const domainKey = <%= json_escape(RecordingStudioAgents.configuration.chatkit_domain_key.to_json) %>
+  const endpoint = <%= raw json_escape(endpoint.to_json) %>
+  const domainKey = <%= raw json_escape(RecordingStudioAgents.configuration.chatkit_domain_key.to_json) %>
   const csrf = document.querySelector("meta[name='csrf-token']")?.content
 
   function csrfHeaders(headers) {
