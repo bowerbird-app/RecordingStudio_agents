@@ -14,6 +14,7 @@
     ) %>
 
     <% if @press_kits.any? %>
+      <div class="max-lg:[&_table]:block max-lg:[&_thead]:hidden max-lg:[&_tbody]:block max-lg:[&_tr]:flex max-lg:[&_tr]:flex-col max-lg:[&_td]:w-full">
       <%= render FlatPack::Table::Component.new(data: @press_kits, min_width: :none) do |table| %>
         <% table.column(title: "Name") { |recording|
           render(FlatPack::Link::Component.new(
@@ -21,8 +22,11 @@
             class: "text-[var(--color-primary)] underline underline-offset-[0.15em]"
           )) { recording.recordable.name }
         } %>
-        <% table.column(title: "Description") { |recording| recording.recordable.description } %>
+        <% table.column(title: "Description") { |recording|
+          tag.span(recording.recordable.description, class: "line-clamp-3 lg:line-clamp-none")
+        } %>
       <% end %>
+      </div>
     <% else %>
       <%= render FlatPack::EmptyState::Component.new(
         title: "No press kits in this workspace",

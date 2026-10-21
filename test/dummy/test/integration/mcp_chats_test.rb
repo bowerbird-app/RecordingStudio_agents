@@ -372,6 +372,32 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_equal kit.id, tool_payload(updated)["id"]
   end
 
+  test "a description-only MCP update keeps the seeded sections" do
+    kit = @alpha.record(PressKit, actor: @user) do |press_kit|
+      press_kit.name = "HELLO HOUSE"
+      press_kit.description = "Richmond lane"
+      press_kit.content = "Old paragraph."
+      press_kit.sections = [
+        { "kind" => "heading", "text" => "RICHMOND" },
+        { "kind" => "paragraph", "text" => "Old paragraph." }
+      ]
+    end
+
+    post_mcp("tools/call", name: "update", arguments: {
+      type: "PressKit", id: kit.id, description: "A friendly brick hello."
+    })
+    updated = JSON.parse(response.body)
+    fresh = kit.reload.recordable
+
+    assert_equal false, updated.dig("result", "isError"), response.body
+    assert_equal "A friendly brick hello.", fresh.description
+    assert_equal "Old paragraph.", fresh.content
+    assert_equal [
+      { "kind" => "heading", "text" => "RICHMOND" },
+      { "kind" => "paragraph", "text" => "Old paragraph." }
+    ], fresh.sections
+  end
+
   test "an MCP content update shows on the press kit page" do
     configuration = RecordingStudioAgents.configuration
     previous_domain_key = configuration.chatkit_domain_key

@@ -54,9 +54,14 @@ class PressKitsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "lg:order-2"
     assert_includes response.body, "lg:sticky"
     assert_select "td a.flat-pack-link.underline", text: "HELLO HOUSE"
-    assert_select "button[aria-label='Open the menu']", text: "Menu"
+    assert_select "button", text: "Menu"
+    refute_includes response.body, "Open the menu"
+    assert_includes response.body, "line-clamp-3"
+    assert_includes response.body, "max-lg:[&_tr]:flex-col"
     assert_select ".lg\\:hidden a[href='#{press_kits_path}']", text: "Press kits"
-    assert_select ".lg\\:hidden a[data-turbo-method='delete'][href='#{destroy_user_session_path}']", text: "Sign out"
+    assert_select "form#dummy-sign-out[action='#{destroy_user_session_path}'] input[name='_method'][value='delete']"
+    assert_select ".lg\\:hidden button[type='submit'][form='dummy-sign-out']", text: "Sign out"
+    assert_select ".lg\\:flex button[type='submit'][form='dummy-sign-out']", text: "Sign out"
   end
 
   test "the show page scopes the chat to that kit" do
@@ -86,6 +91,25 @@ class PressKitsTest < ActionDispatch::IntegrationTest
     end
     assert_includes response.body, "--carousel-lightbox-image-background-color:var(--surface-muted-background-color)"
     assert_includes response.body, "lg:[&_.flat-pack-carousel\\_\\_viewport]:max-h-[28rem]"
+    assert_includes response.body, "lg:[&_.flat-pack-carousel\\_\\_viewport]:h-[28rem]"
+    assert_includes response.body, "lg:[&_.flat-pack-carousel\\_\\_viewport]:!aspect-auto"
+  end
+
+  test "a later description save on the same kit keeps sections" do
+    recording = @root.record(PressKit, actor: @user) do |press_kit|
+      press_kit.name = "HELLO HOUSE"
+      press_kit.description = "A shophouse in Richmond."
+      press_kit.content = "Old paragraph."
+    end
+    kept = recording.recordable
+    kept.write_attribute(:sections, [ { "kind" => "heading", "text" => "RICHMOND" } ])
+    @root.revise(recording, actor: @user) do |press_kit|
+      press_kit.description = "Updated subtitle."
+    end
+
+    fresh = recording.reload.recordable
+    assert_equal "Updated subtitle.", fresh.description
+    assert_equal [ { "kind" => "heading", "text" => "RICHMOND" } ], fresh.sections
   end
 
   test "team lines keep their breaks and stay escaped" do

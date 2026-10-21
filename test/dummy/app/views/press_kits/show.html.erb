@@ -22,7 +22,7 @@
 
       <% if @images.any? %>
         <% slides = press_kit_slides(@images) %>
-        <div class="[--carousel-lightbox-image-background-color:var(--surface-muted-background-color)] [--carousel-media-background-color:var(--surface-muted-background-color)] lg:[&_.flat-pack-carousel\_\_viewport]:max-h-[28rem] lg:[&_.flat-pack-carousel\_\_viewport]:h-auto">
+        <div class="w-full [--carousel-lightbox-image-background-color:var(--surface-muted-background-color)] [--carousel-media-background-color:var(--surface-muted-background-color)] lg:[&_.flat-pack-carousel\_\_viewport]:h-[28rem] lg:[&_.flat-pack-carousel\_\_viewport]:max-h-[28rem] lg:[&_.flat-pack-carousel\_\_viewport]:!aspect-auto">
           <%= render FlatPack::Carousel::Component.new(
             slides: slides,
             show_thumbs: true,

@@ -12,6 +12,7 @@ class PressKit < ApplicationRecord
   validates :name, presence: true
 
   before_save :replace_sections_from_content, if: :replace_sections_from_content?
+  after_save :clear_section_source_flags
 
   # A revise copies attributes without calling these writers. The flag is set
   # only when this save assigns the field, which is how an MCP content edit
@@ -38,6 +39,11 @@ class PressKit < ApplicationRecord
   end
 
   private
+
+  def clear_section_source_flags
+    @content_was_set = false
+    @sections_were_set = false
+  end
 
   def replace_sections_from_content?
     @content_was_set && !@sections_were_set
