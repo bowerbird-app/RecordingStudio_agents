@@ -49,3 +49,66 @@ puts "Seeded: Workspace '#{workspace.name}' with root recording ##{root_recordin
 puts "Seeded: Workspace '#{accessible_workspace.name}' with root recording ##{accessible_root_recording.id}"
 puts "Seeded: Workspace '#{private_workspace.name}' with root recording ##{private_root_recording.id}"
 puts "Seeded: Folder '#{folder.name}' and page '#{page.title}'"
+
+seed_demo_chats = lambda do |root_recording|
+  return if root_recording.blank?
+  return if RecordingStudioAccessible.authorized?(actor: user, recording: root_recording, role: :edit)
+
+  RecordingStudioAccessible::AccessCreationContext.allow do
+    root_recording.record(RecordingStudio::Access, actor: user, parent_recording: root_recording) do |access|
+      access.actor = user
+      access.role = "edit"
+    end
+  end
+end
+
+record_page = lambda do |root_recording, title|
+  existing = RecordingStudio::Recording.for_root(root_recording.id).where(recordable_type: "Page").find do |recording|
+    recording.recordable.title == title
+  end
+  next existing if existing
+
+  root_recording.record(Page, actor: user, parent_recording: root_recording) do |page_record|
+    page_record.title = title
+  end
+end
+
+record_chat = lambda do |root_recording, parent_recording, title|
+  existing = RecordingStudio::Recording.for_root(root_recording.id).where(
+    parent_recording_id: parent_recording.id, recordable_type: RecordingStudioAgents::Session.name
+  ).find { |recording| recording.recordable.title == title }
+  next existing if existing
+
+  root_recording.record(RecordingStudioAgents::Session, actor: user, parent_recording: parent_recording) do |chat|
+    chat.title = title
+    chat.status = "active"
+    chat.model = "gpt-6-astra"
+    chat.purpose = "agent_chat"
+    chat.instructions = RecordingStudioAgents.configuration.instructions
+  end
+end
+
+remember_line = lambda do |root_recording, chat, text|
+  next if RecordingStudioAgents::Item.exists?(recording_id: chat.id)
+
+  RecordingStudioAgents::Item.create!(
+    id: SecureRandom.uuid, recording: chat, root_recording: root_recording,
+    role: "user", text: text, status: "done"
+  )
+end
+
+Current.actor = user
+begin
+  [root_recording, accessible_root_recording].each do |demo_root|
+    seed_demo_chats.call(demo_root)
+    press_kit = record_page.call(demo_root, "Press kit")
+    record_chat.call(demo_root, demo_root, "Workspace welcome")
+    record_chat.call(demo_root, demo_root, "All-hands notes")
+    draft = record_chat.call(demo_root, press_kit, "Press kit draft")
+    remember_line.call(demo_root, draft, "Draft the one-page brief.")
+  end
+ensure
+  Current.actor = previous_actor
+end
+
+puts "Seeded: Press kit page chats"

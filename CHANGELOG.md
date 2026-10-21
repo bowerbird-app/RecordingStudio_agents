@@ -19,7 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - No migration.
 - Include `RecordingStudio::Capabilities::Agents` on each type that should own a chat. A type without it still cannot parent one.
 - Hosts that want a page-scoped embed pass that page's recording as `page_recording:`. The client id is checked again on the server.
-- Set `config.chatkit_options` or pass `chatkit_options:` for a start screen, theme, header, composer placeholder, or history. Per-call options override the config. Do not put an `api` key in those options; the gem's endpoint wins.
+- Set `config.chatkit_options` or pass `chatkit_options:` for a start screen, theme, header, composer placeholder, or history. Per-call options override the config. Do not put an `api` key in those options; the gem's endpoint wins. A lambda takes 0, 1, or 2 arguments (none, the controller, or the controller and `config.purpose`). It is not called while the setup notice is showing.
+- A parent that cannot hold a chat is a 422. A trashed page, a missing id, and a present non-string id are a 404. MCP create replay still returns the existing chat and ignores `parent`.
 - MCP clients can send `parent`. Old clients that omit it are unchanged.
 
 ## [0.4.1] - 2026-10-20

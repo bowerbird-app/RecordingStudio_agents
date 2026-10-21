@@ -115,6 +115,16 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "data-composer"
   end
 
+  test "a setup notice does not call chatkit_options" do
+    @configuration.chatkit_options = lambda { raise "chatkit options were called" }
+
+    get agent_chat_path
+
+    assert_response :success
+    assert_includes response.body, "ChatKit setup"
+    assert_select "openai-chatkit", count: 0
+  end
+
   test "the frame script embeds the endpoint and domain key as json string literals" do
     domain_key = %(domain_pk_"&<\u2028)
     @configuration.chatkit_domain_key = domain_key
@@ -143,6 +153,7 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
       }
     end
     root = RecordingStudio.root_recording_for(Workspace.create!(name: "Embed #{SecureRandom.hex(4)}"))
+    root.record(Page, actor: @user) { |page| page.title = "Press kit" }
     previous_root = @configuration.request_root
     @configuration.request_root = ->(*) { root }
 

@@ -56,6 +56,26 @@ class ChatkitOptionsTest < Minitest::Test
     assert_equal @controller.object_id.to_s, options.dig("header", "title", "text")
   end
 
+  def test_a_zero_argument_lambda_is_called_with_no_arguments
+    @configuration.chatkit_options = lambda do
+      { composer: { placeholder: "From nowhere" } }
+    end
+
+    options = RecordingStudioAgents::ChatKit::Options.for(@controller, nil, configuration: @configuration)
+
+    assert_equal "From nowhere", options.dig("composer", "placeholder")
+  end
+
+  def test_a_three_argument_lambda_is_rejected
+    error = assert_raises(RecordingStudioAgents::Error) do
+      @configuration.chatkit_options = lambda do |_controller, _purpose, _extra|
+        {}
+      end
+    end
+
+    assert_equal "chatkit_options lambda accepts 0, 1, or 2 arguments", error.message
+  end
+
   def test_chatkit_options_rejects_a_string
     error = assert_raises(RecordingStudioAgents::Error) { @configuration.chatkit_options = "nope" }
 

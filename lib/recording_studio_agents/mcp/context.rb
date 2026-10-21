@@ -46,6 +46,7 @@ module RecordingStudioAgents
 
       def raise_protocol!(error)
         raise RecordingStudioApi::AuthorizationError, error.message if error.status == 403
+        raise RecordingStudioApi::InvalidActionInputError, error.message if error.status == 422
 
         raise RecordingStudioApi::NotFoundError, error.message
       end

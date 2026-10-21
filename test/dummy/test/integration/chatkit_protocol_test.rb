@@ -215,6 +215,80 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_equal "actor cannot access this recording", listed.fetch("message")
   end
 
+  test "a folder cannot parent a chat" do
+    folder = @root.record(Folder, actor: @user) { |record| record.name = "Notes" }
+
+    listed = chatkit_json("threads.list", { "limit" => 20 }, folder.id)
+
+    assert_equal 422, listed.fetch("http_status")
+    assert_equal "page cannot hold a chat", listed.fetch("message")
+  end
+
+  test "a present non-string page id is not found" do
+    post "/recording_studio_agents/chatkit?page_recording_id[]=not-a-page",
+         params: { type: "threads.list", params: { limit: 20 } }, as: :json
+    listed = JSON.parse(response.body).merge("http_status" => response.status)
+
+    assert_equal 404, listed.fetch("http_status")
+    assert_equal "page was not found", listed.fetch("message")
+  end
+
+  test "a trashed page is not found" do
+    page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
+    page.update_columns(trashed_at: Time.current)
+
+    listed = chatkit_json("threads.list", { "limit" => 20 }, page.id)
+
+    assert_equal 404, listed.fetch("http_status")
+    assert_equal "page was not found", listed.fetch("message")
+  end
+
+  test "a view-only actor cannot create a page chat" do
+    page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
+    viewer = User.create!(email: "viewer-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    grant_role(viewer, @root, "view")
+    @configuration.request_actor = ->(*) { viewer }
+
+    listed = chatkit_json("threads.create", create_params("hello"), page.id)
+
+    assert_equal 403, listed.fetch("http_status")
+    assert_empty @calls[:create_session]
+  end
+
+  test "another page id cannot read or continue that page's chat" do
+    page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
+    other = @root.record(Page, actor: @user) { |record| record.title = "Other page" }
+    thread_id = RecordingStudioAgents::ChatKit::Server.call(
+      create_body("page hello"), actor: @user, root_recording: @root, page_recording: page
+    ).each.map { |json| JSON.parse(json) }.first.dig("thread", "id")
+
+    shown = chatkit_json("threads.get_by_id", { "thread_id" => thread_id }, other.id)
+    items = chatkit_json("items.list", { "thread_id" => thread_id }, other.id)
+    added = chatkit_json("threads.add_user_message", create_params("again").merge("thread_id" => thread_id), other.id)
+
+    assert_equal 404, shown.fetch("http_status")
+    assert_equal 404, items.fetch("http_status")
+    assert_equal 404, added.fetch("http_status")
+    assert_equal 0, @calls[:send_input].size
+  end
+
+  test "a page chat is refused after page access is revoked" do
+    page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
+    reader = User.create!(email: "reader-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    access = grant_role(reader, @root, "view")
+    thread_id = RecordingStudioAgents::ChatKit::Server.call(
+      create_body("page hello"), actor: @user, root_recording: @root, page_recording: page
+    ).each.map { |json| JSON.parse(json) }.first.dig("thread", "id")
+    @configuration.request_actor = ->(*) { reader }
+
+    shown = chatkit_json("threads.get_by_id", { "thread_id" => thread_id }, page.id)
+    access.update_columns(trashed_at: Time.current)
+    refused = chatkit_json("threads.get_by_id", { "thread_id" => thread_id }, page.id)
+
+    assert_equal 200, shown.fetch("http_status")
+    assert_equal 403, refused.fetch("http_status")
+  end
+
   test "a page id that is not a uuid is not found" do
     listed = chatkit_json("threads.list", { "limit" => 20 }, "not-a-page")
 
@@ -288,12 +362,16 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
   end
 
   def grant_edit(actor, recording)
+    grant_role(actor, recording, "edit")
+  end
+
+  def grant_role(actor, recording, role)
     RecordingStudioAccessible::AccessCreationContext.allow do
       RecordingStudio.root_recording_or_self(recording).record(
         RecordingStudio::Access, actor: actor, parent_recording: recording
       ) do |access|
         access.actor = actor
-        access.role = "edit"
+        access.role = role
       end
     end
   end

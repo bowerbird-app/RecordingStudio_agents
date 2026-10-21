@@ -23,11 +23,17 @@ module RecordingStudioAgents
     def chatkit_locals(endpoint, page_recording, chatkit_options)
       {
         endpoint: scoped_endpoint(endpoint, page_recording),
-        chatkit_options: ChatKit::Options.for(controller, chatkit_options),
+        chatkit_options: resolved_chatkit_options(chatkit_options),
         missing: ChatKit::Readiness.missing,
         credential: ChatKit::Readiness.credential,
         credential_label: ChatKit::Readiness.credential_label
       }
+    end
+
+    def resolved_chatkit_options(chatkit_options)
+      return {} unless ChatKit::Readiness.configured?
+
+      ChatKit::Options.for(controller, chatkit_options)
     end
 
     def scoped_endpoint(endpoint, page_recording)

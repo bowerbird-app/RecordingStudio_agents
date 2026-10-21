@@ -293,6 +293,56 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_equal @alpha.id, page.reload.root_recording_id
   end
 
+  test "a repeated create key ignores a different parent" do
+    page = @alpha.record(Page, actor: @user) { |record| record.title = "Press kit" }
+    other = @alpha.record(Page, actor: @user) { |record| record.title = "Other page" }
+    key = "replay-parent-#{SecureRandom.hex(4)}"
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "on the page", idempotency_key: key, title: "On the page", parent: page.id
+    })
+    created_id = tool_payload(JSON.parse(response.body)).fetch("id")
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "on the page", idempotency_key: key, title: "Moved", parent: other.id
+    })
+    replay = JSON.parse(response.body)
+
+    assert_equal false, replay.dig("result", "isError"), response.body
+    assert_equal created_id, tool_payload(replay).fetch("id")
+    assert_equal page.id, RecordingStudio::Recording.find(created_id).parent_recording_id
+  end
+
+  test "a non-string parent is not found" do
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: { id: @alpha.id } })
+    assert_tool_error("page was not found")
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "nope", idempotency_key: "hash-parent-#{SecureRandom.hex(4)}", parent: ["not-a-page"]
+    })
+    assert_tool_error("page was not found")
+  end
+
+  test "a folder parent cannot hold a chat" do
+    folder = @alpha.record(Folder, actor: @user) { |record| record.name = "Notes" }
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: folder.id })
+    assert_tool_error("page cannot hold a chat")
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "nope", idempotency_key: "folder-parent-#{SecureRandom.hex(4)}", parent: folder.id
+    })
+    assert_tool_error("page cannot hold a chat")
+  end
+
+  test "a trashed page parent is not found" do
+    page = @alpha.record(Page, actor: @user) { |record| record.title = "Gone" }
+    page.update_columns(trashed_at: Time.current)
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: page.id })
+    assert_tool_error("page was not found")
+  end
+
   test "list and create contracts accept an optional parent" do
     list = RecordingStudioApi.registered_endpoint(:agent_chats_list).input_contract.as_json
     created = RecordingStudioApi.registered_endpoint(:agent_chats_create).input_contract.as_json

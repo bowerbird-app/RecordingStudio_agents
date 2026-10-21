@@ -30,7 +30,7 @@ class PressKitPageChat
         ]
       },
       composer: { placeholder: "Ask about this page" },
-      header: { enabled: true, title: { enabled: true, text: "Press kit" } },
+      header: { enabled: true },
       history: { enabled: true, showDelete: true, showRename: true },
       initialThread: nil,
       theme: { colorScheme: "light", radius: "round" }
