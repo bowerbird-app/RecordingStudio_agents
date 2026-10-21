@@ -91,13 +91,28 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     Current.actor = admin
     root_recording.revise(stale, actor: admin) do |attachment|
       attachment.name = "filename only"
-      attachment.alt_text = ""
+      attachment.alt_text = "Edited in the app"
       attachment.file.attach(stale.recordable.file.blob)
     end
 
+    assert_no_difference -> { RecordingStudioAttachable::Attachment.count } do
+      load Rails.root.join("db/seeds.rb").to_s
+    end
+    kept_photo = RecordingStudio::Recording.find(stale.id)
+    assert_equal "filename only", kept_photo.recordable.name
+    assert_equal "Edited in the app", kept_photo.recordable.alt_text
+    assert_equal blob_id, kept_photo.recordable.file.blob.id
+
+    Current.actor = admin
+    blank_alt = root_recording.revise(kept_photo, actor: admin) do |attachment|
+      attachment.alt_text = ""
+      attachment.file.attach(kept_photo.recordable.file.blob)
+    end
+
     load Rails.root.join("db/seeds.rb").to_s
-    repaired = RecordingStudio::Recording.find(stale.id)
-    assert_includes repaired.recordable.name, "white bricks spelling HELLO"
+    repaired = RecordingStudio::Recording.find(blank_alt.id)
+    assert_equal "filename only", repaired.recordable.name
+    assert_includes repaired.recordable.alt_text, "white bricks spelling HELLO"
     assert repaired.recordable.file.attached?
     assert_equal blob_id, repaired.recordable.file.blob.id
 

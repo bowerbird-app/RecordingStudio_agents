@@ -121,21 +121,27 @@ seed_press_kit = lambda do |demo_root, source_path|
     end
   end
 
+  fill_blank_photo = lambda do |image, alt|
+    photo = image.recordable
+    name_blank = photo.name.blank?
+    alt_blank = photo.alt_text.blank?
+    next unless name_blank || alt_blank
+
+    blob = photo.file.blob if photo.file.attached?
+    demo_root.revise(image, actor: user) do |attachment|
+      attachment.name = alt if name_blank
+      attachment.alt_text = alt if alt_blank
+      attachment.file.attach(blob) if blob
+    end
+  end
+
   attached = recording.images(per_page: 50).index_by { |image| image.recordable.original_filename }
   source.fetch("images").each do |image|
     filename = "#{slug}-#{image.fetch("file")}"
     alt = image.fetch("alt")
     existing = attached[filename]
     if existing
-      label = existing.recordable.alt_text.presence || existing.recordable.name
-      next if label == alt
-
-      blob = existing.recordable.file.blob if existing.recordable.file.attached?
-      demo_root.revise(existing, actor: user) do |attachment|
-        attachment.name = alt
-        attachment.alt_text = alt
-        attachment.file.attach(blob) if blob
-      end
+      fill_blank_photo.call(existing, alt)
       next
     end
 
@@ -150,6 +156,8 @@ seed_press_kit = lambda do |demo_root, source_path|
         description: source.fetch("source")
       )
       raise result.error.to_s unless result.success?
+
+      fill_blank_photo.call(result.value, alt)
     end
   end
   recording

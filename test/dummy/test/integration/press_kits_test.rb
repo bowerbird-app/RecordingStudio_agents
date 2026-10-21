@@ -44,10 +44,19 @@ class PressKitsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "A shophouse in Richmond."
     assert_includes response.body, "Which press kit should we open?"
     assert_includes response.body, "Summarize the press kits in this workspace."
+    assert_includes response.body, "Ask about press kits"
+    assert_includes response.body, "Compare streets"
     refute_includes response.body, "page_recording_id="
     assert_includes response.body, "lg:grid-cols-4"
     assert_includes response.body, "lg:col-span-1"
     assert_includes response.body, "lg:col-span-3"
+    assert_includes response.body, "order-1"
+    assert_includes response.body, "lg:order-2"
+    assert_includes response.body, "lg:sticky"
+    assert_select "td a.flat-pack-link.underline", text: "HELLO HOUSE"
+    assert_select "button[aria-label='Open the menu']", text: "Menu"
+    assert_select ".lg\\:hidden a[href='#{press_kits_path}']", text: "Press kits"
+    assert_select ".lg\\:hidden a[data-turbo-method='delete'][href='#{destroy_user_session_path}']", text: "Sign out"
   end
 
   test "the show page scopes the chat to that kit" do
@@ -65,7 +74,8 @@ class PressKitsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "A shophouse in Richmond."
     assert_includes response.body, "page_recording_id=#{hello.id}"
     assert_includes response.body, "Write a short intro for HELLO HOUSE."
-    assert_includes response.body, "Ask about HELLO HOUSE"
+    assert_includes response.body, "Ask about this kit"
+    refute_includes response.body, "Ask about HELLO HOUSE"
     assert_includes response.body, "h-[min(40rem,calc(100dvh-16rem))]"
     assert_includes response.body, "The Hello wall"
     assert_includes response.body, "Most architects would probably run."
@@ -74,6 +84,27 @@ class PressKitsTest < ActionDispatch::IntegrationTest
       assert_includes src, "/recording_studio_attachable/attachments/"
       refute_includes src, "active_storage"
     end
+    assert_includes response.body, "--carousel-lightbox-image-background-color:var(--surface-muted-background-color)"
+    assert_includes response.body, "lg:[&_.flat-pack-carousel\\_\\_viewport]:max-h-[28rem]"
+  end
+
+  test "team lines keep their breaks and stay escaped" do
+    hello = record_kit("HELLO HOUSE", "A shophouse in Richmond.")
+    @root.revise(hello, actor: @user) do |press_kit|
+      press_kit.sections = [
+        {
+          "kind" => "paragraph",
+          "text" => "Architect: Ada Lovelace\nEngineer: Grace Hopper\n<script>alert(1)</script>"
+        }
+      ]
+    end
+
+    get press_kit_path(hello)
+
+    assert_response :success
+    assert_match(/Architect: Ada Lovelace\s*<br\s*\/?>\s*Engineer: Grace Hopper/, response.body)
+    assert_includes response.body, "&lt;script&gt;alert(1)&lt;/script&gt;"
+    refute_includes response.body, "<script>alert"
   end
 
   test "a kit in this workspace that the actor cannot view is forbidden" do

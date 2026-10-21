@@ -2,11 +2,11 @@
 
 <%# Flatpack Grid is equal columns. SidebarLayout is the app shell. Neither is a 1/4 + 3/4 split, so this page keeps the Tailwind grid. %>
 <div class="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-4">
-  <div class="min-w-0 lg:col-span-1">
+  <div class="order-2 min-w-0 lg:order-1 lg:col-span-1 lg:sticky lg:top-4">
     <%= recording_studio_agents_chatkit(chatkit_options: PressKitChat.workspace) %>
   </div>
 
-  <div class="flex min-w-0 flex-col gap-6 lg:col-span-3">
+  <div class="order-1 flex min-w-0 flex-col gap-6 lg:order-2 lg:col-span-3">
     <%= render FlatPack::PageTitle::Component.new(
       title: "Press kits",
       subtitle: "Two houses, ready to talk about.",
@@ -16,7 +16,10 @@
     <% if @press_kits.any? %>
       <%= render FlatPack::Table::Component.new(data: @press_kits, min_width: :none) do |table| %>
         <% table.column(title: "Name") { |recording|
-          render(FlatPack::Link::Component.new(href: press_kit_path(recording))) { recording.recordable.name }
+          render(FlatPack::Link::Component.new(
+            href: press_kit_path(recording),
+            class: "text-[var(--color-primary)] underline underline-offset-[0.15em]"
+          )) { recording.recordable.name }
         } %>
         <% table.column(title: "Description") { |recording| recording.recordable.description } %>
       <% end %>

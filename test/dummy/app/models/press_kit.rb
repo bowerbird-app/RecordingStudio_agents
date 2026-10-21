@@ -11,22 +11,51 @@ class PressKit < ApplicationRecord
 
   validates :name, presence: true
 
+  before_save :replace_sections_from_content, if: :replace_sections_from_content?
+
+  # A revise copies attributes without calling these writers. The flag is set
+  # only when this save assigns the field, which is how an MCP content edit
+  # is told apart from a copied sections list.
+  def content=(value)
+    @content_was_set = true
+    super
+  end
+
+  def sections=(value)
+    @sections_were_set = true
+    super
+  end
+
   # Seeds store heading, paragraph, and quote blocks. The show page renders
   # those kinds. It does not guess a heading from a short line of capitals.
+  # An edit that sets content, and does not set sections in the same save,
+  # rebuilds the blocks from that content so the page shows the edit.
   def display_blocks
     structured = normalized_sections
     return structured if structured.any?
 
-    content.to_s.split(/\n\n+/).filter_map do |paragraph|
-      text = paragraph.strip
-      next if text.empty?
-
-      kind = text.start_with?("“") ? "quote" : "paragraph"
-      { "kind" => kind, "text" => text }
-    end
+    blocks_from_content(content)
   end
 
   private
+
+  def replace_sections_from_content?
+    @content_was_set && !@sections_were_set
+  end
+
+  def replace_sections_from_content
+    write_attribute(:sections, blocks_from_content(content))
+  end
+
+  def blocks_from_content(text)
+    text.to_s.split(/\n\n+/).filter_map do |paragraph|
+      body = paragraph.strip
+      next if body.empty?
+
+      kind = body.start_with?("“") ? "quote" : "paragraph"
+      { "kind" => kind, "text" => body }
+    end
+  end
 
   def normalized_sections
     Array(sections).filter_map do |entry|

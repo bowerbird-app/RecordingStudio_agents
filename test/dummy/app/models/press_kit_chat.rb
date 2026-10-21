@@ -3,10 +3,10 @@ class PressKitChat
   def self.workspace
     screen(
       greeting: "Which press kit should we open?",
-      placeholder: "Ask about these press kits",
+      placeholder: "Ask about press kits",
       prompts: [
         [ "Summarize the kits", "Summarize the press kits in this workspace.", "search" ],
-        [ "Compare the street stories", "Which press kit has the stronger street story?", "write" ]
+        [ "Compare streets", "Which press kit has the stronger street story?", "write" ]
       ]
     )
   end
@@ -15,7 +15,7 @@ class PressKitChat
     name = recording.recordable.name
     screen(
       greeting: "What should we pull from this kit?",
-      placeholder: "Ask about #{name}",
+      placeholder: "Ask about this kit",
       prompts: [
         [ "Intro for this kit", "Write a short intro for #{name}.", "write" ],
         [ "Awards on this kit", "List the awards on #{name}.", "search" ]

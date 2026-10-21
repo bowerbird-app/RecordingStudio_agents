@@ -6,5 +6,6 @@ class AddSlugAndSectionsToPressKits < ActiveRecord::Migration[8.1]
       t.string :slug
       t.jsonb :sections, null: false, default: []
     end
+    # Slug repeats across workspaces. Both seeded roots use hello-house, so a unique index is not safe.
   end
 end

@@ -372,6 +372,50 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_equal kit.id, tool_payload(updated)["id"]
   end
 
+  test "an MCP content update shows on the press kit page" do
+    configuration = RecordingStudioAgents.configuration
+    previous_domain_key = configuration.chatkit_domain_key
+    previous_provider = configuration.provider
+    previous_api_key = RecordingStudioAI.configuration.openai_api_key
+    previous_root = configuration.request_root
+    configuration.chatkit_domain_key = "domain_pk_test"
+    configuration.provider = "openai"
+    configuration.request_root = ->(*) { @alpha }
+    RecordingStudioAI.configuration.openai_api_key = "sk-test"
+    kit = @alpha.record(PressKit, actor: @user) do |press_kit|
+      press_kit.name = "HELLO HOUSE"
+      press_kit.description = "Richmond lane"
+      press_kit.content = "Old paragraph."
+      press_kit.sections = [
+        { "kind" => "heading", "text" => "RICHMOND" },
+        { "kind" => "paragraph", "text" => "Old paragraph." }
+      ]
+    end
+    post_mcp("tools/call", name: "update", arguments: {
+      type: "PressKit", id: kit.id, content: "A friendly brick hello on the page."
+    })
+    updated = JSON.parse(response.body)
+    fresh = kit.reload.recordable
+
+    assert_equal false, updated.dig("result", "isError"), response.body
+    assert_equal "A friendly brick hello on the page.", fresh.content
+    assert_equal [ { "kind" => "paragraph", "text" => "A friendly brick hello on the page." } ], fresh.sections
+    refute_includes fresh.sections.map { |section| section["text"] }, "RICHMOND"
+
+    sign_in @user
+    get "/press_kits/#{kit.id}"
+
+    assert_response :success
+    assert_includes response.body, "A friendly brick hello on the page."
+    refute_includes response.body, "Old paragraph."
+    refute_includes response.body, ">RICHMOND<"
+  ensure
+    configuration.chatkit_domain_key = previous_domain_key
+    configuration.provider = previous_provider
+    configuration.request_root = previous_root
+    RecordingStudioAI.configuration.openai_api_key = previous_api_key
+  end
+
   test "a view token cannot update a press kit" do
     kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
     @token = delegated_token(@alpha_access, role: "view")
