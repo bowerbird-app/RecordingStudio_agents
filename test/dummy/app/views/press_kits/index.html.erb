@@ -1,0 +1,29 @@
+<% dummy_page_nav(title: "Press kits", back_url: root_path) %>
+
+<div class="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-4">
+  <div class="min-w-0 lg:col-span-1">
+    <%= recording_studio_agents_chatkit(chatkit_options: PressKitChat.workspace) %>
+  </div>
+
+  <div class="flex min-w-0 flex-col gap-6 lg:col-span-3">
+    <%= render FlatPack::PageTitle::Component.new(
+      title: "Press kits",
+      subtitle: "Two houses, ready to talk about.",
+      variant: :h1
+    ) %>
+
+    <% if @press_kits.any? %>
+      <%= render FlatPack::Table::Component.new(data: @press_kits, min_width: :none) do |table| %>
+        <% table.column(title: "Name") { |recording|
+          render(FlatPack::Link::Component.new(href: press_kit_path(recording))) { recording.recordable.name }
+        } %>
+        <% table.column(title: "Description") { |recording| recording.recordable.description } %>
+      <% end %>
+    <% else %>
+      <%= render FlatPack::EmptyState::Component.new(
+        title: "No press kits in this workspace",
+        description: "Switch workspace, or run bin/rails db:seed."
+      ) %>
+    <% end %>
+  </div>
+</div>

@@ -6,7 +6,7 @@ This Rails app exists to validate the Recording Studio addon template in a real 
 
 - Devise authentication with a seeded admin user
 - `Current.actor` wiring for Recording Studio events
-- Root workspace plus seeded folder and page recordables
+- Root workspace plus seeded folder, page, and press kit recordables
 - Recording Studio default layout, FlatPack assets, and Tailwind source scanning
 - Mounted `RecordingStudio::Engine` route behavior inside a host app
 - Dummy-only `/docs/*` pages for gem-specific onboarding
@@ -33,6 +33,9 @@ Then open the app and sign in with:
 - `/recording_studio` - redirects to `/` while the mounted Recording Studio engine stays available under that prefix for non-root routes
 - `/users/sign_in` - Devise sign-in page
 - `/docs/install`, `/docs/config`, `/docs/recordable_types`, `/docs/recordings_tree`, `/docs/gem_views`, `/docs/methods` - dummy-only starter pages
+- `/press_kits` - press kit list with a workspace chat
+- `/press_kits/:id` - one press kit with a chat scoped to that kit
+- `/agent-chat` and `/agent-chat/page` - workspace chat and the Press kit page chat
 - `/up` - Rails health check
 
 ## Why This App Exists

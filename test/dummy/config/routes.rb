@@ -40,5 +40,6 @@ Rails.application.routes.draw do
   # Defines the root path route ("/")
   get "agent-chat", to: "agent_chats#show", as: :agent_chat
   get "agent-chat/page", to: "agent_chats#page", as: :page_agent_chat
+  resources :press_kits, only: %i[index show]
   root "home#index"
 end

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- The dummy app has press kits at `/press_kits` and `/press_kits/:id`. `PressKit` can hold a chat and photos. The index chat is workspace-wide. The show chat is scoped to that kit. Seeds load HELLO HOUSE and ACUTE HOUSE from the OOF! project pages, with photos stored under `test/dummy`. Recording Studio Attachable `v0.20.1` is a dummy Gemfile pin, not a gemspec dependency. The dummy MCP server can list, read, and update a press kit.
+
+### Upgrade notes
+- No gem API change and no host migration. The press kit table is dummy-only.
+
 ## [0.5.0] - 2026-10-21
 
 ### Added

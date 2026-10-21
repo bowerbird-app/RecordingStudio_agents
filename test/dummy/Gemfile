@@ -25,8 +25,9 @@ gem "recording_studio_admin", github: "bowerbird-app/RecordingStudio_admin", tag
 # Oauth allows "~> 0.2", so v0.5.1 is the newest fit.
 gem "recording_studio_site_settings", github: "bowerbird-app/RecordingStudio_site_settings", tag: "v0.5.1"
 
-# GitHub sources required by Users, Oauth, and Site Settings. Not used by agent chats.
-gem "recording_studio_attachable", github: "bowerbird-app/RecordingStudio_attachable", tag: "v0.20.0", require: false
+# Dummy app only. Not a recording_studio_agents gemspec dependency.
+# Users, Oauth, and Site Settings also need this source. Pinned to the latest release.
+gem "recording_studio_attachable", github: "bowerbird-app/RecordingStudio_attachable", tag: "v0.20.1", require: false
 # MCP, Root Switchable, and v0.11 Trashable require metrics < 0.4, so v0.3.1 stays.
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.3.1"
 # Required by root_switchable (GitHub-only; not on RubyGems)

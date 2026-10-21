@@ -1,0 +1,56 @@
+<% dummy_page_nav(title: @press_kit&.recordable&.name || "Press kit", back_url: press_kits_path, back_label: "Press kits") %>
+
+<div class="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-4">
+  <div class="min-w-0 lg:col-span-1">
+    <% if @press_kit %>
+      <%= recording_studio_agents_chatkit(
+        page_recording: @press_kit,
+        chatkit_options: PressKitChat.for_kit(@press_kit)
+      ) %>
+    <% end %>
+  </div>
+
+  <div class="flex min-w-0 flex-col gap-6 lg:col-span-3">
+    <% if @press_kit %>
+      <% kit = @press_kit.recordable %>
+      <%= render FlatPack::PageTitle::Component.new(
+        title: kit.name,
+        subtitle: kit.description,
+        variant: :h1
+      ) %>
+
+      <% if @images.any? %>
+        <% slides = press_kit_slides(@images) %>
+        <%= render FlatPack::Carousel::Component.new(
+          slides: slides,
+          show_thumbs: true,
+          autoplay: false,
+          fit: :contain,
+          aspect_ratio: "4/3",
+          aria_label: kit.name
+        ) %>
+      <% end %>
+
+      <%= render FlatPack::Card::Component.new(style: :default) do |card| %>
+        <% card.body do %>
+          <div class="flex flex-col gap-4">
+            <% kit.content.to_s.split(/\n\n+/).each do |paragraph| %>
+              <% if paragraph.start_with?("“") %>
+                <%= render FlatPack::Quote::Component.new(text: paragraph, size: :sm) %>
+              <% elsif paragraph == paragraph.upcase && paragraph.length < 48 %>
+                <%= render FlatPack::SectionTitle::Component.new(title: paragraph, size: :sm, spacing: :sm) %>
+              <% else %>
+                <p class="text-sm leading-6"><%= paragraph %></p>
+              <% end %>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    <% else %>
+      <%= render FlatPack::EmptyState::Component.new(
+        title: "That press kit is not in this workspace",
+        description: "Head back to the list and pick another."
+      ) %>
+    <% end %>
+  </div>
+</div>

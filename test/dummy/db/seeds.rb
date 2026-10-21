@@ -97,6 +97,40 @@ remember_line = lambda do |root_recording, chat, text|
   )
 end
 
+seed_press_kit = lambda do |demo_root, source_path|
+  source = JSON.parse(File.read(source_path))
+  slug = File.basename(source_path, ".json")
+  recording = RecordingStudio::Recording.for_root(demo_root.id).where(recordable_type: "PressKit").find do |candidate|
+    candidate.recordable.name == source.fetch("name")
+  end
+  recording ||= demo_root.record(PressKit, actor: user, parent_recording: demo_root) do |press_kit|
+    press_kit.name = source.fetch("name")
+    press_kit.description = source.fetch("description")
+    press_kit.content = source.fetch("content")
+  end
+
+  attached_names = recording.images(per_page: 50).map { |image| image.recordable.original_filename }
+  source.fetch("images").each do |image|
+    filename = "#{slug}-#{image.fetch("file")}"
+    next if attached_names.include?(filename)
+
+    File.open(Rails.root.join("db/press_kit_images", slug, image.fetch("file")), "rb") do |io|
+      result = RecordingStudioAttachable::Services::ImportAttachment.call(
+        parent_recording: recording,
+        io: io,
+        filename: filename,
+        content_type: "image/jpeg",
+        actor: user,
+        name: image.fetch("alt"),
+        description: source.fetch("source")
+      )
+      raise result.error.to_s unless result.success?
+    end
+    attached_names << filename
+  end
+  recording
+end
+
 Current.actor = user
 begin
   [root_recording, accessible_root_recording].each do |demo_root|
@@ -106,6 +140,9 @@ begin
     record_chat.call(demo_root, demo_root, "All-hands notes")
     draft = record_chat.call(demo_root, press_kit, "Press kit draft")
     remember_line.call(demo_root, draft, "Draft the one-page brief.")
+    Dir[Rails.root.join("db/press_kits/*.json")].sort.each do |source_path|
+      seed_press_kit.call(demo_root, source_path)
+    end
   end
 ensure
   Current.actor = previous_actor

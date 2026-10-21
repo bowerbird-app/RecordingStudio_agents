@@ -343,6 +343,104 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_tool_error("page was not found")
   end
 
+  test "a bearer can list read and update a press kit in the granted workspace" do
+    kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
+    other = record_press_kit(@zulu, "ACUTE HOUSE", "Albert Park wedge")
+
+    post_mcp("tools/call", name: "list", arguments: { type: "PressKit" })
+    payload = JSON.parse(response.body)
+    records = tool_payload(payload).fetch("records")
+    ids = records.map { |record| record["id"] }
+
+    assert_equal false, payload.dig("result", "isError"), response.body
+    assert_equal [kit.id], ids
+    assert_equal "HELLO HOUSE", records.first["name"]
+    refute_includes ids, other.id
+
+    post_mcp("tools/call", name: "show", arguments: { type: "PressKit", id: kit.id })
+    shown = JSON.parse(response.body)
+    assert_equal false, shown.dig("result", "isError"), response.body
+    assert_equal "Richmond lane", tool_payload(shown)["description"]
+
+    post_mcp("tools/call", name: "update", arguments: {
+      type: "PressKit", id: kit.id, description: "A friendly brick hello."
+    })
+    updated = JSON.parse(response.body)
+    assert_equal false, updated.dig("result", "isError"), response.body
+    assert_equal "A friendly brick hello.", tool_payload(updated)["description"]
+    assert_equal "A friendly brick hello.", kit.reload.recordable.description
+    assert_equal kit.id, tool_payload(updated)["id"]
+  end
+
+  test "a view token cannot update a press kit" do
+    kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
+    @token = delegated_token(@alpha_access, role: "view")
+
+    post_mcp("tools/call", name: "show", arguments: { type: "PressKit", id: kit.id })
+    shown = JSON.parse(response.body)
+    assert_equal false, shown.dig("result", "isError"), response.body
+    assert_equal "Richmond lane", tool_payload(shown)["description"]
+
+    post_mcp("tools/call", name: "update", arguments: {
+      type: "PressKit", id: kit.id, description: "Nope"
+    })
+    refused = JSON.parse(response.body)
+    message = refused.dig("result", "content", 0, "text").to_s
+
+    assert_equal true, refused.dig("result", "isError")
+    assert_includes message, "Unknown tool update"
+    assert_equal "Richmond lane", kit.reload.recordable.description
+  end
+
+  test "parent limits list and create to a press kit" do
+    kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
+    key = "kit-#{SecureRandom.hex(4)}"
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "on the kit", idempotency_key: key, title: "On the kit", parent: kit.id
+    })
+    payload = JSON.parse(response.body)
+    created_id = tool_payload(payload).fetch("id")
+
+    assert_equal false, payload.dig("result", "isError"), response.body
+    assert_equal kit.id, RecordingStudio::Recording.find(created_id).parent_recording_id
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: kit.id })
+    scoped_ids = tool_payload(JSON.parse(response.body)).fetch("chats").map { |chat| chat["id"] }
+
+    assert_equal [created_id], scoped_ids
+    refute_includes scoped_ids, @alpha_chat.id
+  end
+
+  test "press kit parent rules still reject another workspace a hidden kit and a trashed kit" do
+    foreign = record_press_kit(@zulu, "ACUTE HOUSE", "Albert Park wedge")
+    hidden = record_press_kit(@alpha, "Hidden kit", "Off the grant")
+    hidden.update_columns(parent_recording_id: @zulu.id)
+    trashed = record_press_kit(@alpha, "Gone kit", "Removed")
+    trashed.update_columns(trashed_at: Time.current)
+    before = RecordingStudioAgents::Binding.count
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: foreign.id })
+    assert_tool_error("page was not found")
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "nope", idempotency_key: "foreign-kit-#{SecureRandom.hex(4)}", parent: foreign.id
+    })
+    assert_tool_error("page was not found")
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: hidden.id })
+    assert_tool_error("not authorized")
+
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "nope", idempotency_key: "hidden-kit-#{SecureRandom.hex(4)}", parent: hidden.id
+    })
+    assert_tool_error("not authorized")
+
+    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: trashed.id })
+    assert_tool_error("page was not found")
+    assert_equal before, RecordingStudioAgents::Binding.count
+  end
+
   test "list and create contracts accept an optional parent" do
     list = RecordingStudioApi.registered_endpoint(:agent_chats_list).input_contract.as_json
     created = RecordingStudioApi.registered_endpoint(:agent_chats_create).input_contract.as_json
@@ -363,6 +461,14 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def record_press_kit(root, name, description)
+    root.record(PressKit, actor: @user) do |press_kit|
+      press_kit.name = name
+      press_kit.description = description
+      press_kit.content = "A press kit."
+    end
+  end
 
   def workspace_root(prefix)
     RecordingStudio.root_recording_for(Workspace.create!(name: "#{prefix} #{SecureRandom.hex(4)}"))
