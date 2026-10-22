@@ -372,6 +372,57 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_equal kit.id, tool_payload(updated)["id"]
   end
 
+  test "an MCP update refreshes the press kit recording after commit" do
+    kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
+
+    assert_turbo_stream_broadcasts(kit) do
+      perform_enqueued_jobs do
+        post_mcp("tools/call", name: "update", arguments: {
+          type: "PressKit", id: kit.id, name: "HELLO LANE", description: "A friendly brick hello."
+        })
+      end
+    end
+
+    assert_equal "HELLO LANE", kit.reload.recordable.name
+    assert_equal "A friendly brick hello.", kit.recordable.description
+
+    assert_no_turbo_stream_broadcasts(kit.recordable) do
+      perform_enqueued_jobs do
+        post_mcp("tools/call", name: "update", arguments: {
+          type: "PressKit", id: kit.id, description: "Still the recording stream."
+        })
+      end
+    end
+    assert_equal "Still the recording stream.", kit.reload.recordable.description
+  end
+
+  test "a rolled-back press kit change broadcasts nothing" do
+    kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
+
+    assert_no_turbo_stream_broadcasts(kit) do
+      perform_enqueued_jobs do
+        RecordingStudio::Recording.transaction do
+          @alpha.revise(kit, actor: @user) { |press_kit| press_kit.description = "Nope" }
+          raise ActiveRecord::Rollback
+        end
+      end
+    end
+
+    assert_equal "Richmond lane", kit.reload.recordable.description
+  end
+
+  test "trashing and restoring a press kit refreshes its recording" do
+    kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
+
+    assert_turbo_stream_broadcasts(kit) do
+      perform_enqueued_jobs { kit.log_event!(action: "trashed", actor: @user) }
+    end
+
+    assert_turbo_stream_broadcasts(kit) do
+      perform_enqueued_jobs { kit.log_event!(action: "restored", actor: @user) }
+    end
+  end
+
   test "a description-only MCP update keeps the seeded sections" do
     kit = @alpha.record(PressKit, actor: @user) do |press_kit|
       press_kit.name = "HELLO HOUSE"

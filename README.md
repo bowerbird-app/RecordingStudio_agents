@@ -103,6 +103,14 @@ config.chatkit_domain_key = ENV.fetch("CHATKIT_DOMAIN_KEY", nil)
 
 The dummy page at `/agent-chat` uses the same helper. With neither key set, it shows the setup notice and does not call OpenAI.
 
+## Live refresh
+
+A host can refresh an open page from the existing `recordings.event_created` notification. No new Recording Studio event is required. The payload carries `event_id`, `recording_id`, `root_recording_id`, `action`, `recordable_type`, `recordable_id`, the previous recordable, the actor, and `occurred_at`.
+
+The notification fires inside the `record!` transaction, before commit. Defer the broadcast with `ActiveRecord.after_all_transactions_commit`. A rolled-back change then sends nothing. `broadcast_refresh_later_to` is the Turbo call. Pass the recording, not the recordable: `revise` inserts a new row, and `broadcasts_refreshes` on the model would follow that new row and miss the page that is open.
+
+The dummy does this for press kits on `updated`, `trashed`, and `restored`. The listener is `test/dummy/config/initializers/press_kit_live_refresh.rb`. The show page subscribes with `turbo_stream_from` on the recording, morphs with scroll preserved, and marks the chat column `data-turbo-permanent` so the chat keeps its state.
+
 ## Dummy app
 
 The dummy app validates the engine in a host with Recording Studio Users, Oauth, MCP, FlatPack, and Recording Studio's default layout. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. ChatKit keeps that session. MCP at `/recording_studio_mcp` uses an Oauth bearer token.
