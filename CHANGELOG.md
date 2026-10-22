@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-22
+
+### Changed
+- Depend on Recording Studio `~> 5.0` and Flatpack `>= 0.1.275`. The dummy pins Recording Studio `v5.0.0` and Flatpack `v0.1.275`.
+- The dummy host calls `recording_studio_layout`. Devise sign-in still uses `layouts/application`. Other pages use `recording_studio/default_layout`. Root Switchable still calls `application_layout`.
+- The dummy overrides the Root Switchable workspace page so its close control uses Flatpack's `with_close` row. Root Switchable `v0.9.6` still passes `anchor_label`, which Flatpack `v0.1.275` rejects.
+
+### Upgrade notes
+- Pin Recording Studio `v5.0.0` (or another `~> 5.0` tag) and Flatpack `>= 0.1.275`. `v0.1.275` is the lowest Flatpack tag that satisfies Recording Studio 5. Replace `include RecordingStudio::UsesDefaultLayout` with `recording_studio_layout`. A block returning `nil` keeps the shared default layout. `rake recording_studio:check_layouts` must pass: do not hard-code `layout "recording_studio/..."`.
+- Published addon gemspecs still cap `recording_studio` below 5 (`~> 4.2` or `~> 4.7`). No tag of Trashable `v0.11.1`, MCP `v0.19.1`, API `v0.11.4`, or the other dummy pins allows 5.x, and no newer tag does either. This repo's Gemfiles relax that cap so the dummy can resolve `v5.0.0`. A host Gemfile needs the same relaxation, or addon tags that depend on Recording Studio `>= 5`, before `bundle install` will succeed.
+- Oauth `v0.12.5` and Site Settings `v0.5.1` still include `RecordingStudio::UsesDefaultLayout`. The dummy defines that module and forwards it to `recording_studio_layout`. Remove that initializer when those gems ship a 5.x-compatible tag.
 - Dummy press kits at `/press_kits`, with photos, a scoped chat, and MCP list, show, and update. A content edit rebuilds the show-page sections. A description edit keeps the sections already stored. Attachable stays a dummy Gemfile pin. No gem API change and no host migration.
 
 ## [0.5.0] - 2026-10-21

@@ -1,10 +1,12 @@
 source "https://rubygems.org"
 
+require_relative "../../config/bundler_recording_studio_5"
+
 # Use the recording_studio_agents engine
 gem "recording_studio_agents", path: "../.."
 
 # RecordingStudio engine
-gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v4.7.0"
+gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v5.0.0"
 gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.15.1"
 gem "recording_studio_accessible", github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.20.0"
 # Required by accessible for trashable query helpers (GitHub-only; not on RubyGems).
@@ -57,8 +59,8 @@ gem "jbuilder"
 gem "tailwindcss-rails"
 
 # FlatPack UI component library [https://github.com/bowerbird-app/flatpack]
-# Oauth requires flat_pack ~> 0.1.198. Newest 0.1.x tag is v0.1.254.
-gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.254"
+# Oauth requires flat_pack ~> 0.1.198. Recording Studio 5.0.0 requires >= 0.1.275.
+gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.275"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
