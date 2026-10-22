@@ -4,7 +4,27 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.5.0", ::RecordingStudioAgents::VERSION
+    assert_equal "0.6.0", ::RecordingStudioAgents::VERSION
+  end
+
+  def test_bundler_patch_lets_4x_addon_gemspecs_resolve_recording_studio_5
+    require_relative "../config/bundler_recording_studio_5"
+
+    relaxed = RecordingStudioAgents::BundlerRecordingStudio5.recording_studio_requirement(
+      "recording_studio",
+      ["~> 4.7"]
+    )
+    assert Gem::Requirement.new(relaxed).satisfied_by?(Gem::Version.new("5.0.0"))
+    refute Gem::Requirement.new(["~> 4.7"]).satisfied_by?(Gem::Version.new("5.0.0"))
+
+    kept = RecordingStudioAgents::BundlerRecordingStudio5.recording_studio_requirement(
+      "recording_studio",
+      ["~> 5.0"]
+    )
+    assert_equal ["~> 5.0"], kept
+
+    other = RecordingStudioAgents::BundlerRecordingStudio5.recording_studio_requirement("flat_pack", ["~> 0.1"])
+    assert_equal ["~> 0.1"], other
   end
 
   def test_engine_exists
@@ -14,8 +34,8 @@ class RecordingStudioAgentsTest < Minitest::Test
   def test_gemspec_pins_recording_studio_and_ai
     gemspec = File.read(File.expand_path("../recording_studio_agents.gemspec", __dir__))
 
-    assert_includes gemspec, 'spec.add_dependency "flat_pack", "~> 0.1"'
-    assert_includes gemspec, 'spec.add_dependency "recording_studio", "~> 4.7"'
+    assert_includes gemspec, 'spec.add_dependency "flat_pack", ">= 0.1.275"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio", "~> 5.0"'
     assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", "~> 0.15.1"'
     assert_includes gemspec, "https://github.com/bowerbird-app/RecordingStudio_agents"
   end
@@ -47,7 +67,7 @@ class RecordingStudioAgentsTest < Minitest::Test
   def test_dummy_gemfile_pins_verified_4x_github_tags
     gemfile = File.read(File.expand_path("dummy/Gemfile", __dir__))
 
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v4.7.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v5.0.0"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.15.1"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.3.1"'
     refute_includes gemfile, 'tag: "v4.5.0"'
@@ -60,7 +80,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_cache", tag: "v0.5.1"'
     refute_includes gemfile, 'tag: "v0.6.0"'
     refute_includes gemfile, 'tag: "v0.5.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.254"'
+    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.275"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_Oauth", tag: "v0.12.5"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.19.1"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_users", tag: "v0.24.0"'
@@ -147,7 +167,8 @@ class RecordingStudioAgentsTest < Minitest::Test
     application_controller_path = File.expand_path("dummy/app/controllers/application_controller.rb", __dir__)
     controller_source = File.read(application_controller_path)
 
-    assert_includes controller_source, "include RecordingStudio::UsesDefaultLayout"
+    assert_includes controller_source, "recording_studio_layout"
+    refute_includes controller_source, "UsesDefaultLayout"
     assert_includes controller_source, '"recording_studio/default_layout"'
     assert_includes controller_source, "devise_controller? ? \"application\""
     refute_includes controller_source, "flat_pack_sidebar"
@@ -224,11 +245,11 @@ class RecordingStudioAgentsTest < Minitest::Test
     readme = File.read(File.expand_path("../README.md", __dir__))
 
     assert_includes readme, "RecordingStudio"
-    assert_includes readme, "dummy GitHub tag `v4.7.0`"
+    assert_includes readme, "dummy GitHub tag `v5.0.0`"
     assert_includes readme, "dummy GitHub tag `v0.15.1`"
     assert_includes readme, "dummy GitHub tag `v0.3.1`"
     refute_includes readme, "dummy GitHub tag `v4.5.0`"
-    assert_includes readme, "dummy GitHub tag `v0.1.254`"
+    assert_includes readme, "dummy GitHub tag `v0.1.275`"
     assert_includes readme, "dummy GitHub tag `v0.12.5`"
     assert_includes readme, "dummy GitHub tag `v0.19.1`"
     assert_includes readme, "dummy GitHub tag `v0.24.0`"

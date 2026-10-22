@@ -4,12 +4,12 @@
 
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
-- Recording Studio `~> 4.7` (dummy GitHub tag `v4.7.0`)
+- Recording Studio `~> 5.0` (dummy GitHub tag `v5.0.0`)
 - Recording Studio AI `~> 0.15.1` (dummy GitHub tag `v0.15.1`)
 - Metrics dummy tag `v0.3.1`
 - Accessible dummy tag `v0.20.0`, Trashable dummy tag `v0.11.1` (`require: false`), and Root Switchable dummy tag `v0.9.5`
 - Cache dummy tag `v0.5.1`
-- FlatPack dummy tag `v0.1.254` (Oauth requires `~> 0.1.198`)
+- FlatPack dummy tag `v0.1.275` (Recording Studio 5 requires `>= 0.1.275`; Oauth requires `~> 0.1.198`)
 - Users dummy tag `v0.24.0`, Oauth dummy tag `v0.12.5`, MCP dummy tag `v0.19.1`, API dummy tag `v0.11.4`, Admin dummy tag `v2.3.3`, Site Settings dummy tag `v0.5.1`
 - Metrics stays `v0.3.1` because MCP, Root Switchable, and Trashable `v0.11.1` require metrics `< 0.4`
 - Public RubyGems and GitHub access for dependency installation
@@ -38,6 +38,14 @@ A and B set `lock_timeout` to 5 seconds only for the short locks (columns, the t
 `Binding` and `Item` copy `root_recording_id` from the recording before validation, so the new app writes the column before B requires it. Recording ids are unchanged. Recording Studio AI keeps its own run history; these migrations do not delete those rows.
 
 Hosts that mount MCP also copy migrations from Recording Studio API, Oauth, MCP, and Users. Those gems own those tables.
+
+## Recording Studio 5
+
+Call `recording_studio_layout` on host controllers. A block that returns `"application"` keeps Devise on the host layout. A block that returns `nil` uses the shared default layout. Do not hard-code `layout "recording_studio/..."`. `rake recording_studio:check_layouts` fails when a controller under `app/controllers` does.
+
+Root Switchable's `config.layout = :application_layout` still calls the `application_layout` method. That method can return the default layout name. The rake task only flags a `layout "recording_studio/..."` call.
+
+Addon tags pinned in the dummy Gemfile do not declare support for Recording Studio 5. `config/bundler_recording_studio_5.rb` widens those runtime requirements to `>= 4.2, < 6` while the Gemfile pins stay on the current tags. Oauth and Site Settings still include `RecordingStudio::UsesDefaultLayout`. The dummy initializer `recording_studio_uses_default_layout.rb` defines that module until those gems publish a compatible tag.
 
 ## Verification
 
