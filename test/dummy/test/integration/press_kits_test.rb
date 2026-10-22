@@ -78,6 +78,11 @@ class PressKitsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "HELLO HOUSE"
     assert_includes response.body, "A shophouse in Richmond."
     assert_includes response.body, "page_recording_id=#{hello.id}"
+    assert_includes response.body, 'id="press-kit-chat"'
+    assert_includes response.body, "data-turbo-permanent"
+    assert_includes response.body, "turbo-cable-stream-source"
+    assert_includes response.body, 'name="turbo-refresh-method" content="morph"'
+    assert_includes response.body, 'name="turbo-refresh-scroll" content="preserve"'
     assert_includes response.body, "Write a short intro for HELLO HOUSE."
     assert_includes response.body, "Ask about this kit"
     refute_includes response.body, "Ask about HELLO HOUSE"

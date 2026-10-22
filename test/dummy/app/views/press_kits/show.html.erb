@@ -1,8 +1,13 @@
 <% dummy_page_nav(title: @press_kit&.recordable&.name || "Press kit", back_url: press_kits_path, back_label: "Press kits") %>
 
+<% if @press_kit %>
+  <% turbo_refreshes_with method: :morph, scroll: :preserve %>
+  <%= turbo_stream_from @press_kit %>
+<% end %>
+
 <%# Flatpack Grid is equal columns. SidebarLayout is the app shell. Neither is a 1/4 + 3/4 split, so this page keeps the Tailwind grid. %>
 <div class="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-4">
-  <div class="order-2 min-w-0 lg:order-1 lg:col-span-1 lg:sticky lg:top-4">
+  <div id="press-kit-chat" data-turbo-permanent class="order-2 min-w-0 lg:order-1 lg:col-span-1 lg:sticky lg:top-4">
     <% if @press_kit %>
       <%= recording_studio_agents_chatkit(
         page_recording: @press_kit,

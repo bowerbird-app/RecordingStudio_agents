@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.6.0", ::RecordingStudioAgents::VERSION
+    assert_equal "0.7.0", ::RecordingStudioAgents::VERSION
   end
 
   def test_bundler_patch_lets_4x_addon_gemspecs_resolve_recording_studio_5

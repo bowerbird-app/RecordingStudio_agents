@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-22
+
+### Added
+- The dummy press kit show page refreshes in place when the kit's recording is updated, trashed, or restored. The listener subscribes to the existing `recordings.event_created` notification and broadcasts a Turbo refresh on the recording after commit.
+
+### Upgrade notes
+- No gem API change and no host migration. Copy `test/dummy/config/initializers/press_kit_live_refresh.rb` when a host wants the same refresh. Subscribe to the recording. `revise` creates a new recordable row, so `broadcasts_refreshes` on the model misses the open page. The notification fires inside the `record!` transaction. `ActiveRecord.after_all_transactions_commit` plus `broadcast_refresh_later_to` waits for commit, so a rollback sends nothing.
+- The show page pins `@hotwired/turbo-rails`, renders `turbo_stream_from` for the recording, and sets `turbo_refreshes_with method: :morph, scroll: :preserve`. The chat column is `data-turbo-permanent` so the chat element is not started twice.
+
 ## [0.6.0] - 2026-10-22
 
 ### Changed
