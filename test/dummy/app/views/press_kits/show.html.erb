@@ -1,0 +1,67 @@
+<% dummy_page_nav(title: @press_kit&.recordable&.name || "Press kit", back_url: press_kits_path, back_label: "Press kits") %>
+
+<%# Flatpack Grid is equal columns. SidebarLayout is the app shell. Neither is a 1/4 + 3/4 split, so this page keeps the Tailwind grid. %>
+<div class="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-4">
+  <div class="order-2 min-w-0 lg:order-1 lg:col-span-1 lg:sticky lg:top-4">
+    <% if @press_kit %>
+      <%= recording_studio_agents_chatkit(
+        page_recording: @press_kit,
+        chatkit_options: PressKitChat.for_kit(@press_kit)
+      ) %>
+    <% end %>
+  </div>
+
+  <div class="order-1 flex min-w-0 flex-col gap-6 lg:order-2 lg:col-span-3">
+    <% if @press_kit %>
+      <% kit = @press_kit.recordable %>
+      <%= render FlatPack::PageTitle::Component.new(
+        title: kit.name,
+        subtitle: kit.description,
+        variant: :h1
+      ) %>
+
+      <% if @images.any? %>
+        <% slides = press_kit_slides(@images) %>
+        <div class="w-full [--carousel-lightbox-image-background-color:var(--surface-muted-background-color)] [--carousel-media-background-color:var(--surface-muted-background-color)] lg:[&_.flat-pack-carousel\_\_viewport]:h-[28rem] lg:[&_.flat-pack-carousel\_\_viewport]:max-h-[28rem] lg:[&_.flat-pack-carousel\_\_viewport]:!aspect-auto">
+          <%= render FlatPack::Carousel::Component.new(
+            slides: slides,
+            show_thumbs: true,
+            autoplay: false,
+            fit: :contain,
+            aspect_ratio: "4/3",
+            aria_label: kit.name
+          ) %>
+        </div>
+      <% end %>
+
+      <%= render FlatPack::Card::Component.new(style: :default) do |card| %>
+        <% card.body do %>
+          <div class="flex flex-col gap-4">
+            <% kit.display_blocks.each do |block| %>
+              <% case block["kind"] %>
+              <% when "heading" %>
+                <%= render FlatPack::SectionTitle::Component.new(title: block["text"], size: :sm, spacing: :sm) %>
+              <% when "quote" %>
+                <%= render FlatPack::Quote::Component.new(text: block["text"], size: :sm) %>
+              <% else %>
+                <%= render FlatPack::Content::Component.new do %>
+                  <%= simple_format(ERB::Util.html_escape(block["text"]), {}, sanitize: false) %>
+                <% end %>
+              <% end %>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    <% elsif @press_kit_forbidden %>
+      <%= render FlatPack::EmptyState::Component.new(
+        title: "You can't open this press kit",
+        description: "Ask someone with access to invite you."
+      ) %>
+    <% else %>
+      <%= render FlatPack::EmptyState::Component.new(
+        title: "That press kit is not in this workspace",
+        description: "Head back to the list and pick another."
+      ) %>
+    <% end %>
+  </div>
+</div>

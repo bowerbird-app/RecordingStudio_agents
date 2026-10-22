@@ -42,6 +42,7 @@ class ConfigurationTest < Minitest::Test
     assert_equal "agent_chat", configuration.purpose
     assert_equal "openai", configuration.provider
     assert_equal 30.days, configuration.retention_period
+    assert_equal({}, configuration.chatkit_options)
     assert_instance_of RecordingStudio::Hooks, configuration.hooks
   end
 

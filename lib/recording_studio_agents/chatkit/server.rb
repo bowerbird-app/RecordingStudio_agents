@@ -33,13 +33,14 @@ module RecordingStudioAgents
     end
 
     class Server
-      def self.call(raw, actor:, root_recording:)
-        new(actor, root_recording).call(raw)
+      def self.call(raw, actor:, root_recording:, page_recording: nil)
+        new(actor, root_recording, page_recording: page_recording).call(raw)
       end
 
-      def initialize(actor, root_recording)
+      def initialize(actor, root_recording, page_recording: nil)
         @actor = actor
         @root = root_recording
+        @page_recording = page_recording
       end
 
       def call(raw)
@@ -81,7 +82,8 @@ module RecordingStudioAgents
 
       def stream_new(params)
         reject_client_instructions!(params)
-        Result.stream(Turn.open(actor: @actor, root: @root, text: Payload.user_text(params["input"])))
+        text = Payload.user_text(params["input"])
+        Result.stream(Turn.open(actor: @actor, root: @root, text: text, parent: @page_recording))
       end
 
       def reject_client_instructions!(params)
@@ -100,7 +102,7 @@ module RecordingStudioAgents
       end
 
       def catalog
-        @catalog ||= Catalog.new(@actor, @root)
+        @catalog ||= Catalog.new(@actor, @root, page_recording: @page_recording)
       end
 
       def json(body)

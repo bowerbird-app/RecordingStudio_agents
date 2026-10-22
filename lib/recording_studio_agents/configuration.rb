@@ -37,6 +37,19 @@ module RecordingStudioAgents
       @retention_period = normalize_retention(value)
     end
 
+    def chatkit_options=(value)
+      unless value.nil? || value.is_a?(Hash) || value.respond_to?(:call)
+        raise Error, "chatkit_options must be a hash or a lambda"
+      end
+      raise Error, "chatkit_options lambda accepts 0, 1, or 2 arguments" unless options_callable?(value)
+
+      @chatkit_options = value.nil? ? {} : value
+    end
+
+    def chatkit_options
+      @chatkit_options || {}
+    end
+
     def to_h
       {
         instructions: instructions,
@@ -60,6 +73,16 @@ module RecordingStudioAgents
     end
 
     private
+
+    def options_callable?(value)
+      return true unless value.respond_to?(:call)
+
+      arity = value.arity
+      return true if arity.between?(0, 2)
+      return false if arity > 2
+
+      (-arity - 1) <= 2
+    end
 
     def assign_defaults
       @instructions = "Answer in plain language."

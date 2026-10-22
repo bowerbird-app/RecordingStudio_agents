@@ -3,9 +3,10 @@
 module RecordingStudioAgents
   module ChatKit
     class Catalog
-      def initialize(actor, root)
+      def initialize(actor, root, page_recording: nil)
         @actor = actor
         @root = root
+        @page_recording = page_recording
       end
 
       def list_threads(params)
@@ -73,7 +74,9 @@ module RecordingStudioAgents
       end
 
       def chats
-        RecordingStudio::Recording.for_root(@root.id).where(recordable_type: Session.name).order(created_at: :desc)
+        scope = RecordingStudio::Recording.for_root(@root.id).where(recordable_type: Session.name)
+        scope = scope.where(parent_recording_id: @page_recording.id) if @page_recording
+        scope.order(created_at: :desc)
       end
 
       def viewable?(recording)

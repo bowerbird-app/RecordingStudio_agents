@@ -1,0 +1,37 @@
+<% dummy_page_nav(title: "Press kits", back_url: root_path) %>
+
+<%# Flatpack Grid is equal columns. SidebarLayout is the app shell. Neither is a 1/4 + 3/4 split, so this page keeps the Tailwind grid. %>
+<div class="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-4">
+  <div class="order-2 min-w-0 lg:order-1 lg:col-span-1 lg:sticky lg:top-4">
+    <%= recording_studio_agents_chatkit(chatkit_options: PressKitChat.workspace) %>
+  </div>
+
+  <div class="order-1 flex min-w-0 flex-col gap-6 lg:order-2 lg:col-span-3">
+    <%= render FlatPack::PageTitle::Component.new(
+      title: "Press kits",
+      subtitle: "Two houses, ready to talk about.",
+      variant: :h1
+    ) %>
+
+    <% if @press_kits.any? %>
+      <div class="max-lg:[&_table]:block max-lg:[&_thead]:hidden max-lg:[&_tbody]:block max-lg:[&_tr]:flex max-lg:[&_tr]:flex-col max-lg:[&_td]:w-full">
+      <%= render FlatPack::Table::Component.new(data: @press_kits, min_width: :none) do |table| %>
+        <% table.column(title: "Name") { |recording|
+          render(FlatPack::Link::Component.new(
+            href: press_kit_path(recording),
+            class: "text-[var(--color-primary)] underline underline-offset-[0.15em]"
+          )) { recording.recordable.name }
+        } %>
+        <% table.column(title: "Description") { |recording|
+          tag.span(recording.recordable.description, class: "line-clamp-3 lg:line-clamp-none")
+        } %>
+      <% end %>
+      </div>
+    <% else %>
+      <%= render FlatPack::EmptyState::Component.new(
+        title: "No press kits in this workspace",
+        description: "Switch workspace, or run bin/rails db:seed."
+      ) %>
+    <% end %>
+  </div>
+</div>

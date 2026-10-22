@@ -52,13 +52,73 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     assert_equal folder_recording, page_recording.parent_recording
     assert_equal root_recording, page_recording.root_recording
     assert_equal 3, Workspace.count
+    press_kits = RecordingStudio::Recording.for_root(root_recording.id).where(recordable_type: "PressKit")
+    client_kits = RecordingStudio::Recording.for_root(accessible_root_recording.id).where(recordable_type: "PressKit")
+    private_kits = RecordingStudio::Recording.for_root(private_root_recording.id).where(recordable_type: "PressKit")
+    assert_equal [ "ACUTE HOUSE", "HELLO HOUSE" ], press_kits.map { |recording| recording.recordable.name }.sort
+    assert_equal press_kits.map { |recording| recording.recordable.name }.sort, client_kits.map { |recording| recording.recordable.name }.sort
+    assert_empty private_kits
+    hello = press_kits.find { |recording| recording.recordable.name == "HELLO HOUSE" }
+    assert_equal 6, hello.images(per_page: 20).size
+    assert_equal "hello-house", hello.recordable.slug
+    assert_includes hello.recordable.description, "Victorian shophouse"
+    assert_includes hello.recordable.content, "Rose Nolan"
+    assert_includes hello.recordable.sections.map { |section| section["kind"] }, "heading"
+    facade = hello.images(per_page: 20).find { |image| image.recordable.original_filename == "hello-house-02.jpg" }
+    assert_includes facade.recordable.name, "white bricks spelling HELLO"
+    assert facade.recordable.file.attached?
+
+    admin = User.find_by!(email: "admin@admin.com")
+    Current.actor = admin
+    root_recording.revise(hello, actor: admin) { |press_kit| press_kit.name = "HELLO HOUSE renamed" }
+    Current.actor = nil
 
     assert_no_difference -> { User.count } do
       assert_no_difference -> { RecordingStudio::Recording.count } do
-        load Rails.root.join("db/seeds.rb").to_s
+        assert_no_difference -> { RecordingStudioAttachable::Attachment.count } do
+          load Rails.root.join("db/seeds.rb").to_s
+        end
       end
     end
     assert_nil Current.actor
+    renamed = RecordingStudio::Recording.for_root(root_recording.id).where(recordable_type: "PressKit")
+    assert_equal [ "ACUTE HOUSE", "HELLO HOUSE renamed" ], renamed.map { |recording| recording.recordable.name }.sort
+    kept = renamed.find { |recording| recording.recordable.slug == "hello-house" }
+    assert_equal "hello-house", kept.recordable.slug
+
+    stale = kept.images(per_page: 20).find { |image| image.recordable.original_filename == "hello-house-02.jpg" }
+    blob_id = stale.recordable.file.blob.id
+    Current.actor = admin
+    root_recording.revise(stale, actor: admin) do |attachment|
+      attachment.name = "filename only"
+      attachment.alt_text = "Edited in the app"
+      attachment.file.attach(stale.recordable.file.blob)
+    end
+
+    assert_no_difference -> { RecordingStudioAttachable::Attachment.count } do
+      load Rails.root.join("db/seeds.rb").to_s
+    end
+    kept_photo = RecordingStudio::Recording.find(stale.id)
+    assert_equal "filename only", kept_photo.recordable.name
+    assert_equal "Edited in the app", kept_photo.recordable.alt_text
+    assert_equal blob_id, kept_photo.recordable.file.blob.id
+
+    Current.actor = admin
+    blank_alt = root_recording.revise(kept_photo, actor: admin) do |attachment|
+      attachment.alt_text = ""
+      attachment.file.attach(kept_photo.recordable.file.blob)
+    end
+
+    load Rails.root.join("db/seeds.rb").to_s
+    repaired = RecordingStudio::Recording.find(blank_alt.id)
+    assert_equal "filename only", repaired.recordable.name
+    assert_includes repaired.recordable.alt_text, "white bricks spelling HELLO"
+    assert repaired.recordable.file.attached?
+    assert_equal blob_id, repaired.recordable.file.blob.id
+
+    assert_no_difference -> { RecordingStudioAttachable::Attachment.count } do
+      load Rails.root.join("db/seeds.rb").to_s
+    end
   ensure
     Current.actor = nil
   end
@@ -81,7 +141,7 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     refute RecordingStudio.capability_enabled?(:example, for: Folder)
     refute RecordingStudio.capability_enabled?(:example, for: Page)
     refute RecordingStudio.capability_enabled?(:agents, for: Folder)
-    refute RecordingStudio.capability_enabled?(:agents, for: Page)
+    assert RecordingStudio.capability_enabled?(:agents, for: Page)
     assert_equal [ "Workspace" ], RecordingStudio.configuration.enabled_recordable_types_for(:example)
     assert_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
   end

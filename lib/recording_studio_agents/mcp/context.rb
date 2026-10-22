@@ -25,8 +25,8 @@ module RecordingStudioAgents
         params[key] || params[key.to_s] || params[key.to_sym]
       end
 
-      def catalog(context)
-        ChatKit::Catalog.new(actor(context), root(context))
+      def catalog(context, page_recording: nil)
+        ChatKit::Catalog.new(actor(context), root(context), page_recording: page_recording)
       end
 
       def call
@@ -46,6 +46,7 @@ module RecordingStudioAgents
 
       def raise_protocol!(error)
         raise RecordingStudioApi::AuthorizationError, error.message if error.status == 403
+        raise RecordingStudioApi::InvalidActionInputError, error.message if error.status == 422
 
         raise RecordingStudioApi::NotFoundError, error.message
       end

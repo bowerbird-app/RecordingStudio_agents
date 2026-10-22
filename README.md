@@ -15,7 +15,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Trashable dummy GitHub tag `v0.11.1`
 - Root Switchable dummy GitHub tag `v0.9.5`
 - Cache dummy GitHub tag `v0.5.1`
-- FlatPack dummy GitHub tag `v0.1.254`
+- FlatPack `~> 0.1` (dummy GitHub tag `v0.1.254`)
 - Recording Studio Users dummy GitHub tag `v0.24.0`
 - Recording Studio Oauth dummy GitHub tag `v0.12.5`
 - Recording Studio MCP dummy GitHub tag `v0.19.1`
@@ -29,6 +29,7 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 
 ```ruby
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
+gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.254"
 gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v4.7.0"
 gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.15.1"
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.3.1"
@@ -65,7 +66,7 @@ Schedule `RecordingStudioAgents::ExpireSessionsJob`. It closes chats whose `expi
 
 A chat stores the instructions it was opened with. The host default is `config.instructions`. A per-chat override is appended after that default, with a blank line between them, and never replaces it. `config.instructions_override` defaults to `:none`, so a real override is rejected and the chat is not created. A host opts in with `:admin` (Recording Studio Accessible admin on the workspace) or `:edit`. Blank or whitespace-only text uses the host default. The override must be a string no longer than `config.max_instructions_length` (4000). ChatKit `threads.create` does not accept `instructions`; a client that sends the field gets a 400. MCP `agent_chats_create` and host Ruby (`Sessions::Create`) can pass it when the config allows it. The stored copy is personal data. The engine adds an exact `instructions` filter to `filter_parameters`, and the chat record filters its own `instructions` attribute, so request logs and `inspect` do not show it. A host parameter such as `shipping_instructions` is not filtered. The 30-day cleanup deletes those stored instructions with the chat.
 
-Create and append are idempotent on their keys inside one root. The same create key in a different root opens a second chat. The binding stores `root_recording_id`, and the unique index is `(root_recording_id, create_idempotency_key)`. Item keys use the same pair. A repeated key inside one root still returns the existing chat or message and does not check or store a new instructions override. Two creates that overlap on that key do the same: the loser drops the extra provider session and returns the chat that won.
+Create and append are idempotent on their keys inside one root. The same create key in a different root opens a second chat. The binding stores `root_recording_id`, and the unique index is `(root_recording_id, create_idempotency_key)`. Item keys use the same pair. A repeated key inside one root still returns the existing chat or message. That replay does not check a new parent and does not check or store a new instructions override. Two creates that overlap on that key do the same: the loser drops the extra provider session and returns the chat that won.
 
 ## ChatKit
 
@@ -73,7 +74,17 @@ Create and append are idempotent on their keys inside one root. The same create 
 
 `threads.create` is not streamed by Recording Studio AI. After the session is saved, the endpoint reads the provider stream, and reads saved items when that stream has no text. `text_delta` events become ChatKit text deltas. An unsupported operation returns a protocol error.
 
-`recording_studio_agents_chatkit` renders the official `<openai-chatkit>` web component from `https://cdn.platform.openai.com/deployments/chatkit/chatkit.js`. Its custom backend is this endpoint. The component's `fetch` sends the session cookie and the CSRF token. `domainKey` comes from `config.chatkit_domain_key`. The inline script assigns `endpoint` and `domainKey` from JSON string literals, so a quote in either value stays a quote the browser can parse. The browser does not receive an OpenAI API key, a client secret, or an Agent Builder workflow.
+`recording_studio_agents_chatkit` renders the official `<openai-chatkit>` web component from `https://cdn.platform.openai.com/deployments/chatkit/chatkit.js`. Its custom backend is this endpoint. The component's `fetch` sends the session cookie and the CSRF token. `domainKey` comes from `config.chatkit_domain_key`. The inline script assigns `endpoint`, `domainKey`, and `hostOptions` from JSON literals, so a quote in any of those values stays a quote the browser can parse. The browser does not receive an OpenAI API key, a client secret, or an Agent Builder workflow. The panel sits in a FlatPack card. Its height is the Tailwind class `h-[min(40rem,calc(100dvh-16rem))]`, so the host Tailwind build has to scan this gem's views. An inner wrapper uses the card radius and `overflow-hidden` so the ChatKit iframe follows the rounded corners.
+
+Pass `page_recording:` with the page's recording to scope that embed to the page. The helper adds `page_recording_id` to the endpoint. The server loads that recording again, checks it sits inside the current workspace, and checks the actor can view it. A missing or cross-workspace id is a 404. An id inside the workspace that the actor cannot view is a 403. With a valid id, new chats use that recording as their parent and `threads.list` returns only those chats. Leave it off and the endpoint behaves as before: new chats belong to the workspace and the list includes every chat in it. The same checks apply to MCP `parent` on `agent_chats_list` and `agent_chats_create`. Omit `parent` and those tools keep the workspace behavior. A parent can own a chat only when its type includes the agents capability:
+
+```ruby
+include RecordingStudio::Capabilities::Agents.to
+```
+
+The dummy `Page` model uses that line. A folder still cannot. A trashed page is treated as missing. A present id that is not a string, such as `page_recording_id[]`, is a 404. An id whose type cannot hold a chat is a 422.
+
+`chatkit_options:` is merged over `config.chatkit_options` and sent to `setOptions`. The config value is a hash, or a lambda of 0, 1, or 2 arguments. Zero arguments are called with none. One argument receives the controller. Two arguments receive the controller and `config.purpose`. The lambda is not called when the setup notice is showing. Use the ChatKit keys you need: `startScreen` (greeting and prompts with `label`, `prompt`, and optional `icon`), `theme`, `header`, `composer` (`placeholder`), `history`, and `initialThread`. `setOptions` replaces the previous options, so the frame always sets `api` itself. A host `api` key is dropped. `initialThread: nil` keeps the new-thread start screen. One host declaration can pass the same page into `page_recording:` and the start screen into `chatkit_options:`. The dummy page at `/agent-chat/page` does that for the Press kit page. `/agent-chat` stays the workspace chat.
 
 The component renders when the ChatKit domain key is set and the configured provider has a hosted-agent model and its credential. The default provider is OpenAI, which needs `config.openai_api_key` or `config.openai_client`. A provider with no hosted-agent model, such as Gemini on the current Recording Studio AI release, shows a setup notice instead of asking for an invented key. The self-hosted ChatKit server is unchanged.
 
@@ -96,14 +107,16 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 
 The dummy app validates the engine in a host with Recording Studio Users, Oauth, MCP, FlatPack, and Recording Studio's default layout. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. ChatKit keeps that session. MCP at `/recording_studio_mcp` uses an Oauth bearer token.
 
+The dummy also has press kits at `/press_kits`. A kit is a recordable with the agents capability, so a chat can be scoped to it, and Attachable dummy GitHub tag `v0.20.1` stores its photos. That pin lives in the dummy Gemfile only. It is not a gemspec dependency. MCP `list`, `show`, and `update` on type `PressKit` read and edit kits in the granted workspace.
+
 ## MCP
 
 The gem registers the chat tools when the host has loaded Recording Studio API, and the `agent-chats` skill when the host has loaded Recording Studio MCP. The host mounts MCP, API, and Oauth and draws the protected-resource metadata. A bearer token acts in the workspace on its access grant. The browser switcher and a session cookie on the same request do not change that grant. Reads call `access_grant.authorize!` with `:view`. Writes call it with `:edit`. Chats opened over MCP are attributed to the grant's `OauthAuthorization`.
 
 | Tool | What it does |
 | --- | --- |
-| `agent_chats_list` | Chats in the granted workspace |
-| `agent_chats_create` | Opens a chat. Requires `input` and `idempotency_key` |
+| `agent_chats_list` | Chats in the granted workspace. Optional `parent` limits the list to that parent |
+| `agent_chats_create` | Opens a chat. Requires `input` and `idempotency_key`. Optional `parent` chooses the parent. A repeated key returns the existing chat and ignores `parent` |
 | `agent_chats_read` | One chat |
 | `agent_chats_append` | Adds a user message |
 | `agent_items_list` | Items on one chat |

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Dummy press kits at `/press_kits`, with photos, a scoped chat, and MCP list, show, and update. A content edit rebuilds the show-page sections. A description edit keeps the sections already stored. Attachable stays a dummy Gemfile pin. No gem API change and no host migration.
+
+## [0.5.0] - 2026-10-21
+
+### Added
+- Opt-in per-page chats. `recording_studio_agents_chatkit(page_recording:)` sends `page_recording_id`. The server checks that the recording is inside the current workspace and that the actor can view it, then parents new chats there and limits `threads.list` to that parent. Omit it and ChatKit stays workspace-wide.
+- MCP `agent_chats_list` and `agent_chats_create` take an optional `parent`. The same workspace and view checks apply. Omit it and both tools stay workspace-wide.
+- `chatkit_options:` on the helper, merged over `config.chatkit_options` (a hash or a lambda of controller and purpose). The frame deep-merges that object into `setOptions` and always sets `api` itself. The hash can carry `startScreen`, `theme`, `header`, `composer`, `history`, and `initialThread`. Host options are a JSON object literal, with the same `raw json_escape` as `endpoint` and `domainKey`, so a quote in a prompt stays a quote.
+- The dummy app has a workspace chat at `/agent-chat` and a Press kit page chat at `/agent-chat/page`. `Page` includes the agents capability so a page can own a chat. `PressKitPageChat` is the one declaration for that page's scope and start screen.
+
+### Upgrade notes
+- No migration.
+- The ChatKit frame depends on FlatPack `~> 0.1`. Pin it from GitHub (dummy tag `v0.1.254`), the same source Recording Studio AI already needs. Include this gem's views in the Tailwind build so `h-[min(40rem,calc(100dvh-16rem))]` is compiled.
+- Include `RecordingStudio::Capabilities::Agents` on each type that should own a chat. A type without it still cannot parent one.
+- Hosts that want a page-scoped embed pass that page's recording as `page_recording:`. The client id is checked again on the server.
+- Set `config.chatkit_options` or pass `chatkit_options:` for a start screen, theme, header, composer placeholder, or history. Per-call options override the config. Do not put an `api` key in those options; the gem's endpoint wins. A lambda takes 0, 1, or 2 arguments (none, the controller, or the controller and `config.purpose`). It is not called while the setup notice is showing.
+- A parent that cannot hold a chat is a 422. A trashed page, a missing id, and a present non-string id are a 404. MCP create replay still returns the existing chat and ignores `parent`.
+- MCP clients can send `parent`. Old clients that omit it are unchanged.
+
 ## [0.4.1] - 2026-10-20
 
 ### Fixed
