@@ -17,9 +17,10 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Cache dummy GitHub tag `v0.5.1`
 - FlatPack `~> 0.1` (dummy GitHub tag `v0.1.254`)
 - Recording Studio Users dummy GitHub tag `v0.24.0`
-- Recording Studio Oauth dummy GitHub tag `v0.12.5`
-- Recording Studio MCP dummy GitHub tag `v0.19.1`
-- Recording Studio API dummy GitHub tag `v0.11.4`
+- Recording Studio Oauth dummy GitHub tag `v0.15.1`
+- Recording Studio MCP dummy GitHub tag `v0.22.0`
+- Recording Studio API dummy GitHub tag `v0.16.0`
+- Recording Studio Logs dummy GitHub tag `v0.5.0`
 - Recording Studio Admin dummy GitHub tag `v2.3.3`
 - Site Settings dummy GitHub tag `v0.5.1`
 
@@ -107,7 +108,7 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 
 The dummy app validates the engine in a host with Recording Studio Users, Oauth, MCP, FlatPack, and Recording Studio's default layout. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. ChatKit keeps that session. MCP at `/recording_studio_mcp` uses an Oauth bearer token.
 
-The dummy also has press kits at `/press_kits`. A kit is a recordable with the agents capability, so a chat can be scoped to it, and Attachable dummy GitHub tag `v0.20.1` stores its photos. That pin lives in the dummy Gemfile only. It is not a gemspec dependency. MCP `list`, `show`, and `update` on type `PressKit` read and edit kits in the granted workspace.
+The dummy also has press kits at `/press_kits`. A kit is a recordable with the agents capability, so a chat can be scoped to it, and Attachable dummy GitHub tag `v0.20.1` stores its photos. That pin lives in the dummy Gemfile only. It is not a gemspec dependency. MCP `list`, `show`, and `update` on type `PressKit` read and edit kits in the granted workspace. An MCP edit stores the OAuth client as the event actor and the approving person in `authorized_by_type` and `authorized_by_id`.
 
 ## MCP
 

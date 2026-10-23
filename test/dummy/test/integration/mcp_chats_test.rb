@@ -398,6 +398,24 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     ], fresh.sections
   end
 
+  test "an MCP edit stores the oauth client as actor and the approving person in metadata" do
+    kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
+
+    post_mcp("tools/call", name: "update", arguments: {
+      type: "PressKit", id: kit.id, description: "Approved brick hello."
+    })
+    payload = JSON.parse(response.body)
+    event = RecordingStudio::Event.where(recording_id: kit.id, action: "updated")
+                                   .order(occurred_at: :desc, created_at: :desc).first
+
+    assert_equal false, payload.dig("result", "isError"), response.body
+    assert_equal "Approved brick hello.", kit.reload.recordable.description
+    assert_equal "RecordingStudioOauth::OauthClient", event.actor_type
+    assert_equal @oauth_client.id, event.actor_id
+    assert_equal "User", event.metadata["authorized_by_type"]
+    assert_equal @user.id, event.metadata["authorized_by_id"]
+  end
+
   test "an MCP content update shows on the press kit page" do
     configuration = RecordingStudioAgents.configuration
     previous_domain_key = configuration.chatkit_domain_key
