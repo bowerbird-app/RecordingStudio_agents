@@ -17,11 +17,14 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Cache dummy GitHub tag `v0.5.1`
 - FlatPack `~> 0.1` (dummy GitHub tag `v0.1.254`)
 - Recording Studio Users dummy GitHub tag `v0.24.0`
-- Recording Studio Oauth dummy GitHub tag `v0.12.5`
-- Recording Studio MCP dummy GitHub tag `v0.19.1`
-- Recording Studio API dummy GitHub tag `v0.11.4`
+- Recording Studio Oauth dummy GitHub tag `v0.15.1`
+- Recording Studio MCP dummy GitHub tag `v0.22.0`
+- Recording Studio API dummy GitHub tag `v0.16.0`
+- Recording Studio Logs dummy GitHub tag `v0.5.0`
 - Recording Studio Admin dummy GitHub tag `v2.3.3`
 - Site Settings dummy GitHub tag `v0.5.1`
+
+Hosts that want the OAuth client on MCP event rows need Recording Studio MCP >= 0.22, API >= 0.16, and Oauth >= 0.15.1. This gem does not depend on those gems. An older API keeps the access-grant actor on the event and omits `authorized_by_type` and `authorized_by_id`.
 
 The provider API key stays in Recording Studio AI. This gem does not read one.
 
@@ -107,11 +110,11 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 
 The dummy app validates the engine in a host with Recording Studio Users, Oauth, MCP, FlatPack, and Recording Studio's default layout. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. ChatKit keeps that session. MCP at `/recording_studio_mcp` uses an Oauth bearer token.
 
-The dummy also has press kits at `/press_kits`. A kit is a recordable with the agents capability, so a chat can be scoped to it, and Attachable dummy GitHub tag `v0.20.1` stores its photos. That pin lives in the dummy Gemfile only. It is not a gemspec dependency. MCP `list`, `show`, and `update` on type `PressKit` read and edit kits in the granted workspace.
+The dummy also has press kits at `/press_kits`. A kit is a recordable with the agents capability, so a chat can be scoped to it, and Attachable dummy GitHub tag `v0.20.1` stores its photos. That pin lives in the dummy Gemfile only. It is not a gemspec dependency. MCP `list`, `show`, and `update` on type `PressKit` read and edit kits in the granted workspace. A successful generic `update` and `agent_chats_create` both store the OAuth client as the event actor and the approving person in `authorized_by_type` and `authorized_by_id`. A client that sends `authorized_by_type`, `authorized_by_id`, or `metadata` on `update` is refused, because those are not writable fields. The same arguments on `agent_chats_create` are dropped, and the stored event keeps the server stamp.
 
 ## MCP
 
-The gem registers the chat tools when the host has loaded Recording Studio API, and the `agent-chats` skill when the host has loaded Recording Studio MCP. The host mounts MCP, API, and Oauth and draws the protected-resource metadata. A bearer token acts in the workspace on its access grant. The browser switcher and a session cookie on the same request do not change that grant. Reads call `access_grant.authorize!` with `:view`. Writes call it with `:edit`. Chats opened over MCP are attributed to the grant's `OauthAuthorization`.
+The gem registers the chat tools when the host has loaded Recording Studio API, and the `agent-chats` skill when the host has loaded Recording Studio MCP. The host mounts MCP, API, and Oauth and draws the protected-resource metadata. A bearer token acts in the workspace on its access grant. The browser switcher and a session cookie on the same request do not change that grant. Reads call `access_grant.authorize!` with `:view`. Writes call it with `:edit`. The catalog still uses the grant's `OauthAuthorization` for visibility. `agent_chats_create` records the OAuth client as the event actor and the approving person in `authorized_by_type` and `authorized_by_id` when the host API provides that stamp. Client-sent copies of those keys, and a client metadata bag, are not stored. The provider attribution for the chat stays the grant actor. The generic `update` tool records the same actor and stamp on a successful write. It refuses a client `authorized_by_*` or `metadata` argument as an unknown field.
 
 | Tool | What it does |
 | --- | --- |

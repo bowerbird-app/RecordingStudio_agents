@@ -1,11 +1,14 @@
 # frozen_string_literal: true
 
+require "recording_studio_agents/mcp/client_claims"
+
 module RecordingStudioAgents
   module Mcp
     class InstructionsContract < RecordingStudioApi::ActionInputContract
       def call(raw_params)
-        check_instructions!(raw_params)
-        super
+        params = ClientClaims.strip(raw_params)
+        check_instructions!(params)
+        super(params)
       end
 
       def as_json(*)

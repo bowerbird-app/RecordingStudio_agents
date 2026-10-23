@@ -53,6 +53,7 @@ module RecordingStudioAgents
           parent = parent_recording(context, root) || editable_root(context)
           {
             parent_recording: parent, root_recording: root, actor: Context.actor(context),
+            event_actor: Context.event_actor(context), metadata: Context.event_metadata(context),
             input: Context.value(context, :input), idempotency_key: Context.value(context, :idempotency_key),
             title: Context.value(context, :title), instructions: Context.value(context, :instructions),
             access_grant: context.access_grant
