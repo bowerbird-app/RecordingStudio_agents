@@ -12,6 +12,7 @@ module RecordingStudioAgents
       def create
         return { fields: create_fields } unless defined?(RecordingStudioApi::ActionInputContract)
 
+        require "recording_studio_agents/mcp/client_claims"
         require "recording_studio_agents/mcp/instructions_contract"
         InstructionsContract.new(fields: create_fields)
       end

@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.5.0", ::RecordingStudioAgents::VERSION
+    assert_equal "0.6.0", ::RecordingStudioAgents::VERSION
   end
 
   def test_engine_exists
@@ -18,6 +18,8 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes gemspec, 'spec.add_dependency "recording_studio", "~> 4.7"'
     assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", "~> 0.15.1"'
     assert_includes gemspec, "https://github.com/bowerbird-app/RecordingStudio_agents"
+    refute_includes gemspec, "recording_studio_mcp"
+    refute_includes gemspec, "recording_studio_api"
   end
 
   def test_gemspec_excludes_cursor_config

@@ -9,6 +9,24 @@ module RecordingStudioAgents
         context.access_grant.actor
       end
 
+      # Permission checks keep using #actor (the access grant's OauthAuthorization).
+      # The recorded event uses the OAuth client when this host can stamp authorized_by.
+      def event_actor(context)
+        grant = context.access_grant
+        return grant.actor unless authorized_by_available?(context)
+
+        client = grant.api_client if grant.respond_to?(:api_client)
+        client.presence || grant.actor
+      end
+
+      def event_metadata(context)
+        supplied = supplied_claims(context)
+        return context.with_authorized_by(supplied) if context.respond_to?(:with_authorized_by)
+        return {} unless context.access_grant.respond_to?(:authorized_by)
+
+        metadata_for(context.access_grant.authorized_by)
+      end
+
       def authorize!(context, recording, role)
         context.access_grant.authorize!(recording: recording, role: role)
       end
@@ -49,6 +67,33 @@ module RecordingStudioAgents
         raise RecordingStudioApi::InvalidActionInputError, error.message if error.status == 422
 
         raise RecordingStudioApi::NotFoundError, error.message
+      end
+
+      def authorized_by_available?(context)
+        context.respond_to?(:with_authorized_by) || context.access_grant.respond_to?(:authorized_by)
+      end
+
+      def supplied_claims(context)
+        claims = {}
+        metadata = value(context, :metadata)
+        claims.merge!(metadata.to_h.symbolize_keys) if metadata.respond_to?(:to_h) && !metadata.is_a?(String)
+        type = value(context, :authorized_by_type)
+        id = value(context, :authorized_by_id)
+        claims[:authorized_by_type] = type unless type.nil?
+        claims[:authorized_by_id] = id unless id.nil?
+        claims
+      end
+
+      def metadata_for(actor)
+        return {} if actor.blank?
+
+        identifier = actor.id if actor.respond_to?(:id)
+        return {} if identifier.blank?
+
+        type_name = actor.class.respond_to?(:polymorphic_name) ? actor.class.polymorphic_name : actor.class.name
+        return {} if type_name.blank?
+
+        { authorized_by_type: type_name, authorized_by_id: identifier }
       end
     end
   end

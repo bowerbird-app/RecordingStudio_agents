@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Dummy press kits at `/press_kits`, with photos, a scoped chat, and MCP list, show, and update. A content edit rebuilds the show-page sections. A description edit keeps the sections already stored. Attachable stays a dummy Gemfile pin. No gem API change and no host migration.
-- An MCP edit stores the OAuth client as the Recording Studio event actor. The person who approved the app is stored on that event as `authorized_by_type` and `authorized_by_id`. Dummy pins MCP `v0.22.0`, API `v0.16.0`, Oauth `v0.15.1`, and Logs `v0.5.0`. Core stays `v4.7.0`. No migration.
+## [0.6.0] - 2026-10-23
+
+### Changed
+- A successful MCP write stores the OAuth client as the Recording Studio event actor and the person who approved the app as `authorized_by_type` and `authorized_by_id`. That covers the generic `update` tool and `agent_chats_create`. Permission checks stay on the access grant. The catalog still uses the grant's `OauthAuthorization` for visibility. On `agent_chats_create`, a client-sent `authorized_by_type`, `authorized_by_id`, or metadata bag is removed before the write, and the stored event keeps the server stamp. On the generic `update` tool those arguments are unknown fields, so the call is refused and writes no event. A successful update stores the same server stamp.
+- Hosts need Recording Studio MCP >= 0.22, API >= 0.16, and Oauth >= 0.15.1 for that stamp. This gem does not depend on those gems. An older API keeps the access-grant actor on the event and does not add the metadata keys.
+
+### Added
+- Dummy press kits at `/press_kits`, with photos, a scoped chat, and MCP list, show, and update. A content edit rebuilds the show-page sections. A description edit keeps the sections already stored. Attachable stays a dummy Gemfile pin. No host migration.
+- Dummy pins MCP `v0.22.0`, API `v0.16.0`, Oauth `v0.15.1`, and Logs `v0.5.0`. Core stays `v4.7.0`.
 
 ## [0.5.0] - 2026-10-21
 

@@ -416,6 +416,57 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_equal @user.id, event.metadata["authorized_by_id"]
   end
 
+  test "a client supplied authorized_by does not replace the server value on update" do
+    kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
+
+    post_mcp("tools/call", name: "update", arguments: {
+      type: "PressKit", id: kit.id, description: "Server description.",
+      authorized_by_type: "Spoof", authorized_by_id: "spoof-id",
+      metadata: { authorized_by_type: "Spoof", authorized_by_id: "spoof-id", note: "spoof" }
+    })
+    refused = JSON.parse(response.body)
+    refused_message = refused.dig("result", "content", 0, "text").to_s
+
+    assert_equal true, refused.dig("result", "isError")
+    assert_includes refused_message, "Unknown fields authorized_by_id, authorized_by_type, metadata"
+    assert_nil latest_updated_event(kit)
+
+    post_mcp("tools/call", name: "update", arguments: {
+      type: "PressKit", id: kit.id, description: "Server description."
+    })
+    payload = JSON.parse(response.body)
+    event = latest_updated_event(kit)
+
+    assert_equal false, payload.dig("result", "isError"), response.body
+    assert_equal "Server description.", kit.reload.recordable.description
+    assert_equal "RecordingStudioOauth::OauthClient", event.actor_type
+    assert_equal @oauth_client.id, event.actor_id
+    assert_equal "User", event.metadata["authorized_by_type"]
+    assert_equal @user.id, event.metadata["authorized_by_id"]
+    assert_nil event.metadata["note"]
+    assert_nil RecordingStudio::Event.where(recording_id: kit.id).where("metadata ->> 'authorized_by_type' = ?", "Spoof").first
+  end
+
+  test "a chat create stores the oauth client and the approving person" do
+    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      input: "hello", idempotency_key: "auth-#{SecureRandom.hex(4)}", title: "Approved chat",
+      authorized_by_type: "Spoof", authorized_by_id: "spoof-id",
+      metadata: { authorized_by_type: "Spoof", authorized_by_id: "spoof-id", note: "spoof" }
+    })
+    payload = JSON.parse(response.body)
+    recording = RecordingStudio::Recording.find(tool_payload(payload).fetch("id"))
+    event = RecordingStudio::Event.where(recording_id: recording.id, action: "created")
+                                   .order(occurred_at: :desc, created_at: :desc).first
+
+    assert_equal false, payload.dig("result", "isError"), response.body
+    assert_equal "RecordingStudioOauth::OauthClient", event.actor_type
+    assert_equal @oauth_client.id, event.actor_id
+    assert_equal "User", event.metadata["authorized_by_type"]
+    assert_equal @user.id, event.metadata["authorized_by_id"]
+    refute_equal "spoof", event.metadata["note"]
+    refute_equal @user.id, event.actor_id
+  end
+
   test "an MCP content update shows on the press kit page" do
     configuration = RecordingStudioAgents.configuration
     previous_domain_key = configuration.chatkit_domain_key
@@ -652,6 +703,11 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
     assert_equal true, payload.dig("result", "isError")
     assert_includes message, "not authorized"
+  end
+
+  def latest_updated_event(recording)
+    RecordingStudio::Event.where(recording_id: recording.id, action: "updated")
+                          .order(occurred_at: :desc, created_at: :desc).first
   end
 
   def tool_payload(payload)

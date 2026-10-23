@@ -53,9 +53,11 @@ class McpToolsTest < Minitest::Test
     appended = Recording.new("chat-9", nil)
     @context.params = { input: "Hello", idempotency_key: "key-1", title: "Hello", id: "chat-9" }
     seen = []
+    recorded = []
 
     RecordingStudioAgents::Sessions::Create.stub(:call, lambda { |**kwargs|
       seen << kwargs[:access_grant]
+      recorded << kwargs
       ServiceResult.new(created)
     }) do
       RecordingStudioAgents::Sessions::Append.stub(:call, lambda { |**kwargs|
@@ -67,6 +69,40 @@ class McpToolsTest < Minitest::Test
       end
     end
     assert_equal [@context.access_grant, @context.access_grant], seen
+    assert_same @actor, recorded.first[:actor]
+    assert_same @actor, recorded.first[:event_actor]
+    assert_equal({}, recorded.first[:metadata])
+  end
+
+  def test_create_records_the_client_and_keeps_the_permission_actor
+    client = Object.new
+    human = Struct.new(:id).new("user-1")
+    grant = Grant.new(@actor)
+    grant.define_singleton_method(:api_client) { client }
+    grant.define_singleton_method(:authorized_by) { human }
+    params = {
+      input: "Hello", idempotency_key: "key-1",
+      authorized_by_type: "Spoof", authorized_by_id: "spoof-id",
+      metadata: { authorized_by_type: "Spoof", note: "stay" }
+    }
+    context = ToolContext.new(grant, @root, params)
+    context.define_singleton_method(:with_authorized_by) do |metadata = {}|
+      metadata.merge(authorized_by_type: "User", authorized_by_id: human.id)
+    end
+    seen = nil
+
+    RecordingStudioAgents::Sessions::Create.stub(:call, lambda { |**kwargs|
+      seen = kwargs
+      ServiceResult.new(Recording.new("chat-9", Recordable.new("Hello")))
+    }) do
+      RecordingStudioAgents::Mcp::Chats::Create.call(context)
+    end
+
+    assert_same @actor, seen[:actor]
+    assert_same client, seen[:event_actor]
+    assert_equal "User", seen[:metadata][:authorized_by_type]
+    assert_equal "user-1", seen[:metadata][:authorized_by_id]
+    assert_equal "stay", seen[:metadata][:note]
   end
 
   def test_item_list_and_read_use_the_chat_payload
