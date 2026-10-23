@@ -463,7 +463,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_equal @oauth_client.id, event.actor_id
     assert_equal "User", event.metadata["authorized_by_type"]
     assert_equal @user.id, event.metadata["authorized_by_id"]
-    refute_equal "spoof", event.metadata["note"]
+    assert_nil event.metadata["note"]
     refute_equal @user.id, event.actor_id
   end
 

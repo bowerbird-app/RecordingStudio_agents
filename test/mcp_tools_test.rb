@@ -100,9 +100,7 @@ class McpToolsTest < Minitest::Test
 
     assert_same @actor, seen[:actor]
     assert_same client, seen[:event_actor]
-    assert_equal "User", seen[:metadata][:authorized_by_type]
-    assert_equal "user-1", seen[:metadata][:authorized_by_id]
-    assert_equal "stay", seen[:metadata][:note]
+    assert_equal({ authorized_by_type: "User", authorized_by_id: "user-1" }, seen[:metadata])
   end
 
   def test_item_list_and_read_use_the_chat_payload

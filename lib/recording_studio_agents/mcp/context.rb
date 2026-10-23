@@ -20,8 +20,7 @@ module RecordingStudioAgents
       end
 
       def event_metadata(context)
-        supplied = supplied_claims(context)
-        return context.with_authorized_by(supplied) if context.respond_to?(:with_authorized_by)
+        return context.with_authorized_by({}) if context.respond_to?(:with_authorized_by)
         return {} unless context.access_grant.respond_to?(:authorized_by)
 
         metadata_for(context.access_grant.authorized_by)
@@ -71,17 +70,6 @@ module RecordingStudioAgents
 
       def authorized_by_available?(context)
         context.respond_to?(:with_authorized_by) || context.access_grant.respond_to?(:authorized_by)
-      end
-
-      def supplied_claims(context)
-        claims = {}
-        metadata = value(context, :metadata)
-        claims.merge!(metadata.to_h.symbolize_keys) if metadata.respond_to?(:to_h) && !metadata.is_a?(String)
-        type = value(context, :authorized_by_type)
-        id = value(context, :authorized_by_id)
-        claims[:authorized_by_type] = type unless type.nil?
-        claims[:authorized_by_id] = id unless id.nil?
-        claims
       end
 
       def metadata_for(actor)
