@@ -4,6 +4,8 @@ module RecordingStudioAgents
   class ChatkitController < ApplicationController
     include ActionController::Live
 
+    layout false
+
     def create
       actor = resolve(:request_actor)
       root = resolve(:request_root)

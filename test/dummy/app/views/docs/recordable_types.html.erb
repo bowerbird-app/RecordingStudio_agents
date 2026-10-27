@@ -1,12 +1,10 @@
-<% dummy_page_nav(title: "Recordable types", back_url: root_path) %>
+<% dummy_page_nav(
+  title: "Recordable types",
+  subtitle: "The list below comes from RecordingStudio.recordable_declarations and parent/root introspection.",
+  back_url: root_path
+) %>
 
 <div class="flex w-full flex-col gap-6">
-  <%= render FlatPack::PageTitle::Component.new(
-    title: "Recordable types",
-    subtitle: "The list below comes from RecordingStudio.recordable_declarations and parent/root introspection.",
-    variant: :h1
-  ) %>
-
   <% if @recordable_types.any? %>
     <%= render FlatPack::List::Component.new(divider: true) do %>
       <% @recordable_types.each do |recordable_type| %>

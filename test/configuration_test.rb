@@ -43,6 +43,7 @@ class ConfigurationTest < Minitest::Test
     assert_equal "openai", configuration.provider
     assert_equal 30.days, configuration.retention_period
     assert_equal({}, configuration.chatkit_options)
+    assert_nil configuration.layout
     assert_instance_of RecordingStudio::Hooks, configuration.hooks
   end
 
@@ -112,6 +113,32 @@ class ConfigurationTest < Minitest::Test
 
     assert_equal 4000, @configuration.max_instructions_length
     assert_match "positive", error.message
+  end
+
+  def test_layout_stores_nil_a_name_false_and_a_keyword_callable
+    @configuration.layout = "admin"
+    assert_equal "admin", @configuration.layout
+
+    @configuration.layout = nil
+    assert_nil @configuration.layout
+
+    @configuration.layout = false
+    assert_equal false, @configuration.layout
+
+    callable = ->(controller:) { controller.class.name }
+    @configuration.layout = callable
+    assert_equal callable, @configuration.layout
+
+    @configuration.merge!(layout: "application")
+    assert_equal "application", @configuration.layout
+  end
+
+  def test_layout_rejects_values_recording_studio_will_not_accept
+    assert_raises(ArgumentError) { @configuration.layout = 1 }
+    assert_raises(ArgumentError) { @configuration.layout = "" }
+    assert_raises(ArgumentError) { @configuration.layout = ->(controller) { controller.class.name } }
+
+    assert_nil @configuration.layout
   end
 
   def test_configure_without_block_is_safe

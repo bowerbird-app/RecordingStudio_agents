@@ -1,11 +1,11 @@
-<% dummy_page_nav(title: "Page chat", back_url: agent_chat_path, back_label: "All chats") %>
+<% dummy_page_nav(
+  title: "Press kit",
+  subtitle: "A chat that stays on this page.",
+  back_url: agent_chat_path,
+  back_label: "All chats"
+) %>
 
 <div class="flex w-full flex-col gap-4">
-  <%= render FlatPack::PageTitle::Component.new(
-    title: "Press kit",
-    subtitle: "A chat that stays on this page.",
-    variant: :h1
-  ) %>
 
   <% if @page_recording %>
     <% chat = PressKitPageChat.for(@page_recording) %>

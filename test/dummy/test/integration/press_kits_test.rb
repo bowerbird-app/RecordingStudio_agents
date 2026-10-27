@@ -67,7 +67,7 @@ class PressKitsTest < ActionDispatch::IntegrationTest
   test "the show page scopes the chat to that kit" do
     hello = record_kit(
       "HELLO HOUSE",
-      "A shophouse in Richmond.",
+      "A renovator's shophouse in Richmond.",
       content: "RICHMOND\n\n“Most architects would probably run.”\n\nThe Hello wall."
     )
     attach_photo(hello, "The Hello wall")
@@ -76,7 +76,8 @@ class PressKitsTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_includes response.body, "HELLO HOUSE"
-    assert_includes response.body, "A shophouse in Richmond."
+    assert_includes response.body, "A renovator&#39;s shophouse in Richmond."
+    refute_includes response.body, "&amp;#39;"
     assert_includes response.body, "page_recording_id=#{hello.id}"
     assert_includes response.body, "Write a short intro for HELLO HOUSE."
     assert_includes response.body, "Ask about this kit"
