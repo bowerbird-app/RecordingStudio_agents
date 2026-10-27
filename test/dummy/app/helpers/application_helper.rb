@@ -26,11 +26,17 @@ module ApplicationHelper
     end
   end
 
-  def dummy_page_nav(title:, back_url: nil, back_label: "Home")
-    recording_studio_page_nav(
-      title: title,
-      page_nav_back_url: back_url,
-      page_nav_back_label: back_label
+  def dummy_page_nav(title:, subtitle: nil, back_url: nil, back_label: "Home")
+    # The default layout calls strip on these slots, which drops html safety.
+    # PageTitle then escapes the plain string. Store the raw text so that escape happens once.
+    content_for(:title, title.to_s.html_safe)
+    content_for(:subtitle, subtitle.to_s.html_safe) if subtitle.present?
+
+    flat_pack_page_nav(
+      round: true,
+      style: :default,
+      back_href: back_url,
+      back_tooltip: back_label
     )
 
     recording_studio_page_nav_right do

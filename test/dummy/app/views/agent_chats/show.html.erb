@@ -1,11 +1,9 @@
-<% dummy_page_nav(title: "Agent chat", back_url: root_path) %>
+<% dummy_page_nav(
+  title: "Agent chat",
+  subtitle: "Every chat in this workspace.",
+  back_url: root_path
+) %>
 
 <div class="flex w-full flex-col gap-4">
-  <%= render FlatPack::PageTitle::Component.new(
-    title: "Agent chat",
-    subtitle: "Every chat in this workspace.",
-    variant: :h1
-  ) %>
-
   <%= recording_studio_agents_chatkit %>
 </div>

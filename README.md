@@ -8,14 +8,15 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 
 - Ruby 3.3 or newer
 - Rails 8.1
-- Recording Studio `~> 4.7` (dummy GitHub tag `v4.7.0`)
+- Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`)
 - Recording Studio AI `~> 0.15.1` (dummy GitHub tag `v0.15.1`)
 - Recording Studio Metrics dummy GitHub tag `v0.3.1`
 - Accessible dummy GitHub tag `v0.20.0`
 - Trashable dummy GitHub tag `v0.11.1`
 - Root Switchable dummy GitHub tag `v0.9.5`
 - Cache dummy GitHub tag `v0.5.1`
-- FlatPack `~> 0.1` (dummy GitHub tag `v0.1.254`)
+- FlatPack `>= 0.1.315` (dummy commit `1fcbafe94f8eb118f0a22182f63f5110fcc97a56`, version 0.1.319)
+- view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
 - Recording Studio Users dummy GitHub tag `v0.24.0`
 - Recording Studio Oauth dummy GitHub tag `v0.15.1`
 - Recording Studio MCP dummy GitHub tag `v0.22.0`
@@ -32,11 +33,14 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 
 ```ruby
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
-gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.254"
-gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v4.7.0"
+gem "flat_pack", github: "bowerbird-app/flatpack", ref: "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
+gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"
 gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.15.1"
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.3.1"
+gem "view_component", "4.19.0"
 ```
+
+Sibling gems pinned in this repository still declare `recording_studio` below 5. Checked on 2026-10-27, the newest tags of Recording Studio AI, Metrics, Root Switchable, Users, API, Oauth, MCP, Logs, Site Settings, Attachable, and Cache still do. Accessible `v0.22.0` and Trashable `v0.12.0` allow `>= 6.1.0`. This repository keeps the dummy pins listed under Requirements, because those pins are what the MCP stamp and the metrics `< 0.4` constraint were verified against. Both Gemfiles load `test/support/widen_recording_studio_requirement.rb` before Bundler reads gemspecs, and that file rewrites a `recording_studio` requirement that rejects 6.1.0 into `>= 6.1.0`. The file is not part of the installed gem. A host Gemfile that includes one of those older gems has to widen the requirement the same way.
 
 Register the recordable, opt a parent type into `:agents`, and copy migrations:
 
@@ -44,7 +48,13 @@ Register the recordable, opt a parent type into `:agents`, and copy migrations:
 RecordingStudio.configure do |config|
   config.recordable_types += ["RecordingStudioAgents::Session"]
 end
+
+RecordingStudioAgents.configure do |config|
+  config.layout = nil
+end
 ```
+
+`config.layout` accepts `nil`, `false`, a layout name, or a callable invoked as `call(controller:)`. `nil` uses `RecordingStudio.configuration.layout`, then `"recording_studio/default_layout"`. `false` renders with no layout. A positional parameter raises `ArgumentError`. See `docs/layout.md`.
 
 ```ruby
 class Workspace < ApplicationRecord

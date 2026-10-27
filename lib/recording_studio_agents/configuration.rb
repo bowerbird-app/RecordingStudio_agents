@@ -5,7 +5,8 @@ module RecordingStudioAgents
     OVERRIDE_GATES = %i[none admin edit].freeze
 
     attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key
-    attr_reader :hooks, :default_profile, :retention_period, :provider, :instructions_override, :max_instructions_length
+    attr_reader :hooks, :default_profile, :retention_period, :provider, :instructions_override,
+                :max_instructions_length, :layout
 
     def initialize
       assign_defaults
@@ -14,6 +15,10 @@ module RecordingStudioAgents
 
     def provider=(value)
       @provider = value.to_s.strip.downcase.presence
+    end
+
+    def layout=(value)
+      @layout = RecordingStudio::Layout.accept(value)
     end
 
     def default_profile=(value)
@@ -94,7 +99,7 @@ module RecordingStudioAgents
       @retention_period = 30.days
       @request_actor = ->(*) {}
       @request_root = ->(*) {}
-      @chatkit_domain_key = nil
+      @chatkit_domain_key = @layout = nil
     end
 
     def allowed_symbol(value, allowed, name)

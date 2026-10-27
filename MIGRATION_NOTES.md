@@ -4,15 +4,32 @@
 
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
-- Recording Studio `~> 4.7` (dummy GitHub tag `v4.7.0`)
+- Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`)
 - Recording Studio AI `~> 0.15.1` (dummy GitHub tag `v0.15.1`)
 - Metrics dummy tag `v0.3.1`
 - Accessible dummy tag `v0.20.0`, Trashable dummy tag `v0.11.1` (`require: false`), and Root Switchable dummy tag `v0.9.5`
 - Cache dummy tag `v0.5.1`
-- FlatPack dummy tag `v0.1.254` (Oauth requires `~> 0.1.198`)
+- FlatPack `>= 0.1.315` at commit `1fcbafe94f8eb118f0a22182f63f5110fcc97a56` (version 0.1.319). Oauth requires `~> 0.1.198`, which this commit satisfies.
+- view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
 - Users dummy tag `v0.24.0`, Oauth dummy tag `v0.12.5`, MCP dummy tag `v0.19.1`, API dummy tag `v0.11.4`, Admin dummy tag `v2.3.3`, Site Settings dummy tag `v0.5.1`
 - Metrics stays `v0.3.1` because MCP, Root Switchable, and Trashable `v0.11.1` require metrics `< 0.4`
 - Public RubyGems and GitHub access for dependency installation
+
+## Layout
+
+Recording Studio 6 removed `RecordingStudio::UsesDefaultLayout`, `recording_studio_page_nav`, and the `:page_nav_back_*` / `:page_nav_anchor_*` slots. Set the page shell with `config.layout` on `RecordingStudioAgents::Configuration`. The engine controller calls `recording_studio_layout`. ChatKit sets `layout false` so JSON and server-sent events do not render that shell.
+
+Leave `config.layout` as `nil` to use `RecordingStudio.configuration.layout`, then `"recording_studio/default_layout"`. Assign `false` for no layout, a layout name, or `->(controller:) { ... }`. Anything else raises `ArgumentError` from `RecordingStudio::Layout.accept`.
+
+On a screen, set `content_for :title` and, when you have one, `content_for :subtitle`. The default layout renders one `FlatPack::PageTitle`. Do not also render that title in the view body. The layout calls `strip` on those slots, which drops HTML safety, so pass the raw text with `html_safe`. `PageTitle` then escapes it once. Back and close go through `flat_pack_page_nav(round: true, style: :default, back_href:, back_tooltip:, anchor_href:, anchor_tooltip:)`. Page actions go through `register_page_nav`. Custom HTML on the right goes through `recording_studio_page_nav_right`.
+
+`FlatPack::Card` takes `background:`, `border:`, and `shadow:`. It rejects `style:`.
+
+## Sibling gems
+
+The dummy keeps the pins in the Requirements list. On 2026-10-27 the newest tags of Recording Studio AI (`v0.18.1`), Metrics (`v0.6.1`), Root Switchable (`v0.10.0`), Users (`v0.25.2`), API (`v0.16.0`), Oauth (`v0.17.0`), MCP (`v0.23.0`), Logs (`v0.7.0`), Site Settings (`v0.5.1`), Attachable (`v0.21.1`), and Cache (`v0.5.1`) still require `recording_studio` below 5. Accessible `v0.22.0` and Trashable `v0.12.0` allow `>= 6.1.0`. Both Gemfiles require `test/support/widen_recording_studio_requirement.rb` so Bundler can resolve 6.1.0 beside the older pins. That file is not installed with the gem.
+
+Site Settings `v0.5.1` still includes `RecordingStudio::UsesDefaultLayout`. The dummy defines an empty module in `test/dummy/config/application.rb` until that gem stops. Root Switchable `v0.9.5` still passes PageNav `anchor_url` / `anchor_label` and Card `style:`. `test/dummy/config/initializers/flatpack_removed_kwargs.rb` accepts those keywords. A host on the same pins needs the same two shims.
 
 ## Host migration
 

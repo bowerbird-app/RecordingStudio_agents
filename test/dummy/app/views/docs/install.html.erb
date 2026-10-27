@@ -1,12 +1,10 @@
-<% dummy_page_nav(title: "Install", back_url: root_path) %>
+<% dummy_page_nav(
+  title: "Install",
+  subtitle: "Host-app setup for the mounted RecordingStudioAgents engine and its migrations.",
+  back_url: root_path
+) %>
 
 <div class="flex w-full flex-col gap-6">
-  <%= render FlatPack::PageTitle::Component.new(
-    title: "Install",
-    subtitle: "Host-app setup for the mounted RecordingStudioAgents engine and its migrations.",
-    variant: :h1
-  ) %>
-
   <%= render FlatPack::SectionTitle::Component.new(
     title: "Step 1",
     subtitle: "Provide one section title for each step",

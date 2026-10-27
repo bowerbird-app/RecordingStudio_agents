@@ -18,6 +18,12 @@ require "action_cable/engine"
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
 
+# Site Settings 0.5.1 includes this module. Recording Studio 6 removed it.
+module RecordingStudio
+  module UsesDefaultLayout
+  end
+end unless RecordingStudio.const_defined?(:UsesDefaultLayout, false)
+
 module Dummy
   class Application < Rails::Application
     # Initialize configuration defaults for originally generated Rails version.

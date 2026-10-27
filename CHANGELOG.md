@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-27
+
+### Changed
+- Require Recording Studio `>= 6.1.0` and Flatpack `>= 0.1.315`. The dummy pins Recording Studio `v6.1.0` and Flatpack commit `1fcbafe94f8eb118f0a22182f63f5110fcc97a56` (version 0.1.319). `view_component` is `>= 4.14`, `< 5`, and this repository locks `4.19.0`.
+- `RecordingStudioAgents::Configuration#layout` chooses the page shell. `nil` uses `RecordingStudio.configuration.layout`, then `"recording_studio/default_layout"`. `false` skips the layout. A string is a layout name. A callable is invoked as `call(controller:)`. Other values raise `ArgumentError`.
+- Engine controllers call `recording_studio_layout`. `ChatkitController` sets `layout false` so JSON and server-sent events stay unwrapped.
+- The default template reads `content_for :title` and `content_for :subtitle` for the single page heading. Back and close use `flat_pack_page_nav`. Page actions use `register_page_nav`.
+
+### Upgrade notes
+- No database migration.
+- A host on Recording Studio 4 cannot install this version. Move the host to `v6.1.0` and Flatpack `>= 0.1.315` first.
+- Remove `include RecordingStudio::UsesDefaultLayout`, `layout "recording_studio/default_layout"`, `recording_studio_page_nav`, and page-level `FlatPack::PageTitle` calls. Set `content_for :title` instead. The default layout calls `strip` on that slot, so pass the raw text with `html_safe` and let `PageTitle` escape it once. Card `style:` is gone. Use `background:`, `border:`, and `shadow:`.
+- Sibling releases of Recording Studio AI, Metrics, Root Switchable, Users, API, Oauth, MCP, Logs, Site Settings, Attachable, and Cache still require `recording_studio` below 5, including the newest tags checked on 2026-10-27. Accessible `v0.22.0` and Trashable `v0.12.0` allow 6.1.0. This repository keeps its existing dummy pins and loads `test/support/widen_recording_studio_requirement.rb` from the Gemfiles. That file is not part of the installed gem. A host that bundles one of those older gems has to widen `recording_studio` the same way.
+- Site Settings `v0.5.1` still includes the removed `UsesDefaultLayout` module. Define an empty module before that controller loads. Root Switchable `v0.9.5` still passes Flatpack keywords that 0.1.319 rejects. Map `anchor_url` to close, and drop or translate Card `style:`, or upgrade that gem when a release stops passing them.
+
 ## [0.6.0] - 2026-10-23
 
 ### Changed

@@ -1,12 +1,10 @@
-<% dummy_page_nav(title: "Recordings tree", back_url: root_path) %>
+<% dummy_page_nav(
+  title: "Recordings tree",
+  subtitle: "Active dummy-app recordings shown as a nested parent/child outline.",
+  back_url: root_path
+) %>
 
 <div class="flex w-full flex-col gap-6">
-  <%= render FlatPack::PageTitle::Component.new(
-    title: "Recordings tree",
-    subtitle: "Active dummy-app recordings shown as a nested parent/child outline.",
-    variant: :h1
-  ) %>
-
   <% if @recording_tree.any? %>
     <%= render FlatPack::Tree::Component.new(compact: true) do |tree| %>
       <% @recording_tree.each do |node| %>

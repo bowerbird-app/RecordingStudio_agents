@@ -7,7 +7,7 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     assert_equal [ "all_workspaces" ], RecordingStudioRootSwitchable.configuration.scopes.keys
     assert_equal :application_layout, RecordingStudioRootSwitchable.configuration.layout
     assert_includes ApplicationController.ancestors, RecordingStudio::RootSwitchable::ControllerSupport
-    assert_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
+    refute_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
   end
 
   test "dummy app validates recordable declarations" do
@@ -143,6 +143,6 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     refute RecordingStudio.capability_enabled?(:agents, for: Folder)
     assert RecordingStudio.capability_enabled?(:agents, for: Page)
     assert_equal [ "Workspace" ], RecordingStudio.configuration.enabled_recordable_types_for(:example)
-    assert_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
+    refute_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
   end
 end
