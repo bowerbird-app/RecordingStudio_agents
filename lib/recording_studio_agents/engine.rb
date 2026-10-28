@@ -1,12 +1,9 @@
 # frozen_string_literal: true
 
 require "recording_studio_agents/filter_instructions"
-require "recording_studio_agents/extension_installer"
 
 module RecordingStudioAgents
   class Engine < ::Rails::Engine
-    extend ExtensionInstaller
-
     isolate_namespace RecordingStudioAgents
 
     initializer "recording_studio_agents.filter_instructions", before: "active_record.set_filter_attributes" do |app|
@@ -63,19 +60,6 @@ module RecordingStudioAgents
       RecordingStudioAgents.configuration.hooks.run(:after_initialize, self)
     end
 
-    # Apply model extensions when models are loaded
-    initializer "recording_studio_agents.apply_model_extensions" do
-      config.to_prepare do
-        next unless defined?(ActiveRecord::Base)
-
-        ActiveRecord::Base.descendants.each do |model|
-          next if model.abstract_class?
-
-          RecordingStudioAgents::Engine.apply_model_extensions(model)
-        end
-      end
-    end
-
     initializer "recording_studio_agents.chatkit_helper" do
       ActiveSupport.on_load(:action_controller_base) do
         helper RecordingStudioAgents::ChatKitHelper
@@ -90,17 +74,6 @@ module RecordingStudioAgents
 
     initializer "recording_studio_agents.mcp" do
       config.to_prepare { RecordingStudioAgents::Mcp.register! }
-    end
-
-    # Apply controller extensions
-    initializer "recording_studio_agents.apply_controller_extensions" do
-      config.to_prepare do
-        next unless defined?(ActionController::Base)
-
-        ActionController::Base.descendants.each do |controller|
-          RecordingStudioAgents::Engine.apply_controller_extensions(controller)
-        end
-      end
     end
   end
 end

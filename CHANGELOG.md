@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-28
+
+### Removed
+- Tracked SimpleCov output under `coverage/` and `test/dummy/coverage/`. Those directories are gitignored.
+- `docs/gem_template/` template architecture notes. Product docs stay in the README and `docs/layout.md`.
+- Dummy nested `test/dummy/.github/workflows/ci.yml`. CI is the repository workflow only.
+- Template `:example` capability (`RecordingStudio::Capabilities::Example`) and the dummy Workspace opt-in for it.
+- `RecordingStudioAgents::ExtensionInstaller` and the engine initializers that `class_eval`'d host models and controllers.
+- Empty engine root (`HomeController#index`). The mount still serves `POST /chatkit`.
+
+### Changed
+- Dummy `config.app_name` is "Recording Studio Agents Dummy".
+
+### Upgrade notes
+- No database migration.
+- Drop `include RecordingStudio::Capabilities::Example.to(...)` from host models. This gem no longer registers `:example`.
+- Host model and controller extension blocks registered on `RecordingStudioAgents.configuration.hooks` are no longer applied. Move that behavior into the host.
+- Do not request the engine root path. ChatKit remains `POST .../chatkit` on the mount.
+- v0.8.0 minor bump proposed; do not tag until Marikit confirms.
+
 ## [0.7.0] - 2026-10-27
 
 ### Changed

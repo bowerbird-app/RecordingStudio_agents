@@ -25,7 +25,7 @@ RecordingStudio.configure do |config|
   config.require_recordable_declarations = true
 
   # Shown in the shared default layout title fallback.
-  config.app_name = "Addon Template" if config.respond_to?(:app_name=)
+  config.app_name = "Recording Studio Agents Dummy" if config.respond_to?(:app_name=)
 
   # Actor resolver for events when no actor is explicitly supplied
   config.actor = -> { Current.actor }
