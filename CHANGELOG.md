@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Host model and controller extension blocks registered on `RecordingStudioAgents.configuration.hooks` are no longer applied. Move that behavior into the host.
 - Do not request the engine root path. ChatKit remains `POST .../chatkit` on the mount.
 - v0.8.0 minor bump proposed; do not tag until Marikit confirms.
+- The 0.6.0 Added line still says dummy core stayed `v4.7.0`. That was true of 0.6.0. Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`) is the 0.7.0 requirement, not a rewrite of the 0.6.0 notes.
+- `bin/rename_gem` still mentions `gem_template` in a few places. That script is unchanged in 0.8.0.
 
 ## [0.7.0] - 2026-10-27
 
@@ -50,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Dummy press kits at `/press_kits`, with photos, a scoped chat, and MCP list, show, and update. A content edit rebuilds the show-page sections. A description edit keeps the sections already stored. Attachable stays a dummy Gemfile pin. No host migration.
-- Dummy pins MCP `v0.22.0`, API `v0.16.0`, Oauth `v0.15.1`, and Logs `v0.5.0`. Recording Studio is `>= 6.1.0` (dummy GitHub tag `v6.1.0`).
+- Dummy pins MCP `v0.22.0`, API `v0.16.0`, Oauth `v0.15.1`, and Logs `v0.5.0`. Core stays `v4.7.0`.
 
 ## [0.5.0] - 2026-10-21
 
