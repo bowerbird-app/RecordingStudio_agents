@@ -132,7 +132,7 @@ class EngineTest < Minitest::Test
     refute File.exist?(File.expand_path("../app/controllers/recording_studio_agents/home_controller.rb", __dir__))
     assert_nil find_initializer("recording_studio_agents.apply_model_extensions")
     assert_nil find_initializer("recording_studio_agents.apply_controller_extensions")
-    refute RecordingStudioAgents::Engine.routes.routes.any? { |route| route.name == "root" }
+    refute(RecordingStudioAgents::Engine.routes.routes.any? { |route| route.name == "root" })
   end
 
   private
