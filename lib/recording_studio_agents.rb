@@ -27,7 +27,6 @@ end
 
 require "recording_studio_agents/engine"
 require "recording_studio_agents/configuration"
-require "recording_studio_agents/capabilities/example"
 require "recording_studio/capabilities/agents"
 require "recording_studio_agents/provider_sessions"
 require "recording_studio_agents/sessions/root_guard"

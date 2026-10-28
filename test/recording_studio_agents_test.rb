@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.7.0", ::RecordingStudioAgents::VERSION
+    assert_equal "0.8.0", ::RecordingStudioAgents::VERSION
   end
 
   def test_engine_exists
@@ -151,16 +151,13 @@ class RecordingStudioAgentsTest < Minitest::Test
     refute File.exist?(File.expand_path("../lib/recording_studio_agents/services/example_service.rb", __dir__))
   end
 
-  def test_example_capability_wraps_include_for_and_is_not_enabled_globally
-    source = File.read(File.expand_path("../lib/recording_studio_agents/capabilities/example.rb", __dir__))
+  def test_template_example_capability_and_extension_installer_are_gone
+    root = File.expand_path("..", __dir__)
 
-    assert_includes source, "def self.to(**)"
-    assert_includes source, "RecordingStudio::Capabilities.include_for(:example, **)"
-    refute_includes source, "enable_capability"
-    refute_includes source, "set_capability_options"
-    refute RecordingStudio.capability_enabled?(:example, for: "Folder")
-    refute RecordingStudio.capability_enabled?(:example, for: "Page")
-    assert_empty RecordingStudio.configuration.enabled_recordable_types_for(:example)
+    refute File.exist?(File.join(root, "lib/recording_studio_agents/capabilities/example.rb"))
+    refute File.exist?(File.join(root, "lib/recording_studio_agents/extension_installer.rb"))
+    refute File.exist?(File.join(root, "app/controllers/recording_studio_agents/home_controller.rb"))
+    refute RecordingStudio.registered_capabilities.key?(:example)
   end
 
   def test_dummy_app_uses_recording_studio_default_layout
