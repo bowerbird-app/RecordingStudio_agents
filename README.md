@@ -18,7 +18,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - FlatPack `>= 0.1.315` (dummy commit `1fcbafe94f8eb118f0a22182f63f5110fcc97a56`, version 0.1.319)
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
 - Recording Studio Users dummy GitHub tag `v0.25.2`
-- Recording Studio Oauth dummy GitHub tag `v0.15.1`
+- Oauth dummy GitHub tag `v0.15.1`
 - Recording Studio MCP dummy GitHub tag `v0.22.0`
 - Recording Studio API dummy GitHub tag `v0.16.0`
 - Recording Studio Logs dummy GitHub tag `v0.7.1`

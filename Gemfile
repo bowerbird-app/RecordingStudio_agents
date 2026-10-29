@@ -2,14 +2,15 @@
 
 source "https://rubygems.org"
 
-# Sibling gemspecs still require recording_studio below 5. See the file's comment.
+# Rewrites a recording_studio requirement that rejects 6.1.0. See the file's comment.
+# AI 0.19.1, Logs 0.7.1, and Metrics 0.7.0 already allow 6.1.0.
 require_relative "test/support/widen_recording_studio_requirement"
 
 # Specify your gem's dependencies in recording_studio_agents.gemspec
 gemspec
 
 # GitHub-only gems. The gemspec pins the versions; these lines give Bundler a source.
-# flatpack main is 0.1.319 at this commit. The newest tag is still v0.1.315.
+# Flatpack is commit 1fcbafe94f8eb118f0a22182f63f5110fcc97a56 (version 0.1.319).
 gem "flat_pack", github: "bowerbird-app/flatpack", ref: "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
 gem "recording_studio", ">= 6.1.0", github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"
 gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.19.1"

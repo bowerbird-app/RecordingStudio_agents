@@ -255,7 +255,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes readme, "dummy GitHub tag `v0.7.0`"
     refute_includes readme, "dummy GitHub tag `v4.5.0`"
     refute_includes readme, "dummy GitHub tag `v0.1.254`"
-    assert_includes readme, "dummy GitHub tag `v0.15.1`"
+    assert_includes readme, "Oauth dummy GitHub tag `v0.15.1`"
     assert_includes readme, "dummy GitHub tag `v0.22.0`"
     assert_includes readme, "dummy GitHub tag `v0.16.0`"
     assert_includes readme, "dummy GitHub tag `v0.7.1`"
