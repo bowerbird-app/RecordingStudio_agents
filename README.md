@@ -9,19 +9,19 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Ruby 3.3 or newer
 - Rails 8.1
 - Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`)
-- Recording Studio AI `~> 0.15.1` (dummy GitHub tag `v0.15.1`)
-- Recording Studio Metrics dummy GitHub tag `v0.3.1`
+- Recording Studio AI `~> 0.19.0` (dummy GitHub tag `v0.19.1`)
+- Recording Studio Metrics dummy GitHub tag `v0.7.0`
 - Accessible dummy GitHub tag `v0.20.0`
-- Trashable dummy GitHub tag `v0.11.1`
-- Root Switchable dummy GitHub tag `v0.9.5`
+- Trashable dummy GitHub tag `v0.11.3`
+- Root Switchable dummy GitHub tag `v0.9.7`
 - Cache dummy GitHub tag `v0.5.1`
 - FlatPack `>= 0.1.315` (dummy commit `1fcbafe94f8eb118f0a22182f63f5110fcc97a56`, version 0.1.319)
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
-- Recording Studio Users dummy GitHub tag `v0.24.0`
+- Recording Studio Users dummy GitHub tag `v0.25.2`
 - Recording Studio Oauth dummy GitHub tag `v0.15.1`
 - Recording Studio MCP dummy GitHub tag `v0.22.0`
 - Recording Studio API dummy GitHub tag `v0.16.0`
-- Recording Studio Logs dummy GitHub tag `v0.5.0`
+- Recording Studio Logs dummy GitHub tag `v0.7.1`
 - Recording Studio Admin dummy GitHub tag `v2.3.3`
 - Site Settings dummy GitHub tag `v0.5.1`
 
@@ -35,12 +35,13 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
 gem "flat_pack", github: "bowerbird-app/flatpack", ref: "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
 gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.15.1"
-gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.3.1"
+gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.19.1"
+gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.1"
+gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.7.0"
 gem "view_component", "4.19.0"
 ```
 
-Sibling gems pinned in this repository still declare `recording_studio` below 5. Checked on 2026-10-27, the newest tags of Recording Studio AI, Metrics, Root Switchable, Users, API, Oauth, MCP, Logs, Site Settings, Attachable, and Cache still do. Accessible `v0.22.0` and Trashable `v0.12.0` allow `>= 6.1.0`. This repository keeps the dummy pins listed under Requirements, because those pins are what the MCP stamp and the metrics `< 0.4` constraint were verified against. Both Gemfiles load `test/support/widen_recording_studio_requirement.rb` before Bundler reads gemspecs, and that file rewrites a `recording_studio` requirement that rejects 6.1.0 into `>= 6.1.0`. The file is not part of the installed gem. A host Gemfile that includes one of those older gems has to widen the requirement the same way.
+Recording Studio AI `v0.19.1`, Metrics `v0.7.0`, and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. Several other dummy pins still declare `recording_studio` below 5, including Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, API, Oauth, MCP, Site Settings, and Cache. Both Gemfiles load `test/support/widen_recording_studio_requirement.rb` before Bundler reads gemspecs. That file rewrites a `recording_studio` requirement that rejects 6.1.0 into `>= 6.1.0`. It is not part of the installed gem. A host Gemfile that includes one of those older gems has to widen the requirement the same way.
 
 Register the recordable, opt a parent type into `:agents`, and copy migrations:
 
@@ -120,7 +121,7 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 
 The dummy app validates the engine in a host with Recording Studio Users, Oauth, MCP, FlatPack, and Recording Studio's default layout. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. ChatKit keeps that session. MCP at `/recording_studio_mcp` uses an Oauth bearer token.
 
-The dummy also has press kits at `/press_kits`. A kit is a recordable with the agents capability, so a chat can be scoped to it, and Attachable dummy GitHub tag `v0.20.1` stores its photos. That pin lives in the dummy Gemfile only. It is not a gemspec dependency. MCP `list`, `show`, and `update` on type `PressKit` read and edit kits in the granted workspace. A successful generic `update` and `agent_chats_create` both store the OAuth client as the event actor and the approving person in `authorized_by_type` and `authorized_by_id`. A client that sends `authorized_by_type`, `authorized_by_id`, or `metadata` on `update` is refused, because those are not writable fields. The same arguments on `agent_chats_create` are dropped, and the stored event keeps the server stamp.
+The dummy also has press kits at `/press_kits`. A kit is a recordable with the agents capability, so a chat can be scoped to it, and Attachable dummy GitHub tag `v0.20.2` stores its photos. That pin lives in the dummy Gemfile only. It is not a gemspec dependency. MCP `list`, `show`, and `update` on type `PressKit` read and edit kits in the granted workspace. A successful generic `update` and `agent_chats_create` both store the OAuth client as the event actor and the approving person in `authorized_by_type` and `authorized_by_id`. A client that sends `authorized_by_type`, `authorized_by_id`, or `metadata` on `update` is refused, because those are not writable fields. The same arguments on `agent_chats_create` are dropped, and the stored event keeps the server stamp.
 
 ## MCP
 

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-29
+
+### Changed
+- Require Recording Studio AI `~> 0.19.0`. The dummy pins AI `v0.19.1` and Metrics `v0.7.0`. AI `v0.15.1` through `v0.18.1` still require Recording Studio `~> 4.7`, so they cannot install beside this gem's Recording Studio `>= 6.1.0`.
+- The root Gemfile sources Recording Studio Logs from GitHub at `v0.7.1`. AI 0.19.1 depends on Logs `>= 0.4.1`, `< 1.0`, and Logs is not published on RubyGems. Logs `v0.7.0` requires Metrics `~> 0.6.1`, which rejects Metrics 0.7.0. Logs `v0.7.1` allows Metrics `>= 0.6.1`, `< 1.0` and Recording Studio `>= 6.1.0`. This gem does not call Logs. AI 0.19.1 still registers with the same `RecordingStudioLogs.register` keywords Logs 0.5.0 accepted.
+- Dummy pins that blocked Metrics 0.7.0 move to Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, and Attachable `v0.20.2`. The dummy Logs pin moves to `v0.7.1`.
+
+### Upgrade notes
+- No database migration.
+- Hosts need Recording Studio AI 0.19.x. AI 0.19.1 needs Recording Studio `>= 6.1.0`, Logs `>= 0.4.1`, `< 1.0`, and Metrics `>= 0.3.0`, `< 1.0`.
+- Add a GitHub source for Logs. Logs `v0.7.1` resolves with Metrics 0.7.0. Logs `v0.7.0` does not.
+- Trashable `v0.11.1`, Users `v0.24.0`, Root Switchable `v0.9.5`, and Attachable `v0.20.1` still cap Metrics below 0.4 or 0.6. A host that keeps those tags cannot resolve Metrics 0.7.0.
+
 ## [0.8.0] - 2026-10-28
 
 ### Removed
