@@ -17,8 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A sign-in prompt for signed-out visitors, using `config.sign_in_path` (default `/users/sign_in`). English and French copy.
 - `POST /chatkit` returns 401 when no actor is signed in, and 403 when execute is denied.
 
+### Changed
+- A new chat sends `config.provider` to Recording Studio AI only when that name is listed in `allowed_provider_overrides`. The default `openai` stays for ChatKit readiness. Recording Studio AI treats a provider argument as an override, and the default is not one, so a chat no longer fails with "Provider override openai is not enabled".
+
 ### Upgrade notes
 - No database migration.
+- Hosts that need to force a provider on a new chat add that name to Recording Studio AI `config.allowed_provider_overrides`. Leaving the list empty keeps the profile's model.
 - In `config/initializers/recording_studio_ai.rb`, set `config.authorization_handler = RecordingStudioAgents::SignedInAuthorization.method(:call)` or the first chat message stays forbidden. Do not use a handler that allows every action.
 - Point the Embeddable floating launcher iframe at `recording_studio_agents.popup_path`.
 - Add staging and production origins with `config.chatkit_allowed_origins` or `CHATKIT_ALLOWED_ORIGINS`, and register those origins on the OpenAI domain allowlist.

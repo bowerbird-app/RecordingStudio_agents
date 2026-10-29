@@ -80,8 +80,21 @@ module RecordingStudioAgents
       def provider_args
         {
           instructions: instructions, profile: profile, input: @input, idempotency_key: @idempotency_key,
-          purpose: purpose, provider: configuration.provider, **attribution
+          purpose: purpose, **provider_override, **attribution
         }
+      end
+
+      # Recording Studio AI treats a provider argument as an override. The default
+      # name on this gem is only for ChatKit readiness, so it is omitted unless
+      # the host has allowed that override.
+      def provider_override
+        name = configuration.provider
+        return {} if name.blank?
+
+        allowed = Array(RecordingStudioAI.configuration.allowed_provider_overrides)
+        return {} unless allowed.map { |entry| entry.to_s.strip.downcase }.include?(name)
+
+        { provider: name }
       end
 
       def attribution
