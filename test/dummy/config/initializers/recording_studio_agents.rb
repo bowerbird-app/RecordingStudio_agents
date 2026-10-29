@@ -3,6 +3,10 @@
 RecordingStudioAgents.configure do |config|
   config.instructions = "Answer in one sentence."
   config.chatkit_domain_key = ENV["CHATKIT_DOMAIN_KEY"].presence
+  config.sign_in_path = "/users/sign_in"
+  if ENV["CHATKIT_ALLOWED_ORIGINS"].present?
+    config.chatkit_allowed_origins = ENV["CHATKIT_ALLOWED_ORIGINS"]
+  end
   config.request_actor = lambda do |controller|
     user = controller.request.env["warden"]&.user(:user)
     Current.actor = user if defined?(Current)

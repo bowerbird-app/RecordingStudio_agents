@@ -8,12 +8,16 @@ module RecordingStudioAgents
 
     def create
       actor = resolve(:request_actor)
+      return signed_out if actor.blank?
+
       root = resolve(:request_root)
-      return render_error("sign in is required", 401) if actor.blank? || root.blank?
+      return signed_out if root.blank?
 
       render_result chat_result(actor, root)
     rescue ChatKit::ProtocolError => e
       render_error(e.message, e.status)
+    rescue RecordingStudioAI::Errors::ContractValidationError => e
+      render_error(e.message, e.code.to_s == "authorization" ? 403 : 400)
     end
 
     private
@@ -48,6 +52,10 @@ module RecordingStudioAgents
       response.headers["Content-Type"] = "text/event-stream"
       response.headers["Cache-Control"] = "no-cache"
       response.headers["X-Accel-Buffering"] = "no"
+    end
+
+    def signed_out
+      render_error("sign in is required", 401)
     end
 
     def resolve(name)

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html data-theme="rounded" class="h-full">
+  <head>
+    <title><%= t("recording_studio_agents.popups.show.document_title") %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "flat_pack/variables", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "flat_pack/application", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
+  </head>
+
+  <body class="m-0 h-dvh overflow-hidden bg-(--surface-page-background-color) text-(--surface-content-color)">
+    <%= yield %>
+  </body>
+</html>

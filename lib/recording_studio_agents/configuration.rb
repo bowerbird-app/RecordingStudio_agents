@@ -1,8 +1,52 @@
 # frozen_string_literal: true
 
 module RecordingStudioAgents
+  # Popup framing origins and the host sign-in path.
+  module ChatkitHostSettings
+    DEFAULT_CHATKIT_ALLOWED_ORIGINS = %w[http://localhost:3000 http://127.0.0.1:3000].freeze
+    DEFAULT_SIGN_IN_PATH = "/users/sign_in"
+    ORIGIN_PATTERN = %r{\Ahttps?://[^/\s]+\z}i
+
+    def chatkit_allowed_origins
+      @chatkit_allowed_origins ||= DEFAULT_CHATKIT_ALLOWED_ORIGINS.dup
+    end
+
+    def chatkit_allowed_origins=(value)
+      @chatkit_allowed_origins = normalize_origins(value)
+    end
+
+    def sign_in_path=(value)
+      if value.nil?
+        @sign_in_path = nil
+        return
+      end
+
+      raise Error, "sign_in_path must be a path or a lambda" unless value.is_a?(String) || value.respond_to?(:call)
+
+      @sign_in_path = value
+    end
+
+    def sign_in_path
+      @sign_in_path.presence || DEFAULT_SIGN_IN_PATH
+    end
+
+    private
+
+    def normalize_origins(value)
+      entries = value.is_a?(String) ? value.split(",") : Array(value)
+      origins = entries.flat_map { |entry| entry.to_s.split(",") }.map(&:strip).reject(&:empty?)
+      origins.each do |origin|
+        raise Error, "chatkit_allowed_origins must be http(s) origins" unless ORIGIN_PATTERN.match?(origin)
+      end
+      origins
+    end
+  end
+
   class Configuration
+    include ChatkitHostSettings
+
     OVERRIDE_GATES = %i[none admin edit].freeze
+    DEFAULT_CHATKIT_ALLOWED_ORIGINS = ChatkitHostSettings::DEFAULT_CHATKIT_ALLOWED_ORIGINS
 
     attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key
     attr_reader :hooks, :default_profile, :retention_period, :provider, :instructions_override,

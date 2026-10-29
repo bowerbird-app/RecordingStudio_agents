@@ -21,16 +21,36 @@ class AgentSessionsTest < ActiveSupport::TestCase
     RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
   end
 
-  test "create passes a padded provider name as openai" do
+  test "create passes a padded provider name as openai when that override is allowed" do
     configuration = RecordingStudioAgents.configuration
+    ai = RecordingStudioAI.configuration
     previous = configuration.provider
+    previous_overrides = ai.allowed_provider_overrides
     configuration.provider = " OpenAI "
+    ai.allowed_provider_overrides = [:openai]
 
     create_chat("hello", key: "provider-name")
 
     assert_equal "openai", @calls[:create_session].first[:provider]
   ensure
     configuration.provider = previous if defined?(configuration) && configuration
+    ai.allowed_provider_overrides = previous_overrides if defined?(ai) && ai
+  end
+
+  test "create omits the default provider when that override is not allowed" do
+    configuration = RecordingStudioAgents.configuration
+    ai = RecordingStudioAI.configuration
+    previous = configuration.provider
+    previous_overrides = ai.allowed_provider_overrides
+    configuration.provider = "openai"
+    ai.allowed_provider_overrides = []
+
+    create_chat("hello", key: "provider-omitted")
+
+    assert_nil @calls[:create_session].first[:provider]
+  ensure
+    configuration.provider = previous if defined?(configuration) && configuration
+    ai.allowed_provider_overrides = previous_overrides if defined?(ai) && ai
   end
 
   test "create records a chat binding and user item" do

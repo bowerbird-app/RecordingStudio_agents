@@ -1,7 +1,16 @@
-<%= render FlatPack::Card::Component.new(background: :default, padding: :none, class: "w-full") do %>
-  <div class="overflow-hidden rounded-[var(--card-radius)]">
-    <openai-chatkit id="recording-studio-agents-chatkit" class="block w-full h-[min(40rem,calc(100dvh-16rem))]"></openai-chatkit>
-  </div>
+<% full_bleed = local_assigns[:fill] %>
+<% chat_classes = full_bleed ? "block h-dvh w-full" : "block w-full h-[min(40rem,calc(100dvh-16rem))]" %>
+<% chat = capture do %>
+  <openai-chatkit id="recording-studio-agents-chatkit" class="<%= chat_classes %>"></openai-chatkit>
+<% end %>
+<% if full_bleed %>
+  <%= chat %>
+<% else %>
+  <%= render FlatPack::Card::Component.new(background: :default, padding: :none, class: "w-full") do %>
+    <div class="overflow-hidden rounded-[var(--card-radius)]">
+      <%= chat %>
+    </div>
+  <% end %>
 <% end %>
 <script src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js" async></script>
 <%= javascript_tag do %>
