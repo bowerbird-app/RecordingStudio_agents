@@ -2,9 +2,9 @@
 
 module RecordingStudioAgents
   module ChatKitHelper
-    def recording_studio_agents_chatkit(endpoint: nil, page_recording: nil, chatkit_options: nil)
+    def recording_studio_agents_chatkit(endpoint: nil, page_recording: nil, chatkit_options: nil, fill: false)
       append_chatkit_views
-      render partial: chatkit_partial, locals: chatkit_locals(endpoint, page_recording, chatkit_options)
+      render partial: chatkit_partial, locals: chatkit_locals(endpoint, page_recording, chatkit_options, fill)
     end
 
     private
@@ -20,13 +20,14 @@ module RecordingStudioAgents
       ChatKit::Readiness.configured? ? "recording_studio_agents/chatkit/frame" : "recording_studio_agents/chatkit/setup"
     end
 
-    def chatkit_locals(endpoint, page_recording, chatkit_options)
+    def chatkit_locals(endpoint, page_recording, chatkit_options, fill)
       {
         endpoint: scoped_endpoint(endpoint, page_recording),
         chatkit_options: resolved_chatkit_options(chatkit_options),
         missing: ChatKit::Readiness.missing,
         credential: ChatKit::Readiness.credential,
-        credential_label: ChatKit::Readiness.credential_label
+        credential_label: ChatKit::Readiness.credential_label,
+        fill: fill
       }
     end
 

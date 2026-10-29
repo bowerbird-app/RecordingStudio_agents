@@ -43,6 +43,11 @@ class ConfigurationTest < Minitest::Test
     assert_equal "openai", configuration.provider
     assert_equal 30.days, configuration.retention_period
     assert_equal({}, configuration.chatkit_options)
+    assert_equal(
+      RecordingStudioAgents::Configuration::DEFAULT_CHATKIT_ALLOWED_ORIGINS,
+      configuration.chatkit_allowed_origins
+    )
+    assert_equal "/users/sign_in", configuration.sign_in_path
     assert_nil configuration.layout
     assert_instance_of RecordingStudio::Hooks, configuration.hooks
   end
@@ -145,5 +150,41 @@ class ConfigurationTest < Minitest::Test
     RecordingStudioAgents.configure
 
     assert_kind_of RecordingStudioAgents::Configuration, RecordingStudioAgents.configuration
+  end
+
+  def test_chatkit_allowed_origins_accept_a_comma_separated_list
+    @configuration.chatkit_allowed_origins = " https://staging.example ,https://app.example "
+
+    assert_equal ["https://staging.example", "https://app.example"], @configuration.chatkit_allowed_origins
+  end
+
+  def test_chatkit_allowed_origins_reject_a_path
+    error = assert_raises(RecordingStudioAgents::Error) do
+      @configuration.chatkit_allowed_origins = "https://app.example/chat"
+    end
+
+    assert_match "http(s) origins", error.message
+    assert_equal(
+      RecordingStudioAgents::Configuration::DEFAULT_CHATKIT_ALLOWED_ORIGINS,
+      @configuration.chatkit_allowed_origins
+    )
+  end
+
+  def test_sign_in_path_accepts_a_string_or_a_lambda
+    @configuration.sign_in_path = "/login"
+    assert_equal "/login", @configuration.sign_in_path
+
+    callable = ->(controller) { controller }
+    @configuration.sign_in_path = callable
+    assert_equal callable, @configuration.sign_in_path
+
+    @configuration.sign_in_path = nil
+    assert_equal "/users/sign_in", @configuration.sign_in_path
+  end
+
+  def test_sign_in_path_rejects_a_number
+    assert_raises(RecordingStudioAgents::Error) { @configuration.sign_in_path = 1 }
+
+    assert_equal "/users/sign_in", @configuration.sign_in_path
   end
 end

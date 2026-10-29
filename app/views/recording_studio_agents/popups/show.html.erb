@@ -1,0 +1,20 @@
+<% if @actor.present? %>
+  <%= recording_studio_agents_chatkit(fill: true) %>
+<% else %>
+  <div class="flex h-dvh w-full items-center justify-center p-6">
+    <%= render FlatPack::EmptyState::Component.new(
+      title: t(".sign_in_title"),
+      description: t(".sign_in_description"),
+      width: :sm
+    ) do |empty| %>
+      <% empty.item do %>
+        <%= render FlatPack::Button::Component.new(
+          text: t(".sign_in_action"),
+          href: popup_sign_in_path,
+          style: :primary,
+          target: "_top"
+        ) %>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>

@@ -9,7 +9,11 @@ RecordingStudioAgents.configure do |config|
   # config.purpose = "agent_chat"
   # config.provider = "openai"
   # config.retention_period = 30.days
-  # config.chatkit_domain_key = ENV.fetch("CHATKIT_DOMAIN_KEY", nil)
+  # config.chatkit_domain_key = ENV["CHATKIT_DOMAIN_KEY"].presence
+  # Popup framing. Defaults are http://localhost:3000 and http://127.0.0.1:3000.
+  # Staging and production: CHATKIT_ALLOWED_ORIGINS is a comma-separated list of origins.
+  # config.chatkit_allowed_origins = ENV["CHATKIT_ALLOWED_ORIGINS"] if ENV["CHATKIT_ALLOWED_ORIGINS"].present?
+  # config.sign_in_path = "/users/sign_in"
   # Hash or lambda { |controller, purpose| }. Per-call chatkit_options override this.
   # Keys match ChatKit: startScreen, theme, header, composer, history, initialThread.
   # config.chatkit_options = {}
