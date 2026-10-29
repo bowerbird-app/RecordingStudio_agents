@@ -5,14 +5,14 @@
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`)
-- Recording Studio AI `~> 0.15.1` (dummy GitHub tag `v0.15.1`)
-- Metrics dummy tag `v0.3.1`
-- Accessible dummy tag `v0.20.0`, Trashable dummy tag `v0.11.1` (`require: false`), and Root Switchable dummy tag `v0.9.5`
+- Recording Studio AI `~> 0.19.0` (dummy GitHub tag `v0.19.1`)
+- Metrics dummy tag `v0.7.0`
+- Logs dummy tag `v0.7.1` (GitHub-only; AI 0.19.1 depends on it)
+- Accessible dummy tag `v0.20.0`, Trashable dummy tag `v0.11.3` (`require: false`), and Root Switchable dummy tag `v0.9.7`
 - Cache dummy tag `v0.5.1`
 - FlatPack `>= 0.1.315` at commit `1fcbafe94f8eb118f0a22182f63f5110fcc97a56` (version 0.1.319). Oauth requires `~> 0.1.198`, which this commit satisfies.
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
-- Users dummy tag `v0.24.0`, Oauth dummy tag `v0.12.5`, MCP dummy tag `v0.19.1`, API dummy tag `v0.11.4`, Admin dummy tag `v2.3.3`, Site Settings dummy tag `v0.5.1`
-- Metrics stays `v0.3.1` because MCP, Root Switchable, and Trashable `v0.11.1` require metrics `< 0.4`
+- Users dummy tag `v0.25.2`, Oauth dummy tag `v0.15.1`, MCP dummy tag `v0.22.0`, API dummy tag `v0.16.0`, Admin dummy tag `v2.3.3`, Site Settings dummy tag `v0.5.1`, Attachable dummy tag `v0.20.2` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
 
 ## Layout
@@ -27,9 +27,9 @@ On a screen, set `content_for :title` and, when you have one, `content_for :subt
 
 ## Sibling gems
 
-The dummy keeps the pins in the Requirements list. On 2026-10-27 the newest tags of Recording Studio AI (`v0.18.1`), Metrics (`v0.6.1`), Root Switchable (`v0.10.0`), Users (`v0.25.2`), API (`v0.16.0`), Oauth (`v0.17.0`), MCP (`v0.23.0`), Logs (`v0.7.0`), Site Settings (`v0.5.1`), Attachable (`v0.21.1`), and Cache (`v0.5.1`) still require `recording_studio` below 5. Accessible `v0.22.0` and Trashable `v0.12.0` allow `>= 6.1.0`. Both Gemfiles require `test/support/widen_recording_studio_requirement.rb` so Bundler can resolve 6.1.0 beside the older pins. That file is not installed with the gem.
+The dummy keeps the pins in the Requirements list. AI `v0.19.1`, Metrics `v0.7.0`, and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, and the other dummy pins listed above still declare `recording_studio` below 5. Both Gemfiles require `test/support/widen_recording_studio_requirement.rb` so Bundler can resolve 6.1.0 beside those pins. That file is not installed with the gem.
 
-Site Settings `v0.5.1` still includes `RecordingStudio::UsesDefaultLayout`. The dummy defines an empty module in `test/dummy/config/application.rb` until that gem stops. Root Switchable `v0.9.5` still passes PageNav `anchor_url` / `anchor_label` and Card `style:`. `test/dummy/config/initializers/flatpack_removed_kwargs.rb` accepts those keywords. A host on the same pins needs the same two shims.
+Site Settings `v0.5.1` still includes `RecordingStudio::UsesDefaultLayout`. The dummy defines an empty module in `test/dummy/config/application.rb` until that gem stops. Root Switchable `v0.9.7` still passes PageNav `anchor_url` / `anchor_label` and Card `style:`. `test/dummy/config/initializers/flatpack_removed_kwargs.rb` accepts those keywords. A host on the same pins needs the same two shims.
 
 ## Host migration
 

@@ -8,33 +8,35 @@ gem "recording_studio_agents", path: "../.."
 
 # RecordingStudio engine
 gem "recording_studio", ">= 6.1.0", github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.15.1"
+gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.19.1"
 gem "recording_studio_accessible", github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.20.0"
 # Required by accessible for trashable query helpers (GitHub-only; not on RubyGems).
-# Oauth, Admin, and API allow "~> 0.10", so v0.11.1 is the newest fit.
-gem "recording_studio_trashable", github: "bowerbird-app/RecordingStudio_trashable", tag: "v0.11.1", require: false
+# Pinned at v0.11.3. v0.11.1 requires metrics >= 0.3.0, < 0.4.
+# Oauth, Admin, and API allow trashable "~> 0.10".
+gem "recording_studio_trashable", github: "bowerbird-app/RecordingStudio_trashable", tag: "v0.11.3", require: false
 
 # Root switcher for the top nav
-gem "recording_studio_root_switchable", github: "bowerbird-app/RecordingStudio_root_switchable", tag: "v0.9.5"
+gem "recording_studio_root_switchable", github: "bowerbird-app/RecordingStudio_root_switchable", tag: "v0.9.7"
 
 # Session identity. Users keeps the host User model and Devise.
-gem "recording_studio_user", github: "bowerbird-app/RecordingStudio_users", tag: "v0.24.0"
+gem "recording_studio_user", github: "bowerbird-app/RecordingStudio_users", tag: "v0.25.2"
 
 # Bearer tokens for the API and MCP. Pinned by tag, not branch.
 gem "recording_studio_api", github: "bowerbird-app/RecordingStudio_api", tag: "v0.16.0"
 gem "recording_studio_oauth", github: "bowerbird-app/RecordingStudio_Oauth", tag: "v0.15.1"
 gem "recording_studio_mcp", github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.22.0"
 # API 0.16 and MCP 0.22 register logs. GitHub-only, so Bundler needs this source.
-gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.5.0"
+# v0.7.1 allows metrics 0.7.0. v0.7.0 requires metrics ~> 0.6.1, which rejects it.
+gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.1"
 gem "recording_studio_admin", github: "bowerbird-app/RecordingStudio_admin", tag: "v2.3.3"
-# Oauth allows "~> 0.2", so v0.5.1 is the newest fit.
+# Pinned at v0.5.1. Oauth allows site settings "~> 0.2".
 gem "recording_studio_site_settings", github: "bowerbird-app/RecordingStudio_site_settings", tag: "v0.5.1"
 
 # Dummy app only. Not a recording_studio_agents gemspec dependency.
-# Users, Oauth, and Site Settings also need this source. Pinned to the latest release.
-gem "recording_studio_attachable", github: "bowerbird-app/RecordingStudio_attachable", tag: "v0.20.1", require: false
-# AI, Root Switchable, and v0.11 Trashable require metrics < 0.4, so v0.3.1 stays.
-gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.3.1"
+# Users, Oauth, and Site Settings also need this source.
+# Pinned at v0.20.2. v0.20.1 requires metrics >= 0.3.0, < 0.6.
+gem "recording_studio_attachable", github: "bowerbird-app/RecordingStudio_attachable", tag: "v0.20.2", require: false
+gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.7.0"
 # Required by root_switchable (GitHub-only; not on RubyGems)
 gem "recording_studio_cache", github: "bowerbird-app/RecordingStudio_cache", tag: "v0.5.1"
 
@@ -62,7 +64,7 @@ gem "jbuilder"
 gem "tailwindcss-rails"
 
 # FlatPack UI component library [https://github.com/bowerbird-app/flatpack]
-# Oauth requires flat_pack ~> 0.1.198. Main is 0.1.319 at this commit. The newest tag is v0.1.315.
+# Oauth requires flat_pack ~> 0.1.198. Pinned to commit 1fcbafe94f8eb118f0a22182f63f5110fcc97a56 (version 0.1.319).
 gem "flat_pack", ">= 0.1.315", github: "bowerbird-app/flatpack", ref: "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
 gem "view_component", "4.19.0"
 

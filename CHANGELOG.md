@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-29
+
+### Changed
+- Require Recording Studio AI `~> 0.19.0`. The dummy pins AI `v0.19.1` and Metrics `v0.7.0`. AI `v0.15.1` through `v0.18.1` still require Recording Studio `~> 4.7`, so they cannot install beside this gem's Recording Studio `>= 6.1.0`.
+- The root Gemfile sources Recording Studio Logs from GitHub at `v0.7.1`. AI 0.19.1 depends on Logs `>= 0.4.1`, `< 1.0`, and Logs is not published on RubyGems. Logs `v0.7.0` requires Metrics `~> 0.6.1`, which rejects Metrics 0.7.0. Logs `v0.7.1` allows Metrics `>= 0.6.1`, `< 1.0` and Recording Studio `>= 6.1.0`. This gem does not call Logs. AI 0.19.1 still registers with the same `RecordingStudioLogs.register` keywords Logs 0.5.0 accepted.
+- Dummy pins that rejected Metrics 0.7.0 move to Trashable `v0.11.3`, Root Switchable `v0.9.7`, and Attachable `v0.20.2`. Users moves to `v0.25.2`. The dummy Logs pin moves to `v0.7.1`.
+
+### Host upgrade notes
+Hosts moving to `recording_studio_ai ~> 0.19`, Metrics 0.7, and Logs 0.7.1:
+
+- This agents gem adds no migration of its own. AI and Logs do.
+- Recording Studio AI `v0.19.1` requires `recording_studio >= 6.1.0`, `recording_studio_logs >= 0.4.1, < 1.0`, and `recording_studio_metrics >= 0.3.0, < 1.0`. AI 0.19.0 removed `RecordingStudio::UsesDefaultLayout`. Metrics `v0.7.0` requires `recording_studio >= 6.1.0`. Logs `v0.7.1` requires `recording_studio >= 6.1.0` and `recording_studio_metrics >= 0.6.1, < 1.0`. Logs `v0.7.0` requires Metrics `~> 0.6.1`, which rejects Metrics 0.7.0. Add a GitHub source for Logs. It is not published on RubyGems.
+- AI 0.18.0 added `db/migrate/20261021120000_add_root_recording_id_to_recording_studio_ai_call_logs.rb` (`AddRootRecordingIdToRecordingStudioAICallLogs`). That file is on the `v0.19.1` tag and was not on `v0.17.1`. AI's 0.18.0 upgrade notes install it with `bin/rails recording_studio_ai:install:migrations`, then `bin/rails db:migrate`. The `recording_studio_ai:install` generator copies the initializer and the engine mount. It does not copy migrations.
+- AI 0.18.0 depends on Recording Studio Logs. Logs 0.6.0 and later must be migrated before boot. Logs `v0.7.1` documents `bin/rails generate recording_studio_logs:migrations`, then `bin/rails db:migrate`. That generator copies `20261015000001_create_recording_studio_logs_runs.rb` and `20261021000001_rename_aggregation_run_day_to_period_start.rb`. The rename is the 0.6.0 change from aggregation run `day` to `period_start`.
+- Metrics 0.7.0 was blocked by Trashable `v0.11.1` (`recording_studio_metrics >= 0.3.0, < 0.4`), Root Switchable `v0.9.5` (`>= 0.3.0, < 0.4`), and Attachable `v0.20.1` (`>= 0.3.0, < 0.6`). Users `v0.24.0` requires Metrics `~> 0.3`, which is `>= 0.3` and `< 1.0`, so that pin accepts Metrics 0.7.0.
+
 ## [0.8.0] - 2026-10-28
 
 ### Removed
