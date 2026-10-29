@@ -1,0 +1,8 @@
+fr:
+  recording_studio_agents:
+    popups:
+      show:
+        document_title: "Discussion"
+        sign_in_title: "Connectez-vous pour discuter"
+        sign_in_description: "Vos discussions restent sur votre compte."
+        sign_in_action: "Se connecter"

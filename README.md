@@ -117,6 +117,46 @@ config.chatkit_domain_key = ENV.fetch("CHATKIT_DOMAIN_KEY", nil)
 
 The dummy page at `/agent-chat` uses the same helper. With neither key set, it shows the setup notice and does not call OpenAI.
 
+## Popup
+
+Mount the engine, then open `GET /recording_studio_agents/popup` (`recording_studio_agents.popup_path`). Point Embeddable's floating launcher iframe at that URL. The page lives in Agents and renders `recording_studio_agents_chatkit` in a bare layout that fills the iframe. It does not use Embeddable's `FloatingWidget::Interactive`, and it does not take a page. The chat uses the workspace from `config.request_root` (Root Switchable's current root).
+
+Pass `fill: true` to the helper when a host screen should use the same full-height chat. The popup does that. Other screens keep the card height.
+
+### Framing and content security policy
+
+Only the popup action sets a content security policy. The rest of the app keeps its own policy. The popup allows the ChatKit script (`https://cdn.platform.openai.com`), connections to that host and `https://api.openai.com`, and a frame from the ChatKit host. `frame-ancestors` is `'self'` plus `config.chatkit_allowed_origins`. The action drops `X-Frame-Options` so those origins can frame the page.
+
+The default origins are `http://localhost:3000` and `http://127.0.0.1:3000`. Add staging and production later in the initializer, or with `CHATKIT_ALLOWED_ORIGINS` (comma-separated, scheme and port included):
+
+```ruby
+config.chatkit_allowed_origins = ENV["CHATKIT_ALLOWED_ORIGINS"] if ENV["CHATKIT_ALLOWED_ORIGINS"].present?
+config.chatkit_domain_key = ENV["CHATKIT_DOMAIN_KEY"].presence
+```
+
+Register those same origins in the [OpenAI domain allowlist](https://platform.openai.com/settings/organization/security/domain-allowlist) and put the domain key in `CHATKIT_DOMAIN_KEY`. An origin must be an `http` or `https` origin with no path.
+
+### Who can run an agent
+
+Recording Studio AI denies every action until the host sets `authorization_handler`. A denied `recording_studio_ai.execute` used to raise on the first message. Allow that one action for any signed-in actor. In `config/initializers/recording_studio_ai.rb`:
+
+```ruby
+config.authorization_handler = RecordingStudioAgents::SignedInAuthorization.method(:call)
+```
+
+The handler returns true only when the action is `recording_studio_ai.execute` and the attribution has an initiator. Other AI actions stay denied. The dummy app sets this. Copy it into the host. It does not replace Recording Studio Accessible: creating a chat still needs edit access on the workspace.
+
+A signed-out visitor sees a sign-in prompt instead of the chat. The button uses `config.sign_in_path`, which defaults to `/users/sign_in`. A string is a path. A lambda receives the controller:
+
+```ruby
+config.sign_in_path = "/users/sign_in"
+config.sign_in_path = ->(controller) { controller.main_app.new_user_session_path }
+```
+
+`POST /recording_studio_agents/chatkit` with no actor returns 401. A signed-in actor who is not allowed to execute returns 403.
+
+The sign-in copy is in `config/locales/en.yml` and `config/locales/fr.yml`.
+
 ## Dummy app
 
 The dummy app validates the engine in a host with Recording Studio Users, Oauth, MCP, FlatPack, and Recording Studio's default layout. Sign in at `/users/sign_in` with `admin@admin.com` / `Password`. ChatKit keeps that session. MCP at `/recording_studio_mcp` uses an Oauth bearer token.

@@ -1,0 +1,8 @@
+en:
+  recording_studio_agents:
+    popups:
+      show:
+        document_title: "Chat"
+        sign_in_title: "Sign in to chat"
+        sign_in_description: "Your chats stay on your account."
+        sign_in_action: "Sign in"
