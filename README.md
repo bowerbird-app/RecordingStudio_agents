@@ -7,7 +7,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 ## Requirements
 
 - Ruby 3.3 or newer
-- Rails 8.1
+- Rails 8.1 (this repository locks `8.1.4.1`)
 - Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`)
 - Recording Studio AI `~> 0.19.0` (dummy GitHub tag `v0.19.1`)
 - Recording Studio Metrics dummy GitHub tag `v0.7.0`
