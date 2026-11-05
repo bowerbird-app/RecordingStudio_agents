@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-05
+
+### Changed
+- Lock Rails at `8.1.4.1` in the gem and dummy lockfiles, with rack `3.2.8`, nokogiri `1.19.7`, loofah `2.25.3`, and rails-html-sanitizer `1.7.2`. Dummy `net-ssh` stays `7.3.8`. Bundler also pulled `io-console` `0.9.5` and `rack-test` `2.3.0`.
+
+### Host upgrade notes
+- No API or migration change. Hosts should `bundle update rails rack nokogiri loofah rails-html-sanitizer` (and `net-ssh` if locked) to the same floors. Do not tag this version until the PR merges.
+
 ## [0.9.0] - 2026-10-29
 
 ### Changed
