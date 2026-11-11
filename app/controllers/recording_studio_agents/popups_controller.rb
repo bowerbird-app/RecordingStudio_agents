@@ -7,7 +7,7 @@ module RecordingStudioAgents
     helper_method :popup_sign_in_path
 
     content_security_policy only: :show do |policy|
-      ChatKit::ContentSecurityPolicy.apply(policy, request)
+      ChatKit::ContentSecurityPolicy.apply(policy, chatkit_script_origin)
     end
 
     after_action :drop_frame_options, only: :show
@@ -30,6 +30,11 @@ module RecordingStudioAgents
 
     def drop_frame_options
       response.headers.delete("X-Frame-Options")
+    end
+
+    def chatkit_script_origin
+      url = helpers.javascript_path("recording_studio_agents/chatkit")
+      ChatKit::ContentSecurityPolicy.origin_for(url)
     end
   end
 end

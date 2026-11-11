@@ -180,24 +180,48 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     sign_in_with_workspace
     @configuration.chatkit_domain_key = "domain_pk_test"
     @ai.openai_api_key = "sk-test"
-    previous_action_host = Rails.application.config.action_controller.asset_host
-    previous_host = Rails.application.config.asset_host
-    previous_controller_host = ActionController::Base.asset_host
-    Rails.application.config.action_controller.asset_host = "https://cdn.example.test/static"
-    Rails.application.config.asset_host = "https://cdn.example.test/static"
-    ActionController::Base.asset_host = "https://cdn.example.test/static"
 
-    get recording_studio_agents.popup_path
+    with_asset_host("https://cdn.example.test/static") do
+      get recording_studio_agents.popup_path
+    end
 
     assert_response :success
     script_src = response.headers["Content-Security-Policy"][/script-src[^;]*/]
     assert_includes script_src, "https://cdn.example.test"
     refute_includes script_src, "/static"
     assert_select "script[src^='https://cdn.example.test/'][src*='recording_studio_agents/chatkit']", count: 1
-  ensure
-    Rails.application.config.action_controller.asset_host = previous_action_host
-    Rails.application.config.asset_host = previous_host
-    ActionController::Base.asset_host = previous_controller_host
+  end
+
+  test "a two argument asset host proc is allowed and used for the setup script" do
+    sign_in_with_workspace
+    @configuration.chatkit_domain_key = "domain_pk_test"
+    @ai.openai_api_key = "sk-test"
+    host = proc { |_source, request| request.ssl? ? "https://secure.example.test" : "http://plain.example.test" }
+
+    with_asset_host(host) do
+      get recording_studio_agents.popup_path
+    end
+
+    assert_response :success
+    src = css_select("script[src*='recording_studio_agents/chatkit']").first["src"]
+    assert_match(%r{\Ahttp://plain\.example\.test/}, src)
+    assert_includes response.headers["Content-Security-Policy"][/script-src[^;]*/], "http://plain.example.test"
+  end
+
+  test "a wildcard asset host is allowed and used for the setup script" do
+    sign_in_with_workspace
+    @configuration.chatkit_domain_key = "domain_pk_test"
+    @ai.openai_api_key = "sk-test"
+
+    with_asset_host("https://assets%d.example.test") do
+      get recording_studio_agents.popup_path
+    end
+
+    assert_response :success
+    src = css_select("script[src*='recording_studio_agents/chatkit']").first["src"]
+    origin = src[%r{\Ahttps://assets[0-3]\.example\.test}]
+    assert origin, src
+    assert_includes response.headers["Content-Security-Policy"][/script-src[^;]*/], origin
   end
 
   test "the chatkit setup script is served as javascript" do
@@ -259,6 +283,20 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     assert_includes policy, "http://127.0.0.1:3000"
     refute_includes policy, "unsafe-inline"
     policy
+  end
+
+  def with_asset_host(host)
+    previous_action_host = Rails.application.config.action_controller.asset_host
+    previous_host = Rails.application.config.asset_host
+    previous_controller_host = ActionController::Base.asset_host
+    Rails.application.config.action_controller.asset_host = host
+    Rails.application.config.asset_host = host
+    ActionController::Base.asset_host = host
+    yield
+  ensure
+    Rails.application.config.action_controller.asset_host = previous_action_host
+    Rails.application.config.asset_host = previous_host
+    ActionController::Base.asset_host = previous_controller_host
   end
 
   def sign_in_with_workspace
