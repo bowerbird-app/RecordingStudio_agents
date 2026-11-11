@@ -27,7 +27,7 @@ On a screen, set `content_for :title` and, when you have one, `content_for :subt
 
 ## Sibling gems
 
-The dummy keeps the pins in the Requirements list. AI `v0.19.1`, Metrics `v0.7.0`, and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, and the other dummy pins listed above still declare `recording_studio` below 5. Both Gemfiles require `test/support/widen_recording_studio_requirement.rb` so Bundler can resolve 6.1.0 beside those pins. That file is not installed with the gem.
+The dummy keeps the pins in the Requirements list. AI `v0.20.0`, Metrics `v0.7.0`, and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, and the other dummy pins listed above still declare `recording_studio` below 5. Both Gemfiles require `test/support/widen_recording_studio_requirement.rb` so Bundler can resolve 6.1.0 beside those pins. That file is not installed with the gem.
 
 Site Settings `v0.5.1` still includes `RecordingStudio::UsesDefaultLayout`. The dummy defines an empty module in `test/dummy/config/application.rb` until that gem stops. Root Switchable `v0.9.7` still passes PageNav `anchor_url` / `anchor_label` and Card `style:`. `test/dummy/config/initializers/flatpack_removed_kwargs.rb` accepts those keywords. A host on the same pins needs the same two shims.
 
