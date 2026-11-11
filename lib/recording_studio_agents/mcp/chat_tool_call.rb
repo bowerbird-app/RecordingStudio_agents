@@ -54,7 +54,8 @@ module RecordingStudioAgents
 
       def api_enabled?(grant)
         RecordingStudioApi::ApiSetting.api_access_enabled?(api: api_key(grant))
-      rescue StandardError
+      rescue *store_errors => e
+        log_call_error(e)
         false
       end
 
@@ -63,8 +64,17 @@ module RecordingStudioAgents
           tool_name: name, arguments: arguments.is_a?(Hash) ? arguments : {},
           access_grant: grant, idempotency_key: call_id
         )
-      rescue StandardError
-        error_result("tool call failed")
+      rescue RecordingStudioApi::Error => e
+        log_call_error(e)
+        error_result(e.message.presence || "tool call failed")
+      end
+
+      def log_call_error(error)
+        Rails.logger.error("[RecordingStudioAgents] #{error.class}: #{error.message}")
+      end
+
+      def store_errors
+        [ActiveRecord::ActiveRecordError, "PG::Error".safe_constantize, "Redis::BaseError".safe_constantize].compact
       end
 
       def error_result?(result)

@@ -39,7 +39,9 @@ module RecordingStudioAgents
       end
 
       def recover_saved(&)
-        recovery = RecordingStudioAI::Agents.recover(**agent_args)
+        recovery = recovered_session
+        return if recovery.nil?
+
         calls = pending_calls(recovery)
         return answer_tools(calls, &) if calls.any?
 
@@ -47,7 +49,11 @@ module RecordingStudioAgents
         return if saved.nil?
 
         emit(saved, &)
-      rescue StandardError
+      end
+
+      def recovered_session
+        RecordingStudioAI::Agents.recover(**agent_args)
+      rescue RecordingStudioAI::Agents::Failure
         nil
       end
 

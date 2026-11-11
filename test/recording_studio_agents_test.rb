@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.10.0", ::RecordingStudioAgents::VERSION
+    assert_equal "0.11.0", ::RecordingStudioAgents::VERSION
   end
 
   def test_engine_exists
@@ -195,6 +195,13 @@ class RecordingStudioAgentsTest < Minitest::Test
     variables_at = application_layout.index('stylesheet_link_tag "flat_pack/variables"')
     tailwind_at = application_layout.index('stylesheet_link_tag "tailwind"')
     assert_operator variables_at, :<, tailwind_at
+  end
+
+  def test_popup_layout_uses_the_configured_stylesheet
+    layout = File.read(File.expand_path("../app/views/layouts/recording_studio_agents/popup.html.erb", __dir__))
+
+    assert_includes layout, "configuration.popup_stylesheet"
+    refute_includes layout, 'stylesheet_link_tag "tailwind"'
   end
 
   def test_dummy_tailwind_keeps_flatpack_theme_selection_in_flatpack

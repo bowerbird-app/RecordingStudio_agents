@@ -7,14 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.10.0] - 2026-11-11
+## [0.11.0] - 2026-11-11
 
 ### Added
-- In-process Recording Studio MCP tools on a new ChatKit session, when MCP and API are both loaded. The signed-in person's read and write tools are sent as function tools. Each call runs through `RecordingStudioMcp::Dispatcher` on that person's Accessible grant, then goes back with `submit_tool_results`. `config.mcp_tools` defaults to `:write`. `:read` keeps read-only tools. `:off` sends none. The chat and item tools (`agent_chats_*`, `agent_items_*`) are not sent. A host without MCP sends no tools. Calls are written to the MCP usage log, share the API read and write rate limits, and stop when API access is disabled. A dropped stream answers pending tool calls. A timed-out result post re-reads the pending calls before it retries. One turn runs at most 8 tool rounds.
-- Agent chat MCP endpoints (`agent_chats_list`, `agent_chats_create`, `agent_chats_read`, `agent_chats_append`, `agent_items_list`, `agent_items_read`) declare an OpenAPI success `responses` entry with a JSON schema and a sample `example`. Recording Studio MCP 0.29.0 copies that schema into each tool's `outputSchema`, so the MCP docs page can show sample output. The schemas match the hashes the handlers already return. Request handling is unchanged.
+- In-process Recording Studio MCP tools on a new ChatKit session, when MCP and API are both loaded. The signed-in person's read and write tools are sent as function tools. Each call runs through `RecordingStudioMcp::Dispatcher` on that person's Accessible grant, then goes back with `submit_tool_results`. `config.mcp_tools` defaults to `:write`. `:read` keeps read-only tools. `:off` sends none. The tools this gem registers are not sent. A host without MCP sends no tools. Calls are written to the MCP usage log, share the API read and write rate limits, and stop when API access is disabled. A dropped stream answers pending tool calls. A timed-out result post re-reads the pending calls before it retries. One turn runs at most 8 tool rounds, then refuses the next call. If the run is still waiting, it is cancelled and the chat shows a failure.
 - Global ChatKit popup at `GET /recording_studio_agents/popup`. It renders `recording_studio_agents_chatkit` in a bare layout that fills an iframe, using `config.request_root` and no page scope. Embeddable's floating launcher can load that URL. The page does not use Embeddable's `FloatingWidget::Interactive`.
 - A content security policy on that action only: ChatKit script, connect, and frame hosts, plus `frame-ancestors 'self'` and `config.chatkit_allowed_origins`. The ChatKit setup script is the asset `recording_studio_agents/chatkit.js`, served from `'self'`. Per-render config is data attributes, not inline JavaScript. `script-src` does not include `'unsafe-inline'` and does not need a CSP nonce. When `asset_host` makes that script absolute, its origin is added to `script-src`. A relative script stays covered by `'self'`. `X-Frame-Options` is dropped on that response. Other pages keep the app policy.
 - `config.chatkit_allowed_origins`. Development and test default to `http://localhost:3000` and `http://127.0.0.1:3000`. Other environments default to an empty list, so a missing `CHATKIT_ALLOWED_ORIGINS` leaves `frame-ancestors` at `'self'`. `config.chatkit_domain_key` still comes from `CHATKIT_DOMAIN_KEY`.
+- `config.popup_stylesheet`, default `tailwind`. The popup layout loads that asset. Set it to `nil` to skip the tag.
 - Same-site framing only. The popup uses the host session cookie and Rails `protect_from_forgery`. It does not change that cookie. Cross-site framing is not supported. A later opt-in would be owned by the host's session config.
 - A sign-in prompt for signed-out visitors. `config.sign_in_path` defaults to `main_app.new_user_session_path` when that route exists, otherwise `/users/sign_in`. English and French copy.
 - A signed-in visitor with no workspace sees an empty state instead of the chat.
@@ -22,18 +22,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - A new chat sends `config.provider` to Recording Studio AI only when that name is listed in `allowed_provider_overrides`. The default `openai` stays for ChatKit readiness. Recording Studio AI treats a provider argument as an override, and the default is not one, so a chat no longer fails with "Provider override openai is not enabled".
+- A known Recording Studio API error from a tool call is logged and returned as an error result. Any other error propagates. The API-enabled check and the rate limiter only rescue database and Redis failures, and they log those.
 
 ### Upgrade notes
 - No database migration.
 - `recording_studio_ai` is `~> 0.20.0`. The dummy pins GitHub tag `v0.20.0`.
 - Hosts that already load Recording Studio MCP start sending workspace tools on new chats. Set `config.mcp_tools = :off` to keep the previous chat, or `:read` to allow reads only. Writes run as the signed-in person.
-- Hosts that want sample output in MCP docs need Recording Studio MCP 0.29.0 once it ships. This gem does not depend on that MCP version.
 - Hosts that need to force a provider on a new chat add that name to Recording Studio AI `config.allowed_provider_overrides`. Leaving the list empty keeps the profile's model.
 - If `authorization_handler` is not set, use `RecordingStudioAI::AccessibleAuthorization`. It maps `recording_studio_ai.execute` to `:edit` on the workspace through Accessible. Do not set a handler that allows every signed-in person.
 - Point the Embeddable floating launcher iframe at `recording_studio_agents.popup_path` on the same site as the host. Cross-site framing is not supported. The popup does not change the host session cookie. A later opt-in for cross-site framing would be owned by the host's session config.
 - Add staging and production origins with `config.chatkit_allowed_origins` or `CHATKIT_ALLOWED_ORIGINS`, and register those origins on the OpenAI domain allowlist. Leave the list unset outside development and the popup only allows `'self'` to frame it.
 - Set `config.sign_in_path` when the host sign-in path is not Devise's `new_user_session_path`.
-- Do not tag this version from an open pull request.
+- Set `config.popup_stylesheet` when the host Tailwind asset is not named `tailwind`.
+
+## [0.10.0] - 2026-11-11
+
+### Added
+- Agent chat MCP endpoints (`agent_chats_list`, `agent_chats_create`, `agent_chats_read`,
+  `agent_chats_append`, `agent_items_list`, `agent_items_read`) declare an OpenAPI
+  success `responses` entry with a JSON schema and a sample `example`. Recording Studio
+  MCP 0.29.0 copies that schema into each tool's `outputSchema`, so the MCP docs page
+  can show sample output. The schemas match the hashes the handlers already return.
+  Request handling is unchanged.
+
+### Host upgrade notes
+- No migration and no runtime behavior change. Hosts that want sample output in MCP
+  docs need Recording Studio MCP 0.29.0 once it ships. This gem does not depend on that
+  MCP version.
 
 ## [0.9.1] - 2026-11-05
 

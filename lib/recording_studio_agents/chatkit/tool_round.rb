@@ -15,6 +15,15 @@ module RecordingStudioAgents
 
       def run(calls, &emit)
         @emit = emit
+        delivered = rounds(calls)
+        return delivered if pending_calls(delivered).empty?
+
+        finish_over_cap(pending_calls(delivered))
+      end
+
+      private
+
+      def rounds(calls)
         delivered = nil
         MAX_ROUNDS.times do
           break if calls.empty?
@@ -22,12 +31,27 @@ module RecordingStudioAgents
           delivered = deliver(answers(calls))
           calls = pending_calls(delivered)
         end
-        return delivered if calls.empty?
-
-        deliver(calls.map { |call| refusal(call, "too many tool calls") })
+        delivered
       end
 
-      private
+      def finish_over_cap(calls)
+        delivered = deliver(calls.map { |call| refusal(call, "too many tool calls") })
+        return delivered if pending_calls(delivered).empty?
+
+        abandon(delivered)
+      end
+
+      def abandon(delivered)
+        cancel_run
+        @emit.call(RecordingStudioAI::Providers::StreamEvent.new(type: "failed"))
+        delivered
+      end
+
+      def cancel_run
+        RecordingStudioAI::Agents.cancel(**@agent_args)
+      rescue RecordingStudioAI::Agents::Failure
+        nil
+      end
 
       def answers(calls)
         calls.map { |call| Mcp::ChatTools.answer(call, actor: @actor, root: @root) }

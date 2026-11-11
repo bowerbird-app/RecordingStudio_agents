@@ -24,7 +24,8 @@ module RecordingStudioAgents
         return fail_closed?(bucket) if redis.nil?
 
         increment(redis, counter_key(grant, bucket, actor, period), period) > limit
-      rescue StandardError
+      rescue *ChatToolCall.store_errors => e
+        ChatToolCall.log_call_error(e)
         fail_closed?(bucket)
       end
 

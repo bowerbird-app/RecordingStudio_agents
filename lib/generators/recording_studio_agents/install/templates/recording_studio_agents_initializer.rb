@@ -22,4 +22,6 @@ RecordingStudioAgents.configure do |config|
   # Workspace tools the chat may call. :write is the default (reads and writes).
   # :read keeps read-only tools. :off sends none. Chat and item tools are never sent.
   # config.mcp_tools = :write
+  # Popup utility stylesheet. Nil skips the tag. The default is "tailwind".
+  # config.popup_stylesheet = "tailwind"
 end

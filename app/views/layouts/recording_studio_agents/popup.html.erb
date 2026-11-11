@@ -8,9 +8,11 @@
     <%= stylesheet_link_tag "flat_pack/variables", "data-turbo-track": "reload" %>
     <%= stylesheet_link_tag "flat_pack/application", "data-turbo-track": "reload" %>
     <%# FlatPack empty states and the chat height are utility classes. This
-        document does not inherit the host page CSS, so the bare layout loads
-        the host Tailwind build. %>
-    <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
+        document does not inherit the host page CSS, so it loads
+        config.popup_stylesheet (default "tailwind"). Nil skips the tag. %>
+    <% if (sheet = RecordingStudioAgents.configuration.popup_stylesheet.presence) %>
+      <%= stylesheet_link_tag sheet, "data-turbo-track": "reload" %>
+    <% end %>
   </head>
 
   <body>

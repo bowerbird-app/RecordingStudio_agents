@@ -107,6 +107,87 @@ class ChatToolsTest < ActiveSupport::TestCase
     end
   end
 
+  test "an unexpected tool error is not swallowed" do
+    original = RecordingStudioMcp::Dispatcher.method(:call)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) { |**| raise "dispatcher blew up" }
+
+    error = assert_raises(RuntimeError) { invoke("show", { "type" => "PressKit", "id" => "missing" }) }
+
+    assert_equal "dispatcher blew up", error.message
+  ensure
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |*args, **kwargs, &block|
+      original.call(*args, **kwargs, &block)
+    end
+  end
+
+  test "a database error while checking api access is logged and refuses the call" do
+    kit = record_kit("HELLO HOUSE")
+    messages = []
+    logger = Object.new
+    logger.define_singleton_method(:error) { |message| messages << message }
+    boom = ->(**) { raise ActiveRecord::ConnectionNotEstablished, "db down" }
+
+    previous_logger = Rails.logger
+    Rails.logger = logger
+    original = RecordingStudioApi::ApiSetting.method(:api_access_enabled?)
+    RecordingStudioApi::ApiSetting.define_singleton_method(:api_access_enabled?) { |**| boom.call }
+    result = invoke("update", { "type" => "PressKit", "id" => kit.id, "name" => "RENAMED" })
+
+    assert result[:isError]
+    assert_includes result.dig(:content, 0, :text), "temporarily disabled"
+    assert_equal "HELLO HOUSE", kit.reload.recordable.name
+    assert_match "ActiveRecord::ConnectionNotEstablished: db down", messages.join
+  ensure
+    Rails.logger = previous_logger if previous_logger
+    if original
+      RecordingStudioApi::ApiSetting.define_singleton_method(:api_access_enabled?) do |*args, **kwargs, &block|
+        original.call(*args, **kwargs, &block)
+      end
+    end
+  end
+
+  test "a redis error is logged and follows the fail closed setting" do
+    require "redis"
+    kit = record_kit("HELLO HOUSE")
+    messages = []
+    logger = Object.new
+    logger.define_singleton_method(:error) { |message| messages << message }
+    previous_closed = @api.rate_limit_fail_closed
+    previous_buckets = @api.rate_limit_fail_closed_buckets
+    @api.rate_limit_api_enabled = true
+    @api.rate_limit_fail_closed = true
+    @api.rate_limit_fail_closed_buckets = ["api_write"]
+    redis = Object.new
+    redis.define_singleton_method(:eval) { |*| raise ::Redis::BaseError, "redis down" }
+    original = RecordingStudioApi::Concerns::RateLimiting.method(:redis_client)
+    RecordingStudioApi::Concerns::RateLimiting.define_singleton_method(:redis_client) { redis }
+
+    previous_logger = Rails.logger
+    Rails.logger = logger
+    result = invoke("update", { "type" => "PressKit", "id" => kit.id, "name" => "RENAMED" })
+
+    assert result[:isError]
+    assert_includes result.dig(:content, 0, :text), "Too many requests"
+    assert_equal "HELLO HOUSE", kit.reload.recordable.name
+    assert_match "Redis::BaseError: redis down", messages.join
+  ensure
+    Rails.logger = previous_logger if previous_logger
+    @api.rate_limit_fail_closed = previous_closed
+    @api.rate_limit_fail_closed_buckets = previous_buckets
+    RecordingStudioApi::Concerns::RateLimiting.define_singleton_method(:redis_client) do |*args, **kwargs, &block|
+      original.call(*args, **kwargs, &block)
+    end
+  end
+
+  test "the rate limit key uses the api layout for a signed in person" do
+    grant = RecordingStudioAgents::Mcp::ChatTools.grant_for(@user, @root)
+    period = 60
+    key = RecordingStudioAgents::Mcp::ChatToolLimit.counter_key(grant, "api_write", @user, period)
+    window = Time.current.to_i / period
+
+    assert_equal "recording_studio_api:api_write:actor:User:#{@user.id}:#{window}", key
+  end
+
   test "read only mode refuses a write without changing the record" do
     kit = record_kit("HELLO HOUSE")
     @configuration.mcp_tools = :read

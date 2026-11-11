@@ -5,9 +5,8 @@ module RecordingStudioAgents
     # Function tools for one ChatKit turn. Definitions go out at session create.
     # Each call runs in process as the actor's own Accessible grant.
     module ChatTools
-      # Chat and item tools call back into this gem. Sending them would let the
-      # model open another turn while this one is still running.
-      SELF_PREFIXES = %w[agent_chats_ agent_items_].freeze
+      # The tools this gem registers call back into a chat. Sending them would let
+      # the model open another turn while this one is still running.
       MODES = %i[write read off].freeze
 
       module_function
@@ -51,7 +50,7 @@ module RecordingStudioAgents
       end
 
       def self_tool?(name)
-        SELF_PREFIXES.any? { |prefix| name.to_s.start_with?(prefix) }
+        Registration.own_tool?(name)
       end
 
       def grant_for(actor, root)

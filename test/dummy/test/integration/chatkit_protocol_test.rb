@@ -175,6 +175,43 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_operator @calls[:recover].size, :>=, 1
   end
 
+  test "a turn dispatches eight tool rounds and refuses the next without a ninth dispatch" do
+    dispatched = []
+    with_dispatcher(dispatched) do
+      @stream = []
+      @stream_result = tool_turn([tool_call("round-0")])
+      @submit_script = (1..8).map { |index| tool_turn([tool_call("round-#{index}")]) }
+
+      stream_events(create_body("hello"))
+    end
+
+    assert_equal 8, dispatched.size
+    assert_equal 9, @calls[:submit_tool_results].size
+    refusal = @calls[:submit_tool_results].last.fetch(:results).first
+    assert_equal "round-8", refusal[:call_id]
+    assert_equal "too many tool calls", refusal[:error]
+    assert_empty @calls[:cancel]
+  end
+
+  test "tool calls still waiting after the cap cancel the run" do
+    dispatched = []
+    events = nil
+    with_dispatcher(dispatched) do
+      @stream = []
+      @stream_result = tool_turn([tool_call("round-0")])
+      @submit_script = (1..8).map { |index| tool_turn([tool_call("round-#{index}")]) }
+      @submit_script << tool_turn([tool_call("still-waiting")])
+
+      events = stream_events(create_body("hello"))
+    end
+
+    assert_equal 8, dispatched.size
+    assert_equal 1, @calls[:cancel].size
+    failure = events.find { |event| event["type"] == "error" }
+    assert_equal "The response failed.", failure["message"]
+    refute @calls[:submit_tool_results].last.fetch(:results).any? { |result| result[:call_id] == "still-waiting" }
+  end
+
   test "a timed out tool result does not retry a call that is no longer pending" do
     call = tool_call
     @stream = []
@@ -543,14 +580,32 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
   def record_submit(kwargs, block)
     @calls[:submit_tool_results] << kwargs
     raise @submit_error if @submit_error && @calls[:submit_tool_results].size == 1
+    return scripted_submit(kwargs) if @submit_script
 
     Array(@continuation).each { |stream_event| block&.call(stream_event) }
     kwargs.fetch(:session)
   end
 
-  def tool_call
+  def scripted_submit(kwargs)
+    @submit_script[@calls[:submit_tool_results].size - 1] || kwargs.fetch(:session)
+  end
+
+  def with_dispatcher(calls)
+    original = RecordingStudioMcp::Dispatcher.method(:call)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**|
+      calls << true
+      { content: [{ type: "text", text: "ok" }], isError: false }
+    end
+    yield
+  ensure
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |*args, **kwargs, &block|
+      original.call(*args, **kwargs, &block)
+    end
+  end
+
+  def tool_call(call_id = "call_1")
     RecordingStudioAI::Agents::ToolCall.new(
-      call_id: "call_1", name: "show", arguments: { "type" => "PressKit", "id" => "missing" },
+      call_id: call_id, name: "show", arguments: { "type" => "PressKit", "id" => "missing" },
       provider_turn_id: "turn_1"
     )
   end

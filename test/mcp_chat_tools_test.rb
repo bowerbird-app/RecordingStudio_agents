@@ -14,6 +14,7 @@ class McpChatToolsTest < Minitest::Test
 
     assert tools.self_tool?("agent_chats_create")
     assert tools.self_tool?("agent_items_read")
+    refute tools.self_tool?("agent_chats_extra")
     refute tools.self_tool?("update")
   end
 end
