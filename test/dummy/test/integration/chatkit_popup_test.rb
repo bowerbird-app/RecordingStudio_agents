@@ -157,7 +157,26 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     refute_includes policy, "http://localhost:3000"
   end
 
-  test "a nonce enabled host policy is applied to the inline chat script" do
+  test "the popup setup script is an asset and does not need a nonce" do
+    assert_nil Rails.application.config.content_security_policy_nonce_generator
+    sign_in_with_workspace
+    @configuration.chatkit_domain_key = "domain_pk_test"
+    @ai.openai_api_key = "sk-test"
+
+    get recording_studio_agents.popup_path
+
+    assert_response :success
+    assert_select "script:not([src])", count: 0
+    assert_select "script[src*='recording_studio_agents/chatkit']", count: 1
+    assert_select "script[src*='cdn.platform.openai.com']", count: 1
+    script_src = response.headers["Content-Security-Policy"][/script-src[^;]*/]
+    assert_includes script_src, "'self'"
+    assert_includes script_src, "https://cdn.platform.openai.com"
+    refute_includes script_src, "unsafe-inline"
+    refute_includes script_src, "nonce-"
+  end
+
+  test "a nonce enabled host still allows the chatkit asset" do
     sign_in_with_workspace
     @configuration.chatkit_domain_key = "domain_pk_test"
     @ai.openai_api_key = "sk-test"
@@ -170,34 +189,18 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     get recording_studio_agents.popup_path
 
     assert_response :success
-    assert_select "script[nonce=?]", "popup-nonce", minimum: 1
+    assert_select "script:not([src])", count: 0
+    assert_select "script[src*='recording_studio_agents/chatkit']", count: 1
     policy = response.headers["Content-Security-Policy"]
-    assert_includes policy, "'nonce-popup-nonce'"
-    refute_includes policy, "unsafe-inline"
+    script_src = policy[/script-src[^;]*/]
+    assert_includes script_src, "'self'"
+    assert_includes script_src, "https://cdn.platform.openai.com"
+    assert_includes script_src, "'nonce-popup-nonce'"
+    refute_includes script_src, "unsafe-inline"
   ensure
     Rails.application.config.content_security_policy_nonce_generator = previous_generator
     Rails.application.config.content_security_policy_nonce_directives = previous_directives
     Rails.application.remove_instance_variable(:@app_env_config) if Rails.application.instance_variable_defined?(:@app_env_config)
-  end
-
-  test "a framed popup sets cross site session and csrf cookies" do
-    sign_in_with_workspace
-    https!
-
-    get recording_studio_agents.popup_path
-
-    assert_response :success
-    header = Array(response.get_header("set-cookie") || response.headers["Set-Cookie"]).join("\n")
-    csrf = header.lines.grep(/#{RecordingStudioAgents::ChatKit::CsrfCookieStore::COOKIE}/).join
-    assert_includes csrf, "samesite=none"
-    assert_includes csrf, "secure"
-    assert_includes csrf, "partitioned"
-    assert_includes csrf, "path=/recording_studio_agents"
-    session = header.lines.grep(/_session=/).join
-    assert_includes session, "samesite=none"
-    assert_includes session, "secure"
-  ensure
-    https! false
   end
 
   private

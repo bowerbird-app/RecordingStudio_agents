@@ -60,6 +60,12 @@ module RecordingStudioAgents
       RecordingStudioAgents.configuration.hooks.run(:after_initialize, self)
     end
 
+    initializer "recording_studio_agents.assets" do |app|
+      next unless app.config.respond_to?(:assets) && app.config.assets.respond_to?(:precompile)
+
+      app.config.assets.precompile += %w[recording_studio_agents/chatkit.js]
+    end
+
     initializer "recording_studio_agents.chatkit_helper" do
       ActiveSupport.on_load(:action_controller_base) do
         helper RecordingStudioAgents::ChatKitHelper

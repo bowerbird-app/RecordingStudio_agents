@@ -11,9 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Global ChatKit popup at `GET /recording_studio_agents/popup`. It renders `recording_studio_agents_chatkit` in a bare layout that fills an iframe, using `config.request_root` and no page scope. Embeddable's floating launcher can load that URL. The page does not use Embeddable's `FloatingWidget::Interactive`.
-- A content security policy on that action only: ChatKit script, connect, and frame hosts, plus `frame-ancestors 'self'` and `config.chatkit_allowed_origins`. The inline chat script uses a CSP nonce. `script-src` does not include `'unsafe-inline'`. `X-Frame-Options` is dropped on that response. Other pages keep the app policy.
+- A content security policy on that action only: ChatKit script, connect, and frame hosts, plus `frame-ancestors 'self'` and `config.chatkit_allowed_origins`. The ChatKit setup script is the asset `recording_studio_agents/chatkit.js`, served from `'self'`. Per-render config is data attributes, not inline JavaScript. `script-src` does not include `'unsafe-inline'` and does not need a CSP nonce. `X-Frame-Options` is dropped on that response. Other pages keep the app policy.
 - `config.chatkit_allowed_origins`. Development and test default to `http://localhost:3000` and `http://127.0.0.1:3000`. Other environments default to an empty list, so a missing `CHATKIT_ALLOWED_ORIGINS` leaves `frame-ancestors` at `'self'`. `config.chatkit_domain_key` still comes from `CHATKIT_DOMAIN_KEY`.
-- The popup and `POST /chatkit` mark the session cookie and a CSRF cookie `SameSite=None; Secure` (partitioned, on HTTPS for the session cookie) so a cross-site iframe can send them.
+- Same-site framing only. The popup uses the host session cookie and Rails `protect_from_forgery`. It does not change that cookie. Cross-site framing is not supported. A later opt-in would be owned by the host's session config.
 - A sign-in prompt for signed-out visitors. `config.sign_in_path` defaults to `main_app.new_user_session_path` when that route exists, otherwise `/users/sign_in`. English and French copy.
 - A signed-in visitor with no workspace sees an empty state instead of the chat.
 - `POST /chatkit` returns 401 when no actor is signed in, and 403 when execute is denied.
@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - No database migration.
 - Hosts that need to force a provider on a new chat add that name to Recording Studio AI `config.allowed_provider_overrides`. Leaving the list empty keeps the profile's model.
 - If `authorization_handler` is not set, use `RecordingStudioAI::AccessibleAuthorization`. It maps `recording_studio_ai.execute` to `:edit` on the workspace through Accessible. Do not set a handler that allows every signed-in person.
-- Point the Embeddable floating launcher iframe at `recording_studio_agents.popup_path`. Serve that host over HTTPS so the framed session cookie can be `Secure`.
+- Point the Embeddable floating launcher iframe at `recording_studio_agents.popup_path` on the same site as the host. Cross-site framing is not supported. The popup does not change the host session cookie. A later opt-in for cross-site framing would be owned by the host's session config.
 - Add staging and production origins with `config.chatkit_allowed_origins` or `CHATKIT_ALLOWED_ORIGINS`, and register those origins on the OpenAI domain allowlist. Leave the list unset outside development and the popup only allows `'self'` to frame it.
 - Set `config.sign_in_path` when the host sign-in path is not Devise's `new_user_session_path`.
 - Do not tag this version from an open pull request.

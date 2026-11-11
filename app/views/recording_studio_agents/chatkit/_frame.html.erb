@@ -1,7 +1,18 @@
 <% full_bleed = local_assigns[:fill] %>
 <% chat_classes = full_bleed ? "block h-dvh w-full" : "block w-full h-[min(40rem,calc(100dvh-16rem))]" %>
 <% chat = capture do %>
-  <openai-chatkit id="recording-studio-agents-chatkit" class="<%= chat_classes %>"></openai-chatkit>
+  <%= content_tag(
+    "openai-chatkit",
+    "",
+    id: "recording-studio-agents-chatkit",
+    class: chat_classes,
+    data: {
+      recording_studio_agents_chatkit: true,
+      endpoint: endpoint,
+      domain_key: RecordingStudioAgents.configuration.chatkit_domain_key,
+      options: chatkit_options.to_json
+    }
+  ) %>
 <% end %>
 <% if full_bleed %>
   <%= chat %>
@@ -13,43 +24,4 @@
   <% end %>
 <% end %>
 <script src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js" async></script>
-<%= javascript_tag nonce: true do %>
-  const frame = document.getElementById("recording-studio-agents-chatkit")
-  const endpoint = <%= raw json_escape(endpoint.to_json) %>
-  const domainKey = <%= raw json_escape(RecordingStudioAgents.configuration.chatkit_domain_key.to_json) %>
-  const hostOptions = <%= raw json_escape(chatkit_options.to_json) %>
-  const csrf = document.querySelector("meta[name='csrf-token']")?.content
-
-  function csrfHeaders(headers) {
-    const next = new Headers(headers || {})
-    if (csrf) next.set("X-CSRF-Token", csrf)
-    next.set("Content-Type", "application/json")
-    return next
-  }
-
-  function mergeChatkitOptions(base, extra) {
-    if (!extra || typeof extra !== "object" || Array.isArray(extra)) return base
-    const merged = (base && typeof base === "object" && !Array.isArray(base)) ? { ...base } : {}
-    Object.keys(extra).forEach((key) => {
-      const next = extra[key]
-      const current = merged[key]
-      const bothObjects = next && current && typeof next === "object" && typeof current === "object" && !Array.isArray(next) && !Array.isArray(current)
-      merged[key] = bothObjects ? mergeChatkitOptions(current, next) : next
-    })
-    return merged
-  }
-
-  customElements.whenDefined("openai-chatkit").then(() => {
-    const chatOptions = mergeChatkitOptions({}, hostOptions)
-    chatOptions.api = {
-      url: endpoint,
-      domainKey: domainKey,
-      fetch: (url, requestOptions) => fetch(url, {
-        ...requestOptions,
-        headers: csrfHeaders(requestOptions && requestOptions.headers),
-        credentials: "same-origin"
-      })
-    }
-    frame.setOptions(chatOptions)
-  })
-<% end %>
+<%= javascript_include_tag "recording_studio_agents/chatkit" %>

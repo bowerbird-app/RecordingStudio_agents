@@ -3,7 +3,6 @@
 module RecordingStudioAgents
   class PopupsController < ApplicationController
     include RequestContext
-    include FramedCookies
 
     helper_method :popup_sign_in_path
 

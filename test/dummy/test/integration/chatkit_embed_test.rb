@@ -105,14 +105,15 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
     css = Rails.root.join("app/assets/builds/tailwind.css").read
     assert_match(/min\(40rem,\s*(?:calc\(\s*)?100dvh\s*-\s*16rem\)/, css)
     assert_includes response.body, "https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
-    assert_includes response.body, "/recording_studio_agents/chatkit"
-    assert_includes response.body, "domain_pk_test"
-    assert_includes response.body, "X-CSRF-Token"
-    assert_includes response.body, 'credentials: "same-origin"'
-    assert_includes response.body, "const hostOptions = {}"
-    assert_includes response.body, 'const domainKey = "domain_pk_test"'
-    refute_includes response.body, "&quot;"
-    assert_includes response.body, "chatOptions.api ="
+    assert_select "script[src*='recording_studio_agents/chatkit']", count: 1
+    frame = chatkit_frame
+    assert_equal "/recording_studio_agents/chatkit", frame["data-endpoint"]
+    assert_equal "domain_pk_test", frame["data-domain-key"]
+    assert_equal({}, frame_options(frame))
+    assert_includes chatkit_asset_source, "X-CSRF-Token"
+    assert_includes chatkit_asset_source, 'credentials: "same-origin"'
+    assert_includes chatkit_asset_source, "chatOptions.api ="
+    refute_includes response.body, "const domainKey"
     refute_includes response.body, "page_recording_id"
     refute_includes response.body, "Create a PressKit."
     refute_includes response.body, "ChatKit setup"
@@ -130,7 +131,7 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
     assert_select "openai-chatkit", count: 0
   end
 
-  test "the frame script embeds the endpoint and domain key as json string literals" do
+  test "the frame passes the endpoint and domain key as data attributes" do
     domain_key = %(domain_pk_"&<\u2028)
     @configuration.chatkit_domain_key = domain_key
     @configuration.chatkit_options = { startScreen: { greeting: %(Say "hi" & <) } }
@@ -139,12 +140,11 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
     get agent_chat_path
 
     assert_response :success
-    script = inline_chatkit_script(response.body)
-    refute_includes script, "&quot;"
-
-    assert_equal "/recording_studio_agents/chatkit", json_assignment(script, "endpoint")
-    assert_equal domain_key, json_assignment(script, "domainKey")
-    assert_equal %(Say "hi" & <), json_assignment(script, "hostOptions").dig("startScreen", "greeting")
+    frame = chatkit_frame
+    refute_includes response.body, "const domainKey"
+    assert_equal "/recording_studio_agents/chatkit", frame["data-endpoint"]
+    assert_equal domain_key, frame["data-domain-key"]
+    assert_equal %(Say "hi" & <), frame_options(frame).dig("startScreen", "greeting")
   end
 
   test "a missing press kit page shows a seed notice instead of the workspace chat" do
@@ -182,8 +182,7 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
     get page_agent_chat_path
 
     assert_response :success
-    script = inline_chatkit_script(response.body)
-    options = json_assignment(script, "hostOptions")
+    options = frame_options(chatkit_frame)
     assert_includes response.body, "page_recording_id="
     assert_equal "Create a PressKit.", options.dig("startScreen", "prompts", 0, "label")
     assert_equal "Create a PressKit.", options.dig("startScreen", "prompts", 0, "prompt")
@@ -197,7 +196,7 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
     assert_nil options["initialThread"]
     assert_equal "Config agent_chat", options.dig("disclaimer", "text")
     refute options.key?("api")
-    assert_includes response.body, "chatOptions.api ="
+    assert_includes chatkit_asset_source, "chatOptions.api ="
     refute_includes response.body, "https://evil.example/chatkit"
     refute_includes response.body, "From config"
   ensure
@@ -206,16 +205,17 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
 
   private
 
-  def inline_chatkit_script(body)
-    scripts = body.scan(%r{<script>\s*//<!\[CDATA\[(.*?)//\]\]>\s*</script>}m).flatten
-    script = scripts.find { |candidate| candidate.include?("const domainKey") }
-    assert script, "expected an inline ChatKit script"
-    script
+  def chatkit_frame
+    frame = css_select("openai-chatkit").first
+    assert frame, "expected an openai-chatkit element"
+    frame
   end
 
-  def json_assignment(script, name)
-    literal = script[/const #{Regexp.escape(name)} = (.+)\s*$/, 1]
-    assert literal, "expected a #{name} assignment"
-    JSON.parse(literal)
+  def frame_options(frame)
+    JSON.parse(frame["data-options"])
+  end
+
+  def chatkit_asset_source
+    File.read(File.expand_path("../../../../app/assets/javascripts/recording_studio_agents/chatkit.js", __dir__))
   end
 end

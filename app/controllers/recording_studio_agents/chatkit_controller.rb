@@ -4,7 +4,6 @@ module RecordingStudioAgents
   class ChatkitController < ApplicationController
     include ActionController::Live
     include RequestContext
-    include FramedCookies
 
     layout false
 
