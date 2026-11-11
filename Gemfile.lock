@@ -9,8 +9,8 @@ GIT
 
 GIT
   remote: https://github.com/bowerbird-app/RecordingStudio_AI.git
-  revision: 79723ed015318b790069b7c6cccae7d11d52dcf1
-  ref: 79723ed015318b790069b7c6cccae7d11d52dcf1
+  revision: d9696a41165a02e453b62e069e09e35a66e1578c
+  tag: v0.20.0
   specs:
     recording_studio_ai (0.20.0)
       csv (>= 3.2)

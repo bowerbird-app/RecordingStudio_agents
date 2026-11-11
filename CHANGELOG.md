@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Upgrade notes
 - No database migration.
-- `recording_studio_ai` is `~> 0.20.0`. This repository pins git ref `79723ed015318b790069b7c6cccae7d11d52dcf1` (draft PR RecordingStudio_AI#103) until 0.20.0 is tagged. Replace that ref with the tag when it exists.
+- `recording_studio_ai` is `~> 0.20.0`. The dummy pins GitHub tag `v0.20.0`.
 - Hosts that already load Recording Studio MCP start sending workspace tools on new chats. Set `config.mcp_tools = :off` to keep the previous chat, or `:read` to allow reads only. Writes run as the signed-in person.
 - Hosts that need to force a provider on a new chat add that name to Recording Studio AI `config.allowed_provider_overrides`. Leaving the list empty keeps the profile's model.
 - If `authorization_handler` is not set, use `RecordingStudioAI::AccessibleAuthorization`. It maps `recording_studio_ai.execute` to `:edit` on the workspace through Accessible. Do not set a handler that allows every signed-in person.

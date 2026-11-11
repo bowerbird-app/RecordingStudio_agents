@@ -27,8 +27,9 @@ class RecordingStudioAgentsTest < Minitest::Test
     gemfile = File.read(File.expand_path("../Gemfile", __dir__))
 
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"'
-    assert_includes gemfile, "RecordingStudio_AI\", ref: \"79723ed015318b790069b7c6cccae7d11d52dcf1\""
-    assert_includes gemfile, "until 0.20.0 is tagged"
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.20.0"'
+    refute_includes gemfile, "79723ed015318b790069b7c6cccae7d11d52dcf1"
+    refute_includes gemfile, "until 0.20.0 is tagged"
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.1"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.7.0"'
     assert_includes gemfile, 'ref: "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"'
@@ -71,8 +72,9 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes gemfile, 'require_relative "../support/widen_recording_studio_requirement"'
     refute_includes gemfile, 'tag: "v4.7.0"'
     refute_includes gemfile, 'tag: "v0.1.254"'
-    assert_includes gemfile, "RecordingStudio_AI\", ref: \"79723ed015318b790069b7c6cccae7d11d52dcf1\""
-    assert_includes gemfile, "until 0.20.0 is tagged"
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.20.0"'
+    refute_includes gemfile, "79723ed015318b790069b7c6cccae7d11d52dcf1"
+    refute_includes gemfile, "until 0.20.0 is tagged"
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.7.0"'
     refute_includes gemfile, 'tag: "v4.5.0"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.20.0"'
@@ -253,8 +255,10 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes readme, "dummy GitHub tag `v6.1.0`"
     assert_includes readme, "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
     refute_includes readme, "dummy GitHub tag `v4.7.0`"
-    assert_includes readme, "79723ed015318b790069b7c6cccae7d11d52dcf1"
-    assert_includes readme, "until 0.20.0 is tagged"
+    assert_includes readme, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.20.0"'
+    assert_includes readme, "dummy GitHub tag `v0.20.0`"
+    refute_includes readme, "79723ed015318b790069b7c6cccae7d11d52dcf1"
+    refute_includes readme, "until 0.20.0 is tagged"
     assert_includes readme, "dummy GitHub tag `v0.7.0`"
     refute_includes readme, "dummy GitHub tag `v4.5.0`"
     refute_includes readme, "dummy GitHub tag `v0.1.254`"
