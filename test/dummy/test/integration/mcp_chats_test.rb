@@ -627,6 +627,35 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_equal before, RecordingStudioAgents::Binding.count
   end
 
+  test "MCP tool JSON matches registered success schemas" do
+    require File.expand_path("../../../../test/mcp_json_schema", __dir__)
+
+    created = mcp_ok("agent_chats_create", {
+      input: "schema hello", idempotency_key: "schema-#{SecureRandom.hex(4)}", title: "Schema chat"
+    })
+    chat_id = created.fetch("id")
+    appended = mcp_ok("agent_chats_append", {
+      id: chat_id, input: "schema follow up", idempotency_key: "schema-append-#{SecureRandom.hex(4)}"
+    })
+    listed = mcp_ok("agent_chats_list", {})
+    read = mcp_ok("agent_chats_read", { id: @alpha_chat.id })
+    items = mcp_ok("agent_items_list", { id: @alpha_chat.id })
+    item_id = RecordingStudioAgents::Item.find_by!(recording_id: @alpha_chat.id, role: "user").id
+    item = mcp_ok("agent_items_read", { id: @alpha_chat.id, item_id: item_id })
+
+    {
+      agent_chats_list: listed,
+      agent_chats_create: created,
+      agent_chats_read: read,
+      agent_chats_append: appended,
+      agent_items_list: items,
+      agent_items_read: item
+    }.each do |name, payload|
+      error = McpJsonSchema.error(success_schema(name), payload)
+      assert_nil error, "#{name}: #{error}\n#{payload.inspect}"
+    end
+  end
+
   test "list and create contracts accept an optional parent" do
     list = RecordingStudioApi.registered_endpoint(:agent_chats_list).input_contract.as_json
     created = RecordingStudioApi.registered_endpoint(:agent_chats_create).input_contract.as_json
@@ -708,6 +737,23 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   def latest_updated_event(recording)
     RecordingStudio::Event.where(recording_id: recording.id, action: "updated")
                           .order(occurred_at: :desc, created_at: :desc).first
+  end
+
+  def mcp_ok(name, arguments)
+    post_mcp("tools/call", name: name, arguments: arguments)
+    payload = JSON.parse(response.body)
+    assert_equal false, payload.dig("result", "isError"), payload
+    tool_payload(payload)
+  end
+
+  def success_schema(name)
+    endpoint = RecordingStudioApi.registered_endpoint(name)
+    docs = endpoint.respond_to?(:openapi) ? endpoint.openapi : endpoint[:openapi]
+    responses = docs[:responses] || docs["responses"]
+    entry = responses[:"200"] || responses["200"] || responses[200]
+    content = entry[:content] || entry["content"]
+    json = content[:"application/json"] || content["application/json"]
+    json[:schema] || json["schema"]
   end
 
   def tool_payload(payload)

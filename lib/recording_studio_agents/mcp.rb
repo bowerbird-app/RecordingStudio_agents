@@ -4,6 +4,7 @@ require "recording_studio_agents/mcp/contracts"
 require "recording_studio_agents/mcp/context"
 require "recording_studio_agents/mcp/chats"
 require "recording_studio_agents/mcp/items"
+require "recording_studio_agents/mcp/response_schemas"
 require "recording_studio_agents/mcp/registration"
 
 module RecordingStudioAgents
