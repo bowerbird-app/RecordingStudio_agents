@@ -48,6 +48,7 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
 
   test "a signed in person with no workspace sees an empty state instead of the chat" do
     sign_in @user
+    @configuration.request_root = ->(*) { nil }
 
     get recording_studio_agents.popup_path
 
