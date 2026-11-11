@@ -176,6 +176,46 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     refute_includes script_src, "nonce-"
   end
 
+  test "a configured asset host is allowed and used for the setup script" do
+    sign_in_with_workspace
+    @configuration.chatkit_domain_key = "domain_pk_test"
+    @ai.openai_api_key = "sk-test"
+    previous_action_host = Rails.application.config.action_controller.asset_host
+    previous_host = Rails.application.config.asset_host
+    previous_controller_host = ActionController::Base.asset_host
+    Rails.application.config.action_controller.asset_host = "https://cdn.example.test/static"
+    Rails.application.config.asset_host = "https://cdn.example.test/static"
+    ActionController::Base.asset_host = "https://cdn.example.test/static"
+
+    get recording_studio_agents.popup_path
+
+    assert_response :success
+    script_src = response.headers["Content-Security-Policy"][/script-src[^;]*/]
+    assert_includes script_src, "https://cdn.example.test"
+    refute_includes script_src, "/static"
+    assert_select "script[src^='https://cdn.example.test/'][src*='recording_studio_agents/chatkit']", count: 1
+  ensure
+    Rails.application.config.action_controller.asset_host = previous_action_host
+    Rails.application.config.asset_host = previous_host
+    ActionController::Base.asset_host = previous_controller_host
+  end
+
+  test "the chatkit setup script is served as javascript" do
+    sign_in_with_workspace
+    @configuration.chatkit_domain_key = "domain_pk_test"
+    @ai.openai_api_key = "sk-test"
+
+    get recording_studio_agents.popup_path
+
+    assert_response :success
+    src = css_select("script[src*='recording_studio_agents/chatkit']").first["src"]
+    refute_includes src, "://"
+    get src
+
+    assert_response :success
+    assert_match(/javascript/, response.media_type)
+  end
+
   test "a nonce enabled host still allows the chatkit asset" do
     sign_in_with_workspace
     @configuration.chatkit_domain_key = "domain_pk_test"

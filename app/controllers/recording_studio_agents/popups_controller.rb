@@ -7,7 +7,7 @@ module RecordingStudioAgents
     helper_method :popup_sign_in_path
 
     content_security_policy only: :show do |policy|
-      ChatKit::ContentSecurityPolicy.apply(policy)
+      ChatKit::ContentSecurityPolicy.apply(policy, request)
     end
 
     after_action :drop_frame_options, only: :show
