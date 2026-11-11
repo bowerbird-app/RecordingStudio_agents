@@ -18,6 +18,12 @@ class McpRegistrationTest < Minitest::Test
       assert RecordingStudioApi.registered_endpoint(:agent_items_list)
       assert RecordingStudioApi.registered_endpoint(:agent_items_read)
       assert_equal 6, RecordingStudioApi.endpoints.size
+      list_docs = list[:openapi]
+      assert_equal ["Agent chats"], list_docs[:tags]
+      assert_equal "List chats", list_docs[:summary]
+      schema = list_docs.dig(:responses, "200", :content, "application/json", :schema)
+      assert_equal "object", schema[:type]
+      assert_includes schema[:required], "chats"
       assert_includes RecordingStudioMcp.skills.fetch("agent-chats"), "SKILL.md"
     end
   end
@@ -61,8 +67,8 @@ class McpRegistrationTest < Minitest::Test
       @endpoints ||= {}
     end
 
-    def mod.register_endpoint(name, http_verb:, path:, handler:, **)
-      endpoints[name] = { verb: http_verb, path: path, handler: handler }
+    def mod.register_endpoint(name, **kwargs)
+      endpoints[name] = kwargs.merge(verb: kwargs[:http_verb])
     end
 
     def mod.registered_endpoint(name)

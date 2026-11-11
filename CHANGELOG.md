@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-11
+
+### Added
+- Agent chat MCP endpoints (`agent_chats_list`, `agent_chats_create`, `agent_chats_read`,
+  `agent_chats_append`, `agent_items_list`, `agent_items_read`) declare an OpenAPI
+  success `responses` entry with a JSON schema and a sample `example`. Recording Studio
+  MCP 0.29.0 copies that schema into each tool's `outputSchema`, so the MCP docs page
+  can show sample output. The schemas match the hashes the handlers already return.
+  Request handling is unchanged.
+
+### Host upgrade notes
+- No migration and no runtime behavior change. Hosts that want sample output in MCP
+  docs need Recording Studio MCP 0.29.0 once it ships. This gem does not depend on that
+  MCP version.
+
 ## [0.9.1] - 2026-11-05
 
 ### Changed

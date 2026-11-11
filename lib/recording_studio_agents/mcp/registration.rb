@@ -57,7 +57,7 @@ module RecordingStudioAgents
           path: path,
           handler: handler,
           input_contract: contract,
-          openapi: { tags: ["Agent chats"], summary: summary, description: summary }
+          openapi: { tags: ["Agent chats"], summary: summary, description: summary }.merge(ResponseSchemas.for(name))
         )
       end
 
