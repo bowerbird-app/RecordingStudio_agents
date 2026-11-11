@@ -6,3 +6,5 @@ en:
         sign_in_title: "Sign in to chat"
         sign_in_description: "Your chats stay on your account."
         sign_in_action: "Sign in"
+        workspace_title: "Pick a workspace"
+        workspace_description: "Open one, then come back to chat."

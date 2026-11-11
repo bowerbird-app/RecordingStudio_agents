@@ -44,7 +44,7 @@ class ConfigurationTest < Minitest::Test
     assert_equal 30.days, configuration.retention_period
     assert_equal({}, configuration.chatkit_options)
     assert_equal(
-      RecordingStudioAgents::Configuration::DEFAULT_CHATKIT_ALLOWED_ORIGINS,
+      RecordingStudioAgents::ChatkitHostSettings::DEFAULT_CHATKIT_ALLOWED_ORIGINS,
       configuration.chatkit_allowed_origins
     )
     assert_equal "/users/sign_in", configuration.sign_in_path
@@ -158,16 +158,37 @@ class ConfigurationTest < Minitest::Test
     assert_equal ["https://staging.example", "https://app.example"], @configuration.chatkit_allowed_origins
   end
 
-  def test_chatkit_allowed_origins_reject_a_path
+  def test_chatkit_allowed_origins_normalize_like_an_embeddable_origin
+    @configuration.chatkit_allowed_origins = "HTTPS://App.Example:443/chat"
+
+    assert_equal ["https://app.example"], @configuration.chatkit_allowed_origins
+  end
+
+  def test_chatkit_allowed_origins_reject_a_non_http_value
     error = assert_raises(RecordingStudioAgents::Error) do
-      @configuration.chatkit_allowed_origins = "https://app.example/chat"
+      @configuration.chatkit_allowed_origins = "ftp://files.example"
     end
 
     assert_match "http(s) origins", error.message
     assert_equal(
-      RecordingStudioAgents::Configuration::DEFAULT_CHATKIT_ALLOWED_ORIGINS,
+      RecordingStudioAgents::ChatkitHostSettings::DEFAULT_CHATKIT_ALLOWED_ORIGINS,
       @configuration.chatkit_allowed_origins
     )
+  end
+
+  def test_frame_ancestor_defaults_are_local_only
+    development = with_rails_env("development") { RecordingStudioAgents::Configuration.new.chatkit_allowed_origins }
+    test_env = with_rails_env("test") { RecordingStudioAgents::Configuration.new.chatkit_allowed_origins }
+    production = with_rails_env("production") { RecordingStudioAgents::Configuration.new.chatkit_allowed_origins }
+
+    local = RecordingStudioAgents::ChatkitHostSettings::DEFAULT_CHATKIT_ALLOWED_ORIGINS
+    assert_equal local, development
+    assert_equal local, test_env
+    assert_empty production
+  end
+
+  def with_rails_env(name, &)
+    Rails.stub(:env, ActiveSupport::EnvironmentInquirer.new(name), &)
   end
 
   def test_sign_in_path_accepts_a_string_or_a_lambda

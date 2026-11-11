@@ -2,6 +2,9 @@
 
 module RecordingStudioAgents
   class PopupsController < ApplicationController
+    include RequestContext
+    include FramedCookies
+
     helper_method :popup_sign_in_path
 
     content_security_policy only: :show do |policy|
@@ -11,7 +14,8 @@ module RecordingStudioAgents
     after_action :drop_frame_options, only: :show
 
     def show
-      @actor = resolve_actor
+      @actor = recording_studio_agents_resolve(:request_actor)
+      @root = recording_studio_agents_resolve(:request_root) if @actor.present?
     end
 
     def recording_studio_resolved_layout
@@ -24,11 +28,6 @@ module RecordingStudioAgents
     end
 
     private
-
-    def resolve_actor
-      resolver = RecordingStudioAgents.configuration.request_actor
-      resolver.respond_to?(:call) ? resolver.call(self) : nil
-    end
 
     def drop_frame_options
       response.headers.delete("X-Frame-Options")

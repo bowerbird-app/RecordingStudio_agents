@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html data-theme="rounded" class="h-full">
+<html data-theme="rounded">
   <head>
     <title><%= t("recording_studio_agents.popups.show.document_title") %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -7,10 +7,13 @@
     <%= csp_meta_tag %>
     <%= stylesheet_link_tag "flat_pack/variables", "data-turbo-track": "reload" %>
     <%= stylesheet_link_tag "flat_pack/application", "data-turbo-track": "reload" %>
+    <%# FlatPack empty states and the chat height are utility classes. This
+        document does not inherit the host page CSS, so the bare layout loads
+        the host Tailwind build. %>
     <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
   </head>
 
-  <body class="m-0 h-dvh overflow-hidden bg-(--surface-page-background-color) text-(--surface-content-color)">
+  <body>
     <%= yield %>
   </body>
 </html>

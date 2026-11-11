@@ -7,14 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.10.0] - 2026-10-29
+## [0.10.0] - 2026-11-11
 
 ### Added
 - Global ChatKit popup at `GET /recording_studio_agents/popup`. It renders `recording_studio_agents_chatkit` in a bare layout that fills an iframe, using `config.request_root` and no page scope. Embeddable's floating launcher can load that URL. The page does not use Embeddable's `FloatingWidget::Interactive`.
-- A content security policy on that action only: ChatKit script, connect, and frame hosts, plus `frame-ancestors 'self'` and `config.chatkit_allowed_origins`. `X-Frame-Options` is dropped on that response. Other pages keep the app policy.
-- `config.chatkit_allowed_origins`, defaulting to `http://localhost:3000` and `http://127.0.0.1:3000`. Set `CHATKIT_ALLOWED_ORIGINS` (comma-separated) for staging and production. `config.chatkit_domain_key` still comes from `CHATKIT_DOMAIN_KEY`.
-- `RecordingStudioAgents::SignedInAuthorization`, which allows `recording_studio_ai.execute` for a signed-in actor. The dummy assigns it as `authorization_handler`.
-- A sign-in prompt for signed-out visitors, using `config.sign_in_path` (default `/users/sign_in`). English and French copy.
+- A content security policy on that action only: ChatKit script, connect, and frame hosts, plus `frame-ancestors 'self'` and `config.chatkit_allowed_origins`. The inline chat script uses a CSP nonce. `script-src` does not include `'unsafe-inline'`. `X-Frame-Options` is dropped on that response. Other pages keep the app policy.
+- `config.chatkit_allowed_origins`. Development and test default to `http://localhost:3000` and `http://127.0.0.1:3000`. Other environments default to an empty list, so a missing `CHATKIT_ALLOWED_ORIGINS` leaves `frame-ancestors` at `'self'`. `config.chatkit_domain_key` still comes from `CHATKIT_DOMAIN_KEY`.
+- The popup and `POST /chatkit` mark the session cookie and a CSRF cookie `SameSite=None; Secure` (partitioned, on HTTPS for the session cookie) so a cross-site iframe can send them.
+- A sign-in prompt for signed-out visitors. `config.sign_in_path` defaults to `main_app.new_user_session_path` when that route exists, otherwise `/users/sign_in`. English and French copy.
+- A signed-in visitor with no workspace sees an empty state instead of the chat.
 - `POST /chatkit` returns 401 when no actor is signed in, and 403 when execute is denied.
 
 ### Changed
@@ -23,10 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Upgrade notes
 - No database migration.
 - Hosts that need to force a provider on a new chat add that name to Recording Studio AI `config.allowed_provider_overrides`. Leaving the list empty keeps the profile's model.
-- In `config/initializers/recording_studio_ai.rb`, set `config.authorization_handler = RecordingStudioAgents::SignedInAuthorization.method(:call)` or the first chat message stays forbidden. Do not use a handler that allows every action.
-- Point the Embeddable floating launcher iframe at `recording_studio_agents.popup_path`.
-- Add staging and production origins with `config.chatkit_allowed_origins` or `CHATKIT_ALLOWED_ORIGINS`, and register those origins on the OpenAI domain allowlist.
-- Set `config.sign_in_path` when the host sign-in path is not `/users/sign_in`.
+- If `authorization_handler` is not set, use `RecordingStudioAI::AccessibleAuthorization`. It maps `recording_studio_ai.execute` to `:edit` on the workspace through Accessible. Do not set a handler that allows every signed-in person.
+- Point the Embeddable floating launcher iframe at `recording_studio_agents.popup_path`. Serve that host over HTTPS so the framed session cookie can be `Secure`.
+- Add staging and production origins with `config.chatkit_allowed_origins` or `CHATKIT_ALLOWED_ORIGINS`, and register those origins on the OpenAI domain allowlist. Leave the list unset outside development and the popup only allows `'self'` to frame it.
+- Set `config.sign_in_path` when the host sign-in path is not Devise's `new_user_session_path`.
 - Do not tag this version from an open pull request.
 
 ## [0.9.1] - 2026-11-05

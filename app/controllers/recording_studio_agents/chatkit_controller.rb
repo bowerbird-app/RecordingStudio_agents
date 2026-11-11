@@ -3,14 +3,16 @@
 module RecordingStudioAgents
   class ChatkitController < ApplicationController
     include ActionController::Live
+    include RequestContext
+    include FramedCookies
 
     layout false
 
     def create
-      actor = resolve(:request_actor)
+      actor = recording_studio_agents_resolve(:request_actor)
       return signed_out if actor.blank?
 
-      root = resolve(:request_root)
+      root = recording_studio_agents_resolve(:request_root)
       return signed_out if root.blank?
 
       render_result chat_result(actor, root)
@@ -56,11 +58,6 @@ module RecordingStudioAgents
 
     def signed_out
       render_error("sign in is required", 401)
-    end
-
-    def resolve(name)
-      resolver = RecordingStudioAgents.configuration.public_send(name)
-      resolver.respond_to?(:call) ? resolver.call(self) : nil
     end
 
     def render_error(message, status)

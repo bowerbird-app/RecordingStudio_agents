@@ -121,37 +121,41 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 
 ## Popup
 
-Mount the engine, then open `GET /recording_studio_agents/popup` (`recording_studio_agents.popup_path`). Point Embeddable's floating launcher iframe at that URL. The page lives in Agents and renders `recording_studio_agents_chatkit` in a bare layout that fills the iframe. It does not use Embeddable's `FloatingWidget::Interactive`, and it does not take a page. The chat uses the workspace from `config.request_root` (Root Switchable's current root).
+Mount the engine, then open `GET /recording_studio_agents/popup` (`recording_studio_agents.popup_path`). Point Embeddable's floating launcher iframe at that URL. The page lives in Agents and renders `recording_studio_agents_chatkit` in a bare layout that fills the iframe. It does not use Embeddable's `FloatingWidget::Interactive`, and it does not take a page. The chat uses the workspace from `config.request_root` (Root Switchable's current root). A signed-in person with no workspace sees an empty state instead of the chat.
+
+The bare layout loads the host `tailwind` stylesheet. FlatPack's empty state and the chat height are utility classes, and this document does not inherit the host page's CSS.
 
 Pass `fill: true` to the helper when a host screen should use the same full-height chat. The popup does that. Other screens keep the card height.
 
 ### Framing and content security policy
 
-Only the popup action sets a content security policy. The rest of the app keeps its own policy. The popup allows the ChatKit script (`https://cdn.platform.openai.com`), connections to that host and `https://api.openai.com`, and a frame from the ChatKit host. `frame-ancestors` is `'self'` plus `config.chatkit_allowed_origins`. The action drops `X-Frame-Options` so those origins can frame the page.
+Only the popup action sets a content security policy. The rest of the app keeps its own policy. The popup allows the ChatKit script (`https://cdn.platform.openai.com`), connections to that host and `https://api.openai.com`, and a frame from the ChatKit host. The inline script is `javascript_tag nonce: true`. `script-src` does not include `'unsafe-inline'`. When the host sets a CSP nonce generator, that nonce is added to `script-src`. `frame-ancestors` is `'self'` plus `config.chatkit_allowed_origins`. The action drops `X-Frame-Options` so those origins can frame the page.
 
-The default origins are `http://localhost:3000` and `http://127.0.0.1:3000`. Add staging and production later in the initializer, or with `CHATKIT_ALLOWED_ORIGINS` (comma-separated, scheme and port included):
+Development and test default to `http://localhost:3000` and `http://127.0.0.1:3000`. Every other environment starts from an empty list, so a missing setting fails safe to `'self'`. Set staging and production in the initializer, or with `CHATKIT_ALLOWED_ORIGINS` (comma-separated). Values are normalized the same way Embeddable reads an origin: scheme, host, and a non-default port. A path is dropped.
 
 ```ruby
 config.chatkit_allowed_origins = ENV["CHATKIT_ALLOWED_ORIGINS"] if ENV["CHATKIT_ALLOWED_ORIGINS"].present?
 config.chatkit_domain_key = ENV["CHATKIT_DOMAIN_KEY"].presence
 ```
 
-Register those same origins in the [OpenAI domain allowlist](https://platform.openai.com/settings/organization/security/domain-allowlist) and put the domain key in `CHATKIT_DOMAIN_KEY`. An origin must be an `http` or `https` origin with no path.
+Register those same origins in the [OpenAI domain allowlist](https://platform.openai.com/settings/organization/security/domain-allowlist) and put the domain key in `CHATKIT_DOMAIN_KEY`.
+
+The popup and `POST /chatkit` set the session cookie and a CSRF cookie to `SameSite=None; Secure` when the request is HTTPS, and mark them partitioned. That mirrors Embeddable's `CsrfCookieStore`. This gem does not depend on Embeddable. Embeddable's widget avoids the host session; this popup uses it, so the session cookie gets the same flags. Serve the host over HTTPS. Browsers reject `SameSite=None` without `Secure`, and Rails will not write a Secure session cookie on plain HTTP.
 
 ### Who can run an agent
 
-Recording Studio AI denies every action until the host sets `authorization_handler`. A denied `recording_studio_ai.execute` used to raise on the first message. Allow that one action for any signed-in actor. In `config/initializers/recording_studio_ai.rb`:
+If no `authorization_handler` is set, use Recording Studio AI's `AccessibleAuthorization`. It maps `recording_studio_ai.execute` to `:edit` on the workspace through Accessible. Do not set a handler that allows every signed-in person. In `config/initializers/recording_studio_ai.rb`:
 
 ```ruby
-config.authorization_handler = RecordingStudioAgents::SignedInAuthorization.method(:call)
+config.authorization_handler = RecordingStudioAI::AccessibleAuthorization.method(:call)
 ```
 
-The handler returns true only when the action is `recording_studio_ai.execute` and the attribution has an initiator. Other AI actions stay denied. The dummy app sets this. Copy it into the host. It does not replace Recording Studio Accessible: creating a chat still needs edit access on the workspace.
+The dummy app sets this. It needs the `recording-studio-accessible` gem, which Recording Studio AI's handler already calls.
 
-A signed-out visitor sees a sign-in prompt instead of the chat. The button uses `config.sign_in_path`, which defaults to `/users/sign_in`. A string is a path. A lambda receives the controller:
+A signed-out visitor sees a sign-in prompt instead of the chat. The button uses `config.sign_in_path`. When that is unset, the path is `main_app.new_user_session_path` if the route exists, and `/users/sign_in` otherwise. A string is a path. A lambda receives the controller:
 
 ```ruby
-config.sign_in_path = "/users/sign_in"
+config.sign_in_path = "/login"
 config.sign_in_path = ->(controller) { controller.main_app.new_user_session_path }
 ```
 

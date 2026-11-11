@@ -11,10 +11,11 @@ RecordingStudioAgents.configure do |config|
   # Passed on a new chat only when Recording Studio AI allowed_provider_overrides includes it.
   # config.retention_period = 30.days
   # config.chatkit_domain_key = ENV["CHATKIT_DOMAIN_KEY"].presence
-  # Popup framing. Defaults are http://localhost:3000 and http://127.0.0.1:3000.
-  # Staging and production: CHATKIT_ALLOWED_ORIGINS is a comma-separated list of origins.
+  # Popup framing. Development and test default to localhost:3000 and 127.0.0.1:3000.
+  # Anywhere else the list is empty until you set it, so frame-ancestors stays 'self'.
   # config.chatkit_allowed_origins = ENV["CHATKIT_ALLOWED_ORIGINS"] if ENV["CHATKIT_ALLOWED_ORIGINS"].present?
-  # config.sign_in_path = "/users/sign_in"
+  # Sign-in defaults to main_app.new_user_session_path when that route exists.
+  # config.sign_in_path = "/login"
   # Hash or lambda { |controller, purpose| }. Per-call chatkit_options override this.
   # Keys match ChatKit: startScreen, theme, header, composer, history, initialThread.
   # config.chatkit_options = {}

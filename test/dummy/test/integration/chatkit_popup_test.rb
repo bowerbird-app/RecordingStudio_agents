@@ -32,7 +32,7 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
   end
 
   test "a signed in popup renders the chat setup and a popup content security policy" do
-    sign_in @user
+    sign_in_with_workspace
 
     get recording_studio_agents.popup_path
 
@@ -44,6 +44,19 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "Sign in to chat"
     assert_popup_policy
     assert_nil response.headers["X-Frame-Options"]
+  end
+
+  test "a signed in person with no workspace sees an empty state instead of the chat" do
+    sign_in @user
+
+    get recording_studio_agents.popup_path
+
+    assert_response :success
+    assert_includes response.body, "Pick a workspace"
+    assert_includes response.body, "Open one, then come back to chat."
+    assert_select "openai-chatkit", count: 0
+    refute_includes response.body, "Sign in to chat"
+    refute_includes response.body, "flex h-dvh"
   end
 
   test "a signed out popup shows the sign in state and no chat" do
@@ -116,7 +129,7 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
   end
 
   test "a configured popup fills the iframe and stays on the workspace chat" do
-    sign_in @user
+    sign_in_with_workspace
     @configuration.chatkit_domain_key = "domain_pk_test"
     @ai.openai_api_key = "sk-test"
 
@@ -143,6 +156,49 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     refute_includes policy, "http://localhost:3000"
   end
 
+  test "a nonce enabled host policy is applied to the inline chat script" do
+    sign_in_with_workspace
+    @configuration.chatkit_domain_key = "domain_pk_test"
+    @ai.openai_api_key = "sk-test"
+    previous_generator = Rails.application.config.content_security_policy_nonce_generator
+    previous_directives = Rails.application.config.content_security_policy_nonce_directives
+    Rails.application.config.content_security_policy_nonce_generator = ->(*) { "popup-nonce" }
+    Rails.application.config.content_security_policy_nonce_directives = %w[script-src]
+    Rails.application.remove_instance_variable(:@app_env_config) if Rails.application.instance_variable_defined?(:@app_env_config)
+
+    get recording_studio_agents.popup_path
+
+    assert_response :success
+    assert_select "script[nonce=?]", "popup-nonce", minimum: 1
+    policy = response.headers["Content-Security-Policy"]
+    assert_includes policy, "'nonce-popup-nonce'"
+    refute_includes policy, "unsafe-inline"
+  ensure
+    Rails.application.config.content_security_policy_nonce_generator = previous_generator
+    Rails.application.config.content_security_policy_nonce_directives = previous_directives
+    Rails.application.remove_instance_variable(:@app_env_config) if Rails.application.instance_variable_defined?(:@app_env_config)
+  end
+
+  test "a framed popup sets cross site session and csrf cookies" do
+    sign_in_with_workspace
+    https!
+
+    get recording_studio_agents.popup_path
+
+    assert_response :success
+    header = Array(response.get_header("set-cookie") || response.headers["Set-Cookie"]).join("\n")
+    csrf = header.lines.grep(/#{RecordingStudioAgents::ChatKit::CsrfCookieStore::COOKIE}/).join
+    assert_includes csrf, "samesite=none"
+    assert_includes csrf, "secure"
+    assert_includes csrf, "partitioned"
+    assert_includes csrf, "path=/recording_studio_agents"
+    session = header.lines.grep(/_session=/).join
+    assert_includes session, "samesite=none"
+    assert_includes session, "secure"
+  ensure
+    https! false
+  end
+
   private
 
   def assert_popup_policy
@@ -157,7 +213,15 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     assert_includes policy, "'self'"
     assert_includes policy, "http://localhost:3000"
     assert_includes policy, "http://127.0.0.1:3000"
+    refute_includes policy, "unsafe-inline"
     policy
+  end
+
+  def sign_in_with_workspace
+    root = RecordingStudio.root_recording_for(Workspace.create!(name: "Popup #{SecureRandom.hex(4)}"))
+    grant_edit(@user, root)
+    sign_in @user
+    root
   end
 
   def grant_edit(actor, recording)

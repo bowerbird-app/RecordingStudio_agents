@@ -4,11 +4,12 @@ module RecordingStudioAgents
   # Popup framing origins and the host sign-in path.
   module ChatkitHostSettings
     DEFAULT_CHATKIT_ALLOWED_ORIGINS = %w[http://localhost:3000 http://127.0.0.1:3000].freeze
-    DEFAULT_SIGN_IN_PATH = "/users/sign_in"
-    ORIGIN_PATTERN = %r{\Ahttps?://[^/\s]+\z}i
+    FALLBACK_SIGN_IN_PATH = "/users/sign_in"
 
     def chatkit_allowed_origins
-      @chatkit_allowed_origins ||= DEFAULT_CHATKIT_ALLOWED_ORIGINS.dup
+      return @chatkit_allowed_origins if defined?(@chatkit_allowed_origins)
+
+      @chatkit_allowed_origins = default_chatkit_allowed_origins
     end
 
     def chatkit_allowed_origins=(value)
@@ -27,18 +28,71 @@ module RecordingStudioAgents
     end
 
     def sign_in_path
-      @sign_in_path.presence || DEFAULT_SIGN_IN_PATH
+      return @sign_in_path if defined?(@sign_in_path) && @sign_in_path.present?
+
+      default_sign_in_path
     end
 
     private
 
+    def default_chatkit_allowed_origins
+      return DEFAULT_CHATKIT_ALLOWED_ORIGINS.dup if defined?(Rails) && Rails.env.local?
+
+      []
+    end
+
+    def default_sign_in_path
+      helpers = rails_url_helpers
+      return helpers.new_user_session_path if helpers.respond_to?(:new_user_session_path)
+
+      FALLBACK_SIGN_IN_PATH
+    rescue NoMethodError, ArgumentError
+      FALLBACK_SIGN_IN_PATH
+    end
+
+    def rails_url_helpers
+      return unless defined?(Rails)
+
+      Rails.application&.routes&.url_helpers
+    end
+
+    # Same shape as RecordingStudioEmbeddable::Floating::Origin.parse:
+    # scheme, host, and a non-default port. A path or query is dropped.
     def normalize_origins(value)
       entries = value.is_a?(String) ? value.split(",") : Array(value)
-      origins = entries.flat_map { |entry| entry.to_s.split(",") }.map(&:strip).reject(&:empty?)
-      origins.each do |origin|
-        raise Error, "chatkit_allowed_origins must be http(s) origins" unless ORIGIN_PATTERN.match?(origin)
-      end
-      origins
+      entries.flat_map { |entry| entry.to_s.split(",") }.filter_map { |entry| parse_origin(entry) }
+    end
+
+    def parse_origin(value)
+      raw = value.to_s.strip
+      return if raw.empty?
+
+      origin = http_origin(raw)
+      raise Error, "chatkit_allowed_origins must be http(s) origins" if origin.nil?
+
+      origin
+    end
+
+    def http_origin(raw)
+      return if raw == "*" || raw.match?(/[\s\r\n]/)
+
+      uri = parsed_http_uri(raw)
+      return if uri.nil?
+
+      host = uri.host.downcase
+      default_port = uri.scheme == "https" ? 443 : 80
+      authority = uri.port == default_port ? host : "#{host}:#{uri.port}"
+      "#{uri.scheme}://#{authority}"
+    end
+
+    def parsed_http_uri(raw)
+      uri = URI.parse(raw)
+      return unless uri.is_a?(URI::HTTP) && uri.host.present?
+      return unless %w[http https].include?(uri.scheme)
+
+      uri
+    rescue URI::InvalidURIError
+      nil
     end
   end
 
@@ -46,7 +100,6 @@ module RecordingStudioAgents
     include ChatkitHostSettings
 
     OVERRIDE_GATES = %i[none admin edit].freeze
-    DEFAULT_CHATKIT_ALLOWED_ORIGINS = ChatkitHostSettings::DEFAULT_CHATKIT_ALLOWED_ORIGINS
 
     attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key
     attr_reader :hooks, :default_profile, :retention_period, :provider, :instructions_override,

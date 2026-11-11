@@ -4,7 +4,9 @@ require "test_helper"
 require "yaml"
 
 class PopupCopyTest < Minitest::Test
-  KEYS = %w[document_title sign_in_title sign_in_description sign_in_action].freeze
+  KEYS = %w[
+    document_title sign_in_title sign_in_description sign_in_action workspace_title workspace_description
+  ].freeze
 
   def test_english_and_french_popup_copy_match
     english = popup_copy("en")

@@ -6,3 +6,5 @@ fr:
         sign_in_title: "Connectez-vous pour discuter"
         sign_in_description: "Vos discussions restent sur votre compte."
         sign_in_action: "Se connecter"
+        workspace_title: "Choisissez un espace"
+        workspace_description: "Ouvrez-en un, puis revenez discuter."

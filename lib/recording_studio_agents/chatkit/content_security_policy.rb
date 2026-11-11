@@ -12,7 +12,7 @@ module RecordingStudioAgents
       module_function
 
       def apply(policy)
-        policy.script_src :self, :unsafe_inline, SCRIPT_HOST
+        policy.script_src :self, SCRIPT_HOST
         policy.connect_src :self, *CONNECT_HOSTS
         policy.frame_src :self, *FRAME_HOSTS
         policy.frame_ancestors :self, *RecordingStudioAgents.configuration.chatkit_allowed_origins
