@@ -78,10 +78,13 @@ module RecordingStudioAgents
       end
 
       def provider_args
-        {
+        args = {
           instructions: instructions, profile: profile, input: @input, idempotency_key: @idempotency_key,
           purpose: purpose, **provider_override, **attribution
         }
+        tools = Mcp::ChatTools.definitions(actor: @actor, root: @root_recording)
+        args[:tools] = tools if tools
+        args
       end
 
       # Recording Studio AI treats a provider argument as an override. The default

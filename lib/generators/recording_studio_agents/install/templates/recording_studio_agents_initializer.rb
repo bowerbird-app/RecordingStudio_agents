@@ -19,4 +19,7 @@ RecordingStudioAgents.configure do |config|
   # Hash or lambda { |controller, purpose| }. Per-call chatkit_options override this.
   # Keys match ChatKit: startScreen, theme, header, composer, history, initialThread.
   # config.chatkit_options = {}
+  # Workspace tools the chat may call. :write is the default (reads and writes).
+  # :read keeps read-only tools. :off sends none. Chat and item tools are never sent.
+  # config.mcp_tools = :write
 end

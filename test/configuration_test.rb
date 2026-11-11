@@ -41,6 +41,7 @@ class ConfigurationTest < Minitest::Test
     assert_equal :medium, configuration.default_profile
     assert_equal "agent_chat", configuration.purpose
     assert_equal "openai", configuration.provider
+    assert_equal :write, configuration.mcp_tools
     assert_equal 30.days, configuration.retention_period
     assert_equal({}, configuration.chatkit_options)
     assert_equal(
@@ -201,6 +202,22 @@ class ConfigurationTest < Minitest::Test
 
     @configuration.sign_in_path = nil
     assert_equal "/users/sign_in", @configuration.sign_in_path
+  end
+
+  def test_mcp_tools_accepts_write_read_and_off
+    @configuration.mcp_tools = "read"
+    assert_equal :read, @configuration.mcp_tools
+
+    @configuration.merge!(mcp_tools: "off")
+    assert_equal :off, @configuration.mcp_tools
+    assert_equal :off, @configuration.to_h.fetch(:mcp_tools)
+  end
+
+  def test_mcp_tools_rejects_an_unknown_mode
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_tools = :ask }
+
+    assert_equal :write, @configuration.mcp_tools
+    assert_match "mcp_tools", error.message
   end
 
   def test_sign_in_path_rejects_a_number

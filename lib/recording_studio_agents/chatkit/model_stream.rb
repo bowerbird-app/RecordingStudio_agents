@@ -10,9 +10,12 @@ module RecordingStudioAgents
       end
 
       def play(&block)
-        assistant = AssistantTurn.new(@recording.id)
-        recover(assistant, &block) unless stream(assistant, &block)
-        remember(assistant)
+        @assistant = AssistantTurn.new(@recording.id)
+        @saw_text = false
+        result = read_stream(&block)
+        answer_tools(pending_calls(result), &block)
+        recover_saved(&block) if pending_calls(result).empty? && !@saw_text
+        remember(@assistant)
       rescue RecordingStudioAI::Agents::Failure => e
         block.call(failure(e.message))
       end
@@ -25,38 +28,47 @@ module RecordingStudioAgents
 
       private
 
-      def stream(assistant, &)
-        saw = false
-        RecordingStudioAI::Agents.stream(**agent_args) do |event|
-          saw = true if text_event?(event)
-          assistant.apply(event).each(&)
-        end
-        saw
+      def read_stream(&block)
+        RecordingStudioAI::Agents.stream(**agent_args) { |event| emit(event, &block) }
       end
 
-      def recover(assistant, &)
-        saved = saved_reply
+      def answer_tools(calls, &)
+        return if calls.empty?
+
+        tool_round.run(calls) { |event| emit(event, &) }
+      end
+
+      def recover_saved(&)
+        recovery = RecordingStudioAI::Agents.recover(**agent_args)
+        calls = pending_calls(recovery)
+        return answer_tools(calls, &) if calls.any?
+
+        saved = saved_reply(recovery)
         return if saved.nil?
 
-        assistant.apply(saved).each(&)
+        emit(saved, &)
+      rescue StandardError
+        nil
       end
 
-      def saved_reply
-        item = recovered_item
+      def saved_reply(recovery)
+        item = Array(recovery&.items).reverse.find { |entry| reply?(entry) }
         return if item.nil?
 
         RecordingStudioAI::Providers::StreamEvent.new(type: "message_completed", text: item.text)
       end
 
-      def recovered_item
-        recovery = RecordingStudioAI::Agents.recover(**agent_args)
-        Array(recovery&.items).reverse.find { |entry| reply?(entry) }
-      rescue StandardError
-        nil
-      end
-
       def reply?(entry)
         entry.role != "user" && entry.text.present?
+      end
+
+      def emit(event, &)
+        if @assistant.savable? && text_event?(event)
+          remember(@assistant)
+          @assistant = AssistantTurn.new(@recording.id)
+        end
+        @saw_text = true if text_event?(event)
+        @assistant.apply(event).each(&)
       end
 
       def remember(assistant)
@@ -66,6 +78,16 @@ module RecordingStudioAgents
           id: assistant.item_id, recording: @recording, root_recording: @root, role: "assistant",
           text: assistant.text, status: "done", created_at: assistant.created_at
         )
+      end
+
+      def tool_round
+        ToolRound.new(actor: @actor, root: @root, agent_args: agent_args)
+      end
+
+      def pending_calls(source)
+        return [] unless source.respond_to?(:tool_calls)
+
+        Array(source.tool_calls)
       end
 
       def text_event?(event)

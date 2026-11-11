@@ -3,7 +3,7 @@
 source "https://rubygems.org"
 
 # Rewrites a recording_studio requirement that rejects 6.1.0. See the file's comment.
-# AI 0.19.1, Logs 0.7.1, and Metrics 0.7.0 already allow 6.1.0.
+# AI 0.20.0, Logs 0.7.1, and Metrics 0.7.0 already allow 6.1.0.
 require_relative "test/support/widen_recording_studio_requirement"
 
 # Specify your gem's dependencies in recording_studio_agents.gemspec
@@ -13,8 +13,10 @@ gemspec
 # Flatpack is commit 1fcbafe94f8eb118f0a22182f63f5110fcc97a56 (version 0.1.319).
 gem "flat_pack", github: "bowerbird-app/flatpack", ref: "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
 gem "recording_studio", ">= 6.1.0", github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.19.1"
-# AI 0.19 depends on Logs, which is GitHub-only. v0.7.0 requires metrics ~> 0.6.1
+# Temporary git ref until 0.20.0 is tagged.
+# Draft PR bowerbird-app/RecordingStudio_AI#103, commit 79723ed015318b790069b7c6cccae7d11d52dcf1.
+gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", ref: "79723ed015318b790069b7c6cccae7d11d52dcf1"
+# AI 0.20 depends on Logs, which is GitHub-only. v0.7.0 requires metrics ~> 0.6.1
 # and rejects metrics 0.7.0. v0.7.1 allows metrics >= 0.6.1, < 1.0.
 gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.1"
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.7.0"

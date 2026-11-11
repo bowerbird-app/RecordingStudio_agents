@@ -9,7 +9,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
 - Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`)
-- Recording Studio AI `~> 0.19.0` (dummy GitHub tag `v0.19.1`)
+- Recording Studio AI `~> 0.20.0` (temporary git ref `79723ed015318b790069b7c6cccae7d11d52dcf1` until 0.20.0 is tagged)
 - Recording Studio Metrics dummy GitHub tag `v0.7.0`
 - Accessible dummy GitHub tag `v0.20.0`
 - Trashable dummy GitHub tag `v0.11.3`
@@ -35,13 +35,13 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
 gem "flat_pack", github: "bowerbird-app/flatpack", ref: "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
 gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.19.1"
+gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", ref: "79723ed015318b790069b7c6cccae7d11d52dcf1"
 gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.1"
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.7.0"
 gem "view_component", "4.19.0"
 ```
 
-Recording Studio AI `v0.19.1`, Metrics `v0.7.0`, and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. Several other dummy pins still declare `recording_studio` below 5, including Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, API, Oauth, MCP, Site Settings, and Cache. Both Gemfiles load `test/support/widen_recording_studio_requirement.rb` before Bundler reads gemspecs. That file rewrites a `recording_studio` requirement that rejects 6.1.0 into `>= 6.1.0`. It is not part of the installed gem. A host Gemfile that includes one of those older gems has to widen the requirement the same way.
+Recording Studio AI `0.20.0` at ref `79723ed015318b790069b7c6cccae7d11d52dcf1` is a temporary pin until that version is tagged. Metrics `v0.7.0` and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. AI 0.20.0 does too. Several other dummy pins still declare `recording_studio` below 5, including Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, API, Oauth, MCP, Site Settings, and Cache. Both Gemfiles load `test/support/widen_recording_studio_requirement.rb` before Bundler reads gemspecs. That file rewrites a `recording_studio` requirement that rejects 6.1.0 into `>= 6.1.0`. It is not part of the installed gem. A host Gemfile that includes one of those older gems has to widen the requirement the same way.
 
 Register the recordable, opt a parent type into `:agents`, and copy migrations:
 
@@ -101,6 +101,8 @@ The dummy `Page` model uses that line. A folder still cannot. A trashed page is 
 `chatkit_options:` is merged over `config.chatkit_options` and sent to `setOptions`. The config value is a hash, or a lambda of 0, 1, or 2 arguments. Zero arguments are called with none. One argument receives the controller. Two arguments receive the controller and `config.purpose`. The lambda is not called when the setup notice is showing. Use the ChatKit keys you need: `startScreen` (greeting and prompts with `label`, `prompt`, and optional `icon`), `theme`, `header`, `composer` (`placeholder`), `history`, and `initialThread`. `setOptions` replaces the previous options, so the frame always sets `api` itself. A host `api` key is dropped. `initialThread: nil` keeps the new-thread start screen. One host declaration can pass the same page into `page_recording:` and the start screen into `chatkit_options:`. The dummy page at `/agent-chat/page` does that for the Press kit page. `/agent-chat` stays the workspace chat.
 
 A new chat sends `config.provider` only when Recording Studio AI lists that name in `allowed_provider_overrides`. The default is `openai`, which ChatKit readiness uses. It is not sent as an override, so the profile picks the model. Add the name to `allowed_provider_overrides` when a host must force that provider.
+
+When Recording Studio MCP and Recording Studio API are both loaded, a new chat also sends that person's workspace tools as function tools. The list is built from their Accessible grant on the current root. Reads and writes are both included. `config.mcp_tools` is `:write` by default, `:read` for read-only tools, or `:off` to send none. The chat's own `agent_chats_*` and `agent_items_*` tools are left out, so a tool call cannot open another chat turn. Each call runs in this process through `RecordingStudioMcp::Dispatcher` as the person who is signed in for this request, then the result is posted back to the hosted session. The Accessible check uses that person's grant. A generic update stores that person as `authorized_by`. The event actor stays empty, because the API records the API client on that write and this path does not mint one. A call the grant does not allow comes back as an error result. The tool output is not raised out of the turn. The same call is counted in the MCP usage log, and it uses the API read or write rate limit. While API access is disabled, the call returns an error and does not run. A host without MCP sends no tools, and the chat behaves as before. Tool definitions are fixed when the chat is created. Turning tools off, or down to read-only, still applies to calls on a chat that was opened earlier. A dropped model stream that is still waiting on tool calls is answered from the recovered calls. If posting those results times out, the pending calls are read again before a retry, because the first post may still be in flight. One turn answers at most 8 rounds of tool calls.
 
 The component renders when the ChatKit domain key is set and the configured provider has a hosted-agent model and its credential. The default provider is OpenAI, which needs `config.openai_api_key` or `config.openai_client`. A provider with no hosted-agent model, such as Gemini on the current Recording Studio AI release, shows a setup notice instead of asking for an invented key. The self-hosted ChatKit server is unchanged.
 

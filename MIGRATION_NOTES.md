@@ -5,9 +5,9 @@
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`)
-- Recording Studio AI `~> 0.19.0` (dummy GitHub tag `v0.19.1`)
+- Recording Studio AI `~> 0.20.0` (temporary git ref `79723ed015318b790069b7c6cccae7d11d52dcf1` until 0.20.0 is tagged)
 - Metrics dummy tag `v0.7.0`
-- Logs dummy tag `v0.7.1` (GitHub-only; AI 0.19.1 depends on it)
+- Logs dummy tag `v0.7.1` (GitHub-only; AI 0.20.0 depends on it)
 - Accessible dummy tag `v0.20.0`, Trashable dummy tag `v0.11.3` (`require: false`), and Root Switchable dummy tag `v0.9.7`
 - Cache dummy tag `v0.5.1`
 - FlatPack `>= 0.1.315` at commit `1fcbafe94f8eb118f0a22182f63f5110fcc97a56` (version 0.1.319). Oauth requires `~> 0.1.198`, which this commit satisfies.

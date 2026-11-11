@@ -11,7 +11,10 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     @calls = Hash.new { |calls, name| calls[name] = [] }
     @stream = [event("message_completed", text: "Saved reply"), event("turn_completed")]
     @recovered = []
+    @pending_calls = []
+    @continuation = []
     @configuration = RecordingStudioAgents.configuration
+    @previous_mcp_tools = @configuration.mcp_tools
     @previous_actor = @configuration.request_actor
     @previous_root = @configuration.request_root
     @configuration.request_actor = ->(*) { @user }
@@ -23,6 +26,7 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     if @configuration
       @configuration.request_actor = @previous_actor
       @configuration.request_root = @previous_root
+      @configuration.mcp_tools = @previous_mcp_tools if @previous_mcp_tools
     end
     restore_agents
   end
@@ -86,6 +90,104 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_equal 1, @calls[:create_session].size
     assert_equal 1, @calls[:send_input].size
     assert_equal thread_id, @calls[:send_input].first[:context_recording].id
+  end
+
+  test "a new chat sends workspace tools and leaves out chat tools" do
+    stream_events(create_body("hello"))
+    tools = @calls[:create_session].first.fetch(:tools)
+    names = tools.map { |tool| tool[:name] }
+
+    assert_includes names, "show"
+    assert_includes names, "update"
+    assert_equal "function", tools.first[:type]
+    assert_equal "object", tools.first[:parameters]["type"]
+    refute names.any? { |name| name.start_with?("agent_chats_", "agent_items_") }
+  end
+
+  test "mcp tools can be read only or off" do
+    @configuration.mcp_tools = :read
+    stream_events(create_body("hello"))
+    names = @calls[:create_session].first.fetch(:tools).map { |tool| tool[:name] }
+
+    assert_includes names, "show"
+    refute_includes names, "update"
+
+    @configuration.mcp_tools = :off
+    stream_events(create_body("again"))
+
+    refute @calls[:create_session].last.key?(:tools)
+  end
+
+  test "mcp absent sends no tools" do
+    tools = RecordingStudioAgents::Mcp::ChatTools
+    original = tools.method(:installed?)
+    tools.define_singleton_method(:installed?) { false }
+    stream_events(create_body("hello"))
+
+    refute @calls[:create_session].first.key?(:tools)
+  ensure
+    tools.define_singleton_method(:installed?) { original.call }
+  end
+
+  test "a dropped stream answers pending tool calls" do
+    call = tool_call
+    @stream = []
+    @stream_result = tool_turn([call])
+    @continuation = [event("message_completed", text: "Used the tool"), event("turn_completed")]
+
+    events = stream_events(create_body("hello"))
+
+    assert_equal "Used the tool", events.last.dig("item", "content", 0, "text")
+    submitted = @calls[:submit_tool_results].first.fetch(:results).first
+    assert_equal call.call_id, submitted[:call_id]
+    assert_equal call.provider_turn_id, submitted[:turn_id]
+    assert_equal 1, @calls[:submit_tool_results].size
+  end
+
+  test "pending tool calls on recovery are answered" do
+    call = tool_call
+    @stream = []
+    @pending_calls = [call]
+    @continuation = [event("message_completed", text: "Recovered"), event("turn_completed")]
+
+    events = stream_events(create_body("hello"))
+
+    assert_equal "Recovered", events.last.dig("item", "content", 0, "text")
+    assert_equal call.call_id, @calls[:submit_tool_results].first.fetch(:results).first[:call_id]
+    assert_equal 1, @calls[:recover].size
+  end
+
+  test "a timed out tool result rereads pending calls before it retries" do
+    call = tool_call
+    @stream = []
+    @stream_result = tool_turn([call])
+    @pending_calls = [call]
+    @submit_error = timeout_failure
+    @continuation = [event("message_completed", text: "Retried"), event("turn_completed")]
+
+    events = stream_events(create_body("hello"))
+
+    assert_equal "Retried", events.last.dig("item", "content", 0, "text")
+    assert_equal 2, @calls[:submit_tool_results].size
+    assert_equal [call.call_id, call.call_id], @calls[:submit_tool_results].map { |submit|
+      submit[:results].first[:call_id]
+    }
+    assert_operator @calls[:recover].size, :>=, 1
+  end
+
+  test "a timed out tool result does not retry a call that is no longer pending" do
+    call = tool_call
+    @stream = []
+    @stream_result = tool_turn([call])
+    @pending_calls = []
+    @submit_error = timeout_failure
+    @next_stream = [event("message_completed", text: "Already posted"), event("turn_completed")]
+
+    events = stream_events(create_body("hello"))
+
+    assert_equal "Already posted", events.last.dig("item", "content", 0, "text")
+    assert_equal 1, @calls[:submit_tool_results].size
+    assert_equal 2, @calls[:stream].size
   end
 
   test "an empty stream reads the saved first turn" do
@@ -394,7 +496,8 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
       delete_session: ->(**kwargs) { helper.send(:record_delete, kwargs) },
       cancel: ->(**kwargs) { helper.send(:record_cancel, kwargs) },
       recover: ->(**kwargs) { helper.send(:record_recover, kwargs) },
-      stream: ->(**kwargs, &block) { helper.send(:record_stream, kwargs, block) }
+      stream: ->(**kwargs, &block) { helper.send(:record_stream, kwargs, block) },
+      submit_tool_results: ->(**kwargs, &block) { helper.send(:record_submit, kwargs, block) }
     }.each do |name, implementation|
       remember_agent(name)
       RecordingStudioAI::Agents.define_singleton_method(name, &implementation)
@@ -423,13 +526,47 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
 
   def record_recover(kwargs)
     @calls[:recover] << kwargs
-    RecordingStudioAI::Agents::Recovery.new(session: kwargs.fetch(:session), turn: nil, items: @recovered)
+    RecordingStudioAI::Agents::Recovery.new(
+      session: kwargs.fetch(:session), turn: nil, items: @recovered, tool_calls: @pending_calls || []
+    )
   end
 
   def record_stream(kwargs, block)
     @calls[:stream] << kwargs
-    @stream.each { |stream_event| block&.call(stream_event) }
+    events = @calls[:stream].size > 1 && @next_stream ? @next_stream : @stream
+    Array(events).each { |stream_event| block&.call(stream_event) }
+    return kwargs.fetch(:session) if @calls[:stream].size > 1
+
+    @stream_result || kwargs.fetch(:session)
+  end
+
+  def record_submit(kwargs, block)
+    @calls[:submit_tool_results] << kwargs
+    raise @submit_error if @submit_error && @calls[:submit_tool_results].size == 1
+
+    Array(@continuation).each { |stream_event| block&.call(stream_event) }
     kwargs.fetch(:session)
+  end
+
+  def tool_call
+    RecordingStudioAI::Agents::ToolCall.new(
+      call_id: "call_1", name: "show", arguments: { "type" => "PressKit", "id" => "missing" },
+      provider_turn_id: "turn_1"
+    )
+  end
+
+  def tool_turn(calls)
+    RecordingStudioAI::Agents::Turn.new(
+      provider: :openai, provider_session_id: "sess_tools", model: "demo", status: "requires_action",
+      run_id: nil, tool_calls: calls
+    )
+  end
+
+  def timeout_failure
+    error = RecordingStudioAI::Contracts::NormalizedError.new(
+      category: "timeout", code: "timeout", message: "Provider request timed out.", retryable: true
+    )
+    RecordingStudioAI::Agents::Failure.new(error)
   end
 
   def hosted(provider_session_id)
