@@ -19,23 +19,9 @@ module RecordingStudioAgents
       end
 
       # Origin of an absolute asset URL. A relative URL is covered by 'self'.
+      # Same parser as chatkit_allowed_origins.
       def origin_for(url)
-        value = url.to_s.strip
-        return unless value.match?(%r{\A[a-z][a-z0-9+.-]*://}i)
-
-        asset_origin(URI.parse(value))
-      rescue URI::InvalidURIError
-        nil
-      end
-
-      def asset_origin(uri)
-        return unless uri.is_a?(URI::HTTP) && uri.host.present?
-        return unless %w[http https].include?(uri.scheme)
-
-        host = uri.host.downcase
-        default_port = uri.scheme == "https" ? 443 : 80
-        authority = uri.port == default_port ? host : "#{host}:#{uri.port}"
-        "#{uri.scheme}://#{authority}"
+        ChatkitHostSettings.origin(url)
       end
     end
   end

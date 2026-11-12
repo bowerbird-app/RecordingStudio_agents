@@ -135,6 +135,22 @@ class InstallGeneratorTest < Minitest::Test
     assert_equal ["INSTALL.md"], shown_templates
   end
 
+  def test_initializer_template_sets_the_signed_in_person_and_workspace
+    template = File.read(
+      File.expand_path(
+        "../lib/generators/recording_studio_agents/install/templates/recording_studio_agents_initializer.rb",
+        __dir__
+      )
+    )
+
+    assert_includes template, "config.request_actor = lambda do |controller|"
+    assert_includes template, "controller.send(:current_user)"
+    assert_includes template, "config.request_root = lambda do |controller|"
+    assert_includes template, "RecordingStudio::RootSwitchable.resolve_current_root"
+    refute_includes template, "# config.request_actor"
+    refute_includes template, "# config.request_root"
+  end
+
   def test_install_guide_includes_migration_and_host_setup_steps
     install_guide = File.read(INSTALL_TEMPLATE_PATH)
 

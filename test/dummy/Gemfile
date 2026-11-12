@@ -22,9 +22,10 @@ gem "recording_studio_root_switchable", github: "bowerbird-app/RecordingStudio_r
 gem "recording_studio_user", github: "bowerbird-app/RecordingStudio_users", tag: "v0.25.2"
 
 # Bearer tokens for the API and MCP. Pinned by tag, not branch.
-# API 0.20 records the access-grant actor on a resource update. MCP 0.31 and
-# Oauth 0.21.5 are the releases that allow that API. Moveable is an API dependency.
-gem "recording_studio_api", github: "bowerbird-app/RecordingStudio_api", tag: "v0.20.0"
+# API 0.21.2 keys in-process idempotency as actor:<Type>:<id> when the grant
+# has no API client. MCP 0.31 and Oauth 0.21.5 allow that API.
+# Moveable is an API dependency.
+gem "recording_studio_api", github: "bowerbird-app/RecordingStudio_api", tag: "v0.21.2"
 gem "recording_studio_oauth", github: "bowerbird-app/RecordingStudio_Oauth", tag: "v0.21.5"
 gem "recording_studio_mcp", github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.31.0"
 gem "recording_studio_moveable", github: "bowerbird-app/RecordingStudio_moveable", tag: "v4.1.0"

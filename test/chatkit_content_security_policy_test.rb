@@ -36,4 +36,15 @@ class ChatkitContentSecurityPolicyTest < Minitest::Test
   ensure
     configuration.chatkit_allowed_origins = previous if configuration && previous
   end
+
+  def test_origin_for_reuses_the_allowed_origin_parser
+    asset = "HTTPS://CDN.Example:443/static/recording_studio_agents/chatkit.js"
+    parser = RecordingStudioAgents::ChatkitHostSettings
+
+    assert_equal "https://cdn.example", parser.origin(asset)
+    assert_equal parser.origin(asset), RecordingStudioAgents::ChatKit::ContentSecurityPolicy.origin_for(asset)
+    assert_equal "http://plain.example.test:3000", parser.origin("http://plain.example.test:3000/a.js")
+    assert_nil parser.origin("/recording_studio_agents/chatkit.js")
+    assert_nil RecordingStudioAgents::ChatKit::ContentSecurityPolicy.origin_for("ftp://files.example/a.js")
+  end
 end

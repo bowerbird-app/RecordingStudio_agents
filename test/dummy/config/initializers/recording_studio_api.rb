@@ -18,5 +18,5 @@ RecordingStudioApi.register_recordable_type_api(
   },
   output_keys: %i[name description content],
   writable_attributes: %i[name description content],
-  operations: %i[index show update]
+  operations: %i[index show create update]
 )

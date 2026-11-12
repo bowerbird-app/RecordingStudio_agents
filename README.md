@@ -20,13 +20,13 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Recording Studio Users dummy GitHub tag `v0.25.2`
 - Oauth dummy GitHub tag `v0.21.5`
 - Recording Studio MCP dummy GitHub tag `v0.31.0`
-- Recording Studio API dummy GitHub tag `v0.20.0`
-- Moveable dummy GitHub tag `v4.1.0` and Icons dummy GitHub tag `v0.2.0` (API 0.20 dependencies)
+- Recording Studio API dummy GitHub tag `v0.21.2`
+- Moveable dummy GitHub tag `v4.1.0` and Icons dummy GitHub tag `v0.2.0` (API dependencies)
 - Recording Studio Logs dummy GitHub tag `v0.7.1`
 - Recording Studio Admin dummy GitHub tag `v2.3.3`
 - Site Settings dummy GitHub tag `v0.5.1`
 
-This gem does not depend on MCP, API, or Oauth. The dummy pins API `v0.20.0`, MCP `v0.31.0`, and Oauth `v0.21.5` so a resource update records the access-grant actor. An in-process chat write uses the signed-in person as that actor. `agent_chats_create` still records the OAuth client, because this gem chooses that actor. An older API leaves the in-process event actor empty.
+This gem does not depend on MCP, API, or Oauth. The dummy pins API `v0.21.2`, MCP `v0.31.0`, and Oauth `v0.21.5`. API 0.20 records the access-grant actor on a resource update. An in-process chat write uses the signed-in person as that actor. `agent_chats_create` still records the OAuth client, because this gem chooses that actor. An older API leaves the in-process event actor empty. API 0.21.2 keys a create with no API client as `actor:<Type>:<id>`. A grant with neither a client nor an actor raises `AuthorizationError`.
 
 The provider API key stays in Recording Studio AI. This gem does not read one.
 
@@ -57,6 +57,36 @@ end
 ```
 
 `config.layout` accepts `nil`, `false`, a layout name, or a callable invoked as `call(controller:)`. `nil` uses `RecordingStudio.configuration.layout`, then `"recording_studio/default_layout"`. `false` renders with no layout. A positional parameter raises `ArgumentError`. See `docs/layout.md`.
+
+## Required configuration
+
+ChatKit and the popup need the signed-in person and the current workspace. The install generator writes both into `config/initializers/recording_studio_agents.rb`. `request_actor` uses `current_user` when the controller responds to it, and the host session otherwise, then sets `Current.actor` when that constant exists. `request_root` asks Root Switchable for that person's current root. Leave either one as the empty default and a signed-in visitor looks signed out, or a person with a workspace sees the empty state.
+
+```ruby
+config.request_actor = lambda do |controller|
+  user = controller.send(:current_user) if controller.respond_to?(:current_user, true)
+  user ||= controller.request.env["warden"]&.user(:user) if controller.respond_to?(:request)
+  Current.actor = user if defined?(Current)
+  user
+end
+
+config.request_root = lambda do |controller|
+  actor = defined?(Current) ? Current.actor : nil
+  actor = controller.send(:current_user) if actor.blank? && controller.respond_to?(:current_user, true)
+  actor ||= controller.request.env["warden"]&.user(:user) if controller.respond_to?(:request)
+  next if actor.blank?
+  next unless defined?(RecordingStudio::RootSwitchable)
+
+  device_key = RecordingStudio::RootSwitchable::DeviceKey.fetch(controller: controller)
+  RecordingStudio::RootSwitchable.resolve_current_root(
+    controller: controller,
+    actor: actor,
+    device_key: device_key
+  ).root_recording
+rescue RecordingStudio::RootSwitchable::DeviceKey::Unavailable
+  nil
+end
+```
 
 ```ruby
 class Workspace < ApplicationRecord
@@ -103,7 +133,7 @@ The dummy `Page` model uses that line. A folder still cannot. A trashed page is 
 
 A new chat sends `config.provider` only when Recording Studio AI lists that name in `allowed_provider_overrides`. The default is `openai`, which ChatKit readiness uses. It is not sent as an override, so the profile picks the model. Add the name to `allowed_provider_overrides` when a host must force that provider.
 
-When Recording Studio MCP and Recording Studio API are both loaded, a new chat also sends that person's workspace tools as function tools. The list is built from their Accessible grant on the current root. Reads and writes are both included. `config.mcp_tools` is `:write` by default, `:read` for read-only tools, or `:off` to send none. The tools this gem registers (`agent_chats_list`, `agent_chats_create`, `agent_chats_read`, `agent_chats_append`, `agent_items_list`, and `agent_items_read`) are left out, so a tool call cannot open another chat turn. Each call runs in this process through `RecordingStudioMcp::Dispatcher` as the person who is signed in for this request, then the result is posted back to the hosted session. The Accessible check uses that person's grant. A generic update stores that person as the event actor and as `authorized_by`. The grant does not set an API client, so the event has no impersonator. API 0.20 writes the access-grant actor onto that event. An older API leaves the actor empty and still stores `authorized_by` when it supports that stamp. At boot, when `config.mcp_tools` is `:write` and the installed `recording_studio_api` is older than 0.20, this gem logs a warning that `event.actor` will be empty for agent writes and that the host should upgrade. It does not raise. Set `config.mcp_tools` to `:read` or `:off` to skip that warning. A call the grant does not allow comes back as an error result. The tool output is not raised out of the turn. The same call is counted in the MCP usage log, and it uses the API read or write rate limit. `ChatToolLimit` copies API's private rate-limit key layout (`namespace:api_read|api_write:identifier:window`, default namespace `recording_studio_api`) and its increment script. Replace it with a public API limiter when one exists. While API access is disabled, the call returns an error and does not run. A host without MCP sends no tools, and the chat behaves as before. Tool definitions are fixed when the chat is created. Turning tools off, or down to read-only, still applies to calls on a chat that was opened earlier. A dropped model stream that is still waiting on tool calls is answered from the recovered calls. If posting those results times out, the pending calls are read again before a retry, because the first post may still be in flight. One turn answers at most 8 rounds of tool calls, then refuses the next call. If the run is still waiting, it is cancelled and the chat shows a failure.
+When Recording Studio MCP and Recording Studio API are both loaded, a new chat also sends that person's workspace tools as function tools. The list is built from their Accessible grant on the current root. Reads and writes are both included. `config.mcp_tools` is `:write` by default, `:read` for read-only tools, or `:off` to send none. The tools this gem registers (`agent_chats_list`, `agent_chats_create`, `agent_chats_read`, `agent_chats_append`, `agent_items_list`, and `agent_items_read`) are left out, so a tool call cannot open another chat turn. Each call runs in this process through `RecordingStudioMcp::Dispatcher` as the person who is signed in for this request, then the result is posted back to the hosted session. The Accessible check uses that person's grant. A generic update stores that person as the event actor and as `authorized_by`. The grant does not set an API client, so the event has no impersonator. API 0.20 writes the access-grant actor onto that event. An older API leaves the actor empty and still stores `authorized_by` when it supports that stamp. API 0.21.2 stores an in-process create, which has no API client, under `actor:<Type>:<id>`. The chat still sends `idempotency_key: call_id`. A grant with neither a client nor an actor raises `AuthorizationError`. At boot, when `config.mcp_tools` is `:write` and the installed `recording_studio_api` is older than 0.20, this gem logs a warning that `event.actor` will be empty for agent writes and that the host should upgrade. It does not raise. Set `config.mcp_tools` to `:read` or `:off` to skip that warning. A call the grant does not allow comes back as an error result. The tool output is not raised out of the turn. The same call is counted in the MCP usage log, and it uses the API read or write rate limit. `ChatToolLimit` copies API's private rate-limit key layout (`namespace:api_read|api_write:identifier:window`, default namespace `recording_studio_api`) and its increment script. Replace it with a public API limiter when one exists. While API access is disabled, the call returns an error and does not run. A host without MCP sends no tools, and the chat behaves as before. Tool definitions are fixed when the chat is created. Turning tools off, or down to read-only, still applies to calls on a chat that was opened earlier. A dropped model stream that is still waiting on tool calls is answered from the recovered calls. If posting those results times out, the pending calls are read again before a retry, because the first post may still be in flight. One turn answers at most 8 rounds of tool calls, then refuses the next call. If the run is still waiting, it is cancelled and the chat shows a failure.
 
 The component renders when the ChatKit domain key is set and the configured provider has a hosted-agent model and its credential. The default provider is OpenAI, which needs `config.openai_api_key` or `config.openai_client`. A provider with no hosted-agent model, such as Gemini on the current Recording Studio AI release, shows a setup notice instead of asking for an invented key. The self-hosted ChatKit server is unchanged.
 
@@ -124,7 +154,24 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 
 ## Popup
 
-Mount the engine, then open `GET /recording_studio_agents/popup` (`recording_studio_agents.popup_path`). Point Embeddable's floating launcher iframe at that URL. The page lives in Agents and renders `recording_studio_agents_chatkit` in a bare layout that fills the iframe. It does not use Embeddable's `FloatingWidget::Interactive`, and it does not take a page. The chat uses the workspace from `config.request_root` (Root Switchable's current root). A signed-in person with no workspace sees an empty state instead of the chat.
+Mount the engine. `GET /recording_studio_agents/popup` (`recording_studio_agents.popup_path`) is the page [Recording Studio Embeddable](https://github.com/bowerbird-app/RecordingStudio_Embeddable)'s floating launcher frames. Use that launcher. The page lives in Agents and renders `recording_studio_agents_chatkit` in a bare layout that fills the frame. It does not use Embeddable's `FloatingWidget::Interactive`, and it does not take a page. The chat uses the workspace from `config.request_root` (Root Switchable's current root). A signed-in person with no workspace sees an empty state instead of the chat.
+
+Sign in on that page opens the host (`target: "_top"`). Embeddable's built-in sandbox does not allow that navigation. When this popup is the framed page, set the launcher sandbox:
+
+```ruby
+floating_options: {
+  sandbox: %w[
+    allow-scripts
+    allow-same-origin
+    allow-forms
+    allow-popups
+    allow-top-navigation-by-user-activation
+  ],
+  allow: "clipboard-write"
+}
+```
+
+`allow-top-navigation-by-user-activation` lets Sign in navigate the top frame. The other tokens are the ones Embeddable documents for a ChatKit popup, plus the clipboard. See Embeddable's floating launcher.
 
 The bare layout loads `config.popup_stylesheet`, which defaults to the host `tailwind` stylesheet. Set it to another asset name, or to `nil` to skip the tag. FlatPack's empty state and the chat height are utility classes, and this document does not inherit the host page's CSS.
 

@@ -58,6 +58,21 @@ module RecordingStudioAgents
 
     # Same shape as RecordingStudioEmbeddable::Floating::Origin.parse:
     # scheme, host, and a non-default port. A path or query is dropped.
+    # A relative URL, or anything that is not http(s), is nil.
+    def origin(value)
+      raw = value.to_s.strip
+      return if raw.empty? || raw == "*" || raw.match?(/[\s\r\n]/)
+
+      uri = parsed_http_uri(raw)
+      return if uri.nil?
+
+      host = uri.host.downcase
+      default_port = uri.scheme == "https" ? 443 : 80
+      authority = uri.port == default_port ? host : "#{host}:#{uri.port}"
+      "#{uri.scheme}://#{authority}"
+    end
+    module_function :origin
+
     def normalize_origins(value)
       entries = value.is_a?(String) ? value.split(",") : Array(value)
       entries.flat_map { |entry| entry.to_s.split(",") }.filter_map { |entry| parse_origin(entry) }
@@ -67,22 +82,10 @@ module RecordingStudioAgents
       raw = value.to_s.strip
       return if raw.empty?
 
-      origin = http_origin(raw)
-      raise Error, "chatkit_allowed_origins must be http(s) origins" if origin.nil?
+      parsed = origin(raw)
+      raise Error, "chatkit_allowed_origins must be http(s) origins" if parsed.nil?
 
-      origin
-    end
-
-    def http_origin(raw)
-      return if raw == "*" || raw.match?(/[\s\r\n]/)
-
-      uri = parsed_http_uri(raw)
-      return if uri.nil?
-
-      host = uri.host.downcase
-      default_port = uri.scheme == "https" ? 443 : 80
-      authority = uri.port == default_port ? host : "#{host}:#{uri.port}"
-      "#{uri.scheme}://#{authority}"
+      parsed
     end
 
     def parsed_http_uri(raw)
@@ -94,6 +97,7 @@ module RecordingStudioAgents
     rescue URI::InvalidURIError
       nil
     end
+    module_function :parsed_http_uri
   end
 
   class Configuration

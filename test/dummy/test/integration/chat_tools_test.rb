@@ -183,6 +183,44 @@ class ChatToolsTest < ActiveSupport::TestCase
     end
   end
 
+  test "the same call id creates one record and list works in process" do
+    previous_cache = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    original = RecordingStudioApi::Concerns::RateLimiting.method(:redis_client)
+    RecordingStudioApi::Concerns::RateLimiting.define_singleton_method(:redis_client) { nil }
+    arguments = {
+      "type" => "PressKit",
+      "parent_id" => @root.id,
+      "name" => "ONCE",
+      "description" => "A shophouse",
+      "content" => "The wall"
+    }
+
+    assert_difference("PressKit.count", 1) do
+      @created = invoke("create", arguments, call_id: "c1")
+      @replay = invoke("create", arguments.merge("name" => "TWICE"), call_id: "c1")
+    end
+
+    refute @created[:isError]
+    refute @replay[:isError]
+    assert_equal 1, PressKit.where(name: "ONCE").count
+    assert_equal 0, PressKit.where(name: "TWICE").count
+    assert_includes @created.dig(:content, 0, :text).to_s, "ONCE"
+    assert_includes @replay.dig(:content, 0, :text).to_s, "ONCE"
+
+    listed = invoke("list", { "type" => "PressKit" }, call_id: "c-list")
+
+    refute listed[:isError]
+    assert_includes listed.dig(:content, 0, :text).to_s, "ONCE"
+  ensure
+    Rails.cache = previous_cache if previous_cache
+    if original
+      RecordingStudioApi::Concerns::RateLimiting.define_singleton_method(:redis_client) do |*args, **kwargs, &block|
+        original.call(*args, **kwargs, &block)
+      end
+    end
+  end
+
   test "the rate limit key uses the api layout for a signed in person" do
     grant = RecordingStudioAgents::Mcp::ChatTools.grant_for(@user, @root)
     period = 60

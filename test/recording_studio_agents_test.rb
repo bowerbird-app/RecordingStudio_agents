@@ -95,7 +95,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_icons", tag: "v0.2.0"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_users", tag: "v0.25.2"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_attachable", tag: "v0.20.2", require: false'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_api", tag: "v0.20.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_api", tag: "v0.21.2"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_admin", tag: "v2.3.3"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_site_settings", tag: "v0.5.1"'
     refute_includes gemfile, "recording_studio/v3.0.0"
@@ -275,7 +275,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     refute_includes readme, "dummy GitHub tag `v0.1.254`"
     assert_includes readme, "Oauth dummy GitHub tag `v0.21.5`"
     assert_includes readme, "dummy GitHub tag `v0.31.0`"
-    assert_includes readme, "Recording Studio API dummy GitHub tag `v0.20.0`"
+    assert_includes readme, "Recording Studio API dummy GitHub tag `v0.21.2`"
     assert_includes readme, "Moveable dummy GitHub tag `v4.1.0`"
     assert_includes readme, "Icons dummy GitHub tag `v0.2.0`"
     assert_includes readme, "root and dummy GitHub tag `v0.1.341`"

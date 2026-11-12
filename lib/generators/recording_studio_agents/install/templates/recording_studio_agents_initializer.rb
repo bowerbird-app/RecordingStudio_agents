@@ -24,4 +24,32 @@ RecordingStudioAgents.configure do |config|
   # config.mcp_tools = :write
   # Popup utility stylesheet. Nil skips the tag. The default is "tailwind".
   # config.popup_stylesheet = "tailwind"
+
+  # Signed-in person for ChatKit and the popup. current_user when the controller
+  # has it. A mounted engine controller usually does not, so the host session
+  # (Warden) is the fallback. Both paths set Current.actor when that exists.
+  config.request_actor = lambda do |controller|
+    user = controller.send(:current_user) if controller.respond_to?(:current_user, true)
+    user ||= controller.request.env["warden"]&.user(:user) if controller.respond_to?(:request)
+    Current.actor = user if defined?(Current)
+    user
+  end
+
+  # Workspace for that person. Root Switchable's current root, not the oldest one.
+  config.request_root = lambda do |controller|
+    actor = defined?(Current) ? Current.actor : nil
+    actor = controller.send(:current_user) if actor.blank? && controller.respond_to?(:current_user, true)
+    actor ||= controller.request.env["warden"]&.user(:user) if controller.respond_to?(:request)
+    next if actor.blank?
+    next unless defined?(RecordingStudio::RootSwitchable)
+
+    device_key = RecordingStudio::RootSwitchable::DeviceKey.fetch(controller: controller)
+    RecordingStudio::RootSwitchable.resolve_current_root(
+      controller: controller,
+      actor: actor,
+      device_key: device_key
+    ).root_recording
+  rescue RecordingStudio::RootSwitchable::DeviceKey::Unavailable
+    nil
+  end
 end
