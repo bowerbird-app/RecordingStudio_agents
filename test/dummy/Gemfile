@@ -22,10 +22,14 @@ gem "recording_studio_root_switchable", github: "bowerbird-app/RecordingStudio_r
 gem "recording_studio_user", github: "bowerbird-app/RecordingStudio_users", tag: "v0.25.2"
 
 # Bearer tokens for the API and MCP. Pinned by tag, not branch.
-gem "recording_studio_api", github: "bowerbird-app/RecordingStudio_api", tag: "v0.16.0"
-gem "recording_studio_oauth", github: "bowerbird-app/RecordingStudio_Oauth", tag: "v0.15.1"
-gem "recording_studio_mcp", github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.22.0"
-# API 0.16 and MCP 0.22 register logs. GitHub-only, so Bundler needs this source.
+# API 0.20 records the access-grant actor on a resource update. MCP 0.31 and
+# Oauth 0.21.5 are the releases that allow that API. Moveable is an API dependency.
+gem "recording_studio_api", github: "bowerbird-app/RecordingStudio_api", tag: "v0.20.0"
+gem "recording_studio_oauth", github: "bowerbird-app/RecordingStudio_Oauth", tag: "v0.21.5"
+gem "recording_studio_mcp", github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.31.0"
+gem "recording_studio_moveable", github: "bowerbird-app/RecordingStudio_moveable", tag: "v4.1.0"
+gem "recording_studio_icons", github: "bowerbird-app/RecordingStudio_icons", tag: "v0.2.0"
+# API 0.20 and MCP 0.31 register logs. GitHub-only, so Bundler needs this source.
 # v0.7.1 allows metrics 0.7.0. v0.7.0 requires metrics ~> 0.6.1, which rejects it.
 gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.1"
 gem "recording_studio_admin", github: "bowerbird-app/RecordingStudio_admin", tag: "v2.3.3"
@@ -64,8 +68,8 @@ gem "jbuilder"
 gem "tailwindcss-rails"
 
 # FlatPack UI component library [https://github.com/bowerbird-app/flatpack]
-# Oauth requires flat_pack ~> 0.1.198. Pinned to commit 1fcbafe94f8eb118f0a22182f63f5110fcc97a56 (version 0.1.319).
-gem "flat_pack", ">= 0.1.315", github: "bowerbird-app/flatpack", ref: "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
+# API 0.20 and Oauth 0.21.5 require flat_pack >= 0.1.341.
+gem "flat_pack", ">= 0.1.341", github: "bowerbird-app/flatpack", tag: "v0.1.341"
 gem "view_component", "4.19.0"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]

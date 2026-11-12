@@ -4,6 +4,10 @@ module RecordingStudioAgents
   module Mcp
     # Shares the Recording Studio API read and write windows. A signed-in person
     # with no API credential is counted as that actor.
+    #
+    # The counter key copies API's private layout
+    # (`namespace:api_read|api_write:identifier:window`). Replace this with a
+    # public API limiter when one exists.
     module ChatToolLimit
       module_function
 

@@ -11,9 +11,9 @@
 - Logs dummy tag `v0.7.1` (GitHub-only; AI 0.20.0 depends on it)
 - Accessible dummy tag `v0.20.0`, Trashable dummy tag `v0.11.3` (`require: false`), and Root Switchable dummy tag `v0.9.7`
 - Cache dummy tag `v0.5.1`
-- FlatPack `>= 0.1.315` at commit `1fcbafe94f8eb118f0a22182f63f5110fcc97a56` (version 0.1.319). Oauth requires `~> 0.1.198`, which this commit satisfies.
+- FlatPack `>= 0.1.315`. The root Gemfile uses commit `1fcbafe94f8eb118f0a22182f63f5110fcc97a56`. The dummy pins tag `v0.1.341`, which API 0.20 and Oauth 0.21.5 require.
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
-- Users dummy tag `v0.25.2`, Oauth dummy tag `v0.15.1`, MCP dummy tag `v0.22.0`, API dummy tag `v0.16.0`, Admin dummy tag `v2.3.3`, Site Settings dummy tag `v0.5.1`, Attachable dummy tag `v0.20.2` (`require: false`)
+- Users dummy tag `v0.25.2`, Oauth dummy tag `v0.21.5`, MCP dummy tag `v0.31.0`, API dummy tag `v0.20.0`, Moveable dummy tag `v4.1.0`, Icons dummy tag `v0.2.0`, Admin dummy tag `v2.3.3`, Site Settings dummy tag `v0.5.1`, Attachable dummy tag `v0.20.2` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
 
 ## Layout

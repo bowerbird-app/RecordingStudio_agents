@@ -55,6 +55,8 @@ class ChatToolsTest < ActiveSupport::TestCase
     refute result[:isError]
     assert_equal "RENAMED", kit.reload.recordable.name
     event = RecordingStudio::Event.where(recording_id: kit.id).order(created_at: :desc).first
+    assert_equal @user, event.actor
+    assert_nil event.impersonator
     assert_equal "User", event.metadata["authorized_by_type"]
     assert_equal @user.id, event.metadata["authorized_by_id"]
     log = RecordingStudioMcp::UsageLog.order(:created_at).last
@@ -125,6 +127,7 @@ class ChatToolsTest < ActiveSupport::TestCase
     messages = []
     logger = Object.new
     logger.define_singleton_method(:error) { |message| messages << message }
+    logger.define_singleton_method(:warn) { |message| messages << message }
     boom = ->(**) { raise ActiveRecord::ConnectionNotEstablished, "db down" }
 
     previous_logger = Rails.logger
@@ -152,6 +155,7 @@ class ChatToolsTest < ActiveSupport::TestCase
     messages = []
     logger = Object.new
     logger.define_singleton_method(:error) { |message| messages << message }
+    logger.define_singleton_method(:warn) { |message| messages << message }
     previous_closed = @api.rate_limit_fail_closed
     previous_buckets = @api.rate_limit_fail_closed_buckets
     @api.rate_limit_api_enabled = true
