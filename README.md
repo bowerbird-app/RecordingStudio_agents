@@ -96,8 +96,11 @@ end
 
 ```bash
 bin/rails generate recording_studio_agents:migrations
+bin/rails railties:install:migrations FROM=recording_studio_ai
 bin/rails db:migrate
 ```
+
+A new chat writes a Recording Studio AI run before it calls the provider. `recording_studio_ai` is a runtime dependency, and those tables are not created by this gem. Install the Recording Studio AI migrations as well, or `threads.create` fails with a missing `recording_studio_ai_runs` table. AI 0.20.0 builds `rsai_terminal_runs_guard` and `rsai_terminal_batches_guard` before it drops `correlation_id`, and it does not replace them. Rebuild those two functions after the column drop, or the next update of a run fails with `record "old" has no field "correlation_id"`. The dummy migration `RefreshRecordingStudioAITerminalGuards` does that rebuild.
 
 Schedule `RecordingStudioAgents::ExpireSessionsJob`. It closes chats whose `expires_at` has passed. Closing deletes the provider session through Recording Studio AI first. An already-gone provider session is success, and the local chat, items, and binding are removed. A different provider failure leaves the local rows in place for a later retry.
 
