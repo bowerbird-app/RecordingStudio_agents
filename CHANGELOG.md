@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-12
+
+### Added
+- MCP and Recording Studio API endpoints `agent_chats_close` (`DELETE agent_chats/:id`) and
+  `agent_chats_rename` (`PATCH agent_chats/:id`) wrap `Sessions::Close` and `Sessions::Rename`.
+  Titles are `Agent Chat - Close` and `Agent Chat - Rename`. Reads stay on `:view`. Close and
+  rename call `access_grant.authorize!` with `:edit` on the chat, the same Accessible check as
+  the chat page. Lookup stays on the existing catalog and workspace grant.
+
+### Host upgrade notes
+- No migration. Hosts that already mount Recording Studio API and MCP get the two tools after
+  they bundle this version. Callers with `:edit` on the chat can close or rename it. A `:view`
+  grant cannot. A chat outside the grant is not found.
+
 ## [0.10.0] - 2026-11-11
 
 ### Added

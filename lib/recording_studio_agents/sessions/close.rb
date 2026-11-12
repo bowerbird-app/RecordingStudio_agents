@@ -12,6 +12,7 @@ module RecordingStudioAgents
         @actor = actor
         @recording = options[:recording]
         @recording_id = options[:recording_id]
+        @access_grant = options[:access_grant]
         @system = options.fetch(:system, false)
         @execution_source = options.fetch(:execution_source, (@system ? :scheduled : :web))
       end

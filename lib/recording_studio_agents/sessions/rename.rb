@@ -13,6 +13,7 @@ module RecordingStudioAgents
         @title = title
         @recording = options[:recording]
         @recording_id = options[:recording_id]
+        @access_grant = options[:access_grant]
       end
 
       private

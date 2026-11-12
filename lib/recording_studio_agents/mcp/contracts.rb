@@ -77,6 +77,15 @@ module RecordingStudioAgents
         }
       end
 
+      def rename
+        {
+          fields: {
+            id: { type: :string, required: true, allow_blank: false, description: "Chat id." },
+            title: { type: :string, required: true, allow_blank: false, description: "New chat title." }
+          }
+        }
+      end
+
       def items
         {
           fields: {

@@ -43,6 +43,8 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_includes names, "agent_chats_list"
     assert_includes names, "agent_chats_create"
     assert_includes names, "agent_chats_read"
+    assert_includes names, "agent_chats_close"
+    assert_includes names, "agent_chats_rename"
     assert_includes names, "agent_items_list"
 
     post_mcp("resources/list")
@@ -76,6 +78,14 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     item = RecordingStudioAgents::Item.find_by!(recording_id: @zulu_chat.id)
     post_mcp("tools/call", name: "agent_items_read", arguments: { id: @zulu_chat.id, item_id: item.id })
     assert_equal true, JSON.parse(response.body).dig("result", "isError")
+
+    post_mcp("tools/call", name: "agent_chats_rename", arguments: { id: @zulu_chat.id, title: "Stolen" })
+    assert_equal true, JSON.parse(response.body).dig("result", "isError")
+    refute_equal "Stolen", @zulu_chat.reload.recordable.title
+
+    post_mcp("tools/call", name: "agent_chats_close", arguments: { id: @zulu_chat.id })
+    assert_equal true, JSON.parse(response.body).dig("result", "isError")
+    assert RecordingStudio::Recording.exists?(@zulu_chat.id)
   end
 
   test "a cross-workspace key is a conflict over the bearer" do
@@ -212,6 +222,12 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     post_mcp("tools/call", name: "agent_chats_append", arguments: {
       id: @alpha_chat.id, input: "nope", idempotency_key: "view-only-append"
     })
+    assert_authorization_error
+
+    post_mcp("tools/call", name: "agent_chats_rename", arguments: { id: @alpha_chat.id, title: "Nope" })
+    assert_authorization_error
+
+    post_mcp("tools/call", name: "agent_chats_close", arguments: { id: @alpha_chat.id })
     assert_authorization_error
     assert_equal before, RecordingStudioAgents::Binding.count
     assert_equal 0, RecordingStudioAgents::Item.where(idempotency_key: "view-only-append").count
@@ -642,12 +658,16 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     items = mcp_ok("agent_items_list", { id: @alpha_chat.id })
     item_id = RecordingStudioAgents::Item.find_by!(recording_id: @alpha_chat.id, role: "user").id
     item = mcp_ok("agent_items_read", { id: @alpha_chat.id, item_id: item_id })
+    renamed = mcp_ok("agent_chats_rename", { id: chat_id, title: "Schema renamed" })
+    closed = mcp_ok("agent_chats_close", { id: chat_id })
 
     {
       agent_chats_list: listed,
       agent_chats_create: created,
       agent_chats_read: read,
       agent_chats_append: appended,
+      agent_chats_rename: renamed,
+      agent_chats_close: closed,
       agent_items_list: items,
       agent_items_read: item
     }.each do |name, payload|
@@ -843,7 +863,8 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     test = self
     @original = {
       create_session: RecordingStudioAI::Agents.method(:create_session),
-      send_input: RecordingStudioAI::Agents.method(:send_input)
+      send_input: RecordingStudioAI::Agents.method(:send_input),
+      delete_session: RecordingStudioAI::Agents.method(:delete_session)
     }
     RecordingStudioAI::Agents.define_singleton_method(:create_session) do |**kwargs|
       test.instance_variable_get(:@calls) << kwargs
@@ -854,6 +875,9 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     end
     RecordingStudioAI::Agents.define_singleton_method(:send_input) do |**kwargs|
       kwargs.fetch(:session)
+    end
+    RecordingStudioAI::Agents.define_singleton_method(:delete_session) do |**|
+      true
     end
   end
 
