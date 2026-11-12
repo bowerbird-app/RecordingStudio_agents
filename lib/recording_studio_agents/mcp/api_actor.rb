@@ -2,10 +2,10 @@
 
 module RecordingStudioAgents
   module Mcp
-    # API 0.20 records the access-grant actor on a resource update. Older
-    # releases leave event.actor empty for an in-process agent write.
+    # In-process creates need API 0.21.2, which keys idempotency as
+    # actor:<Type>:<id>. Older releases warn at boot when MCP tools are on.
     module ApiActor
-      ACTOR_VERSION = Gem::Version.new("0.20")
+      ACTOR_VERSION = Gem::Version.new("0.21.2")
 
       module_function
 
@@ -33,8 +33,9 @@ module RecordingStudioAgents
       end
 
       def warning_message(version)
-        "Recording Studio Agents: recording_studio_api #{version} is older than 0.20. " \
-          "event.actor will be empty for agent writes. Upgrade recording_studio_api to 0.20 or later."
+        "Recording Studio Agents: recording_studio_api #{version} is older than 0.21.2. " \
+          "In-process creates need 0.21.2 so idempotency is keyed as actor:<Type>:<id>. " \
+          "Upgrade recording_studio_api to 0.21.2 or later."
       end
     end
   end

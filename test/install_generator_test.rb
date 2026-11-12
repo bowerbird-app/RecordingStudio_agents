@@ -157,9 +157,14 @@ class InstallGeneratorTest < Minitest::Test
     install_guide = File.read(INSTALL_TEMPLATE_PATH)
 
     assert_includes install_guide, "bin/rails generate recording_studio_agents:migrations"
-    assert_includes install_guide, "bin/rails railties:install:migrations FROM=recording_studio_ai"
-    assert_includes install_guide, "recording_studio_ai_runs"
+    assert_includes install_guide, "bin/rails generate recording_studio_logs:migrations"
+    assert_includes install_guide, "bin/rails recording_studio_ai:install:migrations"
     assert_includes install_guide, "bin/rails db:migrate"
+    logs_at = install_guide.index("bin/rails generate recording_studio_logs:migrations")
+    ai_at = install_guide.index("bin/rails recording_studio_ai:install:migrations")
+    migrate_at = install_guide.index("bin/rails db:migrate")
+    assert_operator logs_at, :<, ai_at
+    assert_operator ai_at, :<, migrate_at
     assert_includes install_guide, "auth, layout, and current actor integration"
     assert_includes install_guide, "recording_studio_recordable"
     refute_includes install_guide, "RecordingStudio v3"

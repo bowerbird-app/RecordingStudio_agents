@@ -28,21 +28,20 @@ class ApiActorTest < Minitest::Test
     assert_equal :load_config_initializers, initializer.after
   end
 
-  def test_warns_when_writes_are_on_and_api_is_older_than_0_20
+  def test_warns_when_writes_are_on_and_api_is_older_than_0_21_2
     @configuration.mcp_tools = :write
 
-    with_api_version("0.16.0") { RecordingStudioAgents::Mcp::ApiActor.warn_if_needed }
+    with_api_version("0.21.1") { RecordingStudioAgents::Mcp::ApiActor.warn_if_needed }
 
     message = @messages.join
-    assert_includes message, "event.actor will be empty for agent writes"
-    assert_includes message, "Upgrade recording_studio_api to 0.20 or later"
-    assert_includes message, "0.16.0"
+    assert_includes message, "actor:<Type>:<id>"
+    assert_includes message, "Upgrade recording_studio_api to 0.21.2 or later"
+    assert_includes message, "0.21.1"
   end
 
   def test_does_not_warn_for_a_current_api_read_only_tools_or_a_missing_gem
     @configuration.mcp_tools = :write
-    with_api_version("0.20.0") { RecordingStudioAgents::Mcp::ApiActor.warn_if_needed }
-    with_api_version("0.21.0") { RecordingStudioAgents::Mcp::ApiActor.warn_if_needed }
+    with_api_version("0.21.2") { RecordingStudioAgents::Mcp::ApiActor.warn_if_needed }
 
     @configuration.mcp_tools = :read
     with_api_version("0.16.0") { RecordingStudioAgents::Mcp::ApiActor.warn_if_needed }
