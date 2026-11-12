@@ -3,6 +3,14 @@
 module RecordingStudioAgents
   module Mcp
     module Chats
+      module_function
+
+      def editable_chat(context)
+        recording = Context.catalog(context).find!(Context.value(context, :id))
+        Context.authorize!(context, recording, :edit)
+        recording
+      end
+
       class List
         def self.call(context)
           Context.call do
@@ -97,6 +105,42 @@ module RecordingStudioAgents
           }
         end
         private_class_method :append_args
+      end
+
+      class Close
+        def self.call(context)
+          Context.call do
+            recording = Chats.editable_chat(context)
+            Sessions::Close.call(**session_args(context, recording)).value!
+            { id: recording.id }
+          end
+        end
+
+        def self.session_args(context, recording)
+          {
+            root_recording: Context.root(context), actor: Context.actor(context),
+            access_grant: context.access_grant, recording: recording
+          }
+        end
+        private_class_method :session_args
+      end
+
+      class Rename
+        def self.call(context)
+          Context.call do
+            recording = Chats.editable_chat(context)
+            renamed = Sessions::Rename.call(**session_args(context, recording)).value!
+            { id: renamed.id, title: renamed.recordable.title }
+          end
+        end
+
+        def self.session_args(context, recording)
+          {
+            root_recording: Context.root(context), actor: Context.actor(context),
+            access_grant: context.access_grant, recording: recording, title: Context.value(context, :title)
+          }
+        end
+        private_class_method :session_args
       end
     end
   end

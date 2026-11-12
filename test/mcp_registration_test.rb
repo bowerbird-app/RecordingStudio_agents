@@ -17,7 +17,7 @@ class McpRegistrationTest < Minitest::Test
       assert RecordingStudioApi.registered_endpoint(:agent_chats_append)
       assert RecordingStudioApi.registered_endpoint(:agent_items_list)
       assert RecordingStudioApi.registered_endpoint(:agent_items_read)
-      assert_equal 6, RecordingStudioApi.endpoints.size
+      assert_equal 8, RecordingStudioApi.endpoints.size
       list_docs = list[:openapi]
       assert_equal ["Agent chats"], list_docs[:tags]
       assert_equal "List chats", list_docs[:summary]
@@ -25,6 +25,20 @@ class McpRegistrationTest < Minitest::Test
       assert_equal "object", schema[:type]
       assert_includes schema[:required], "chats"
       assert_includes RecordingStudioMcp.skills.fetch("agent-chats"), "SKILL.md"
+    end
+  end
+
+  def test_register_publishes_close_and_rename
+    with_fake_host do
+      RecordingStudioAgents::Mcp.register!
+
+      closed = RecordingStudioApi.registered_endpoint(:agent_chats_close)
+      renamed = RecordingStudioApi.registered_endpoint(:agent_chats_rename)
+      assert_equal :delete, closed[:verb]
+      assert_equal "agent_chats/:id", closed[:path]
+      assert_equal "Agent Chat - Close", closed[:openapi][:summary]
+      assert_equal :patch, renamed[:verb]
+      assert_equal "Agent Chat - Rename", renamed[:openapi][:summary]
     end
   end
 
@@ -44,6 +58,8 @@ class McpRegistrationTest < Minitest::Test
     assert_includes text, "name: agent-chats"
     assert_includes text, "agent_chats_list"
     assert_includes text, "agent_chats_create"
+    assert_includes text, "agent_chats_close"
+    assert_includes text, "agent_chats_rename"
     assert_includes text, "agent_items_read"
   end
 

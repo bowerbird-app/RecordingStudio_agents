@@ -60,7 +60,10 @@ class McpResponseSchemasTest < Minitest::Test
     page = { data: [user, assistant], has_more: false, after: nil }
 
     RecordingStudioAgents::ChatKit::Catalog.stub(:new, catalog) do
-      listed_and_read(thread).merge(written(created)).merge(item_payloads(page, user))
+      listed_and_read(thread)
+        .merge(written(created))
+        .merge(closed_and_renamed(created))
+        .merge(item_payloads(page, user))
     end
   end
 
@@ -80,6 +83,18 @@ class McpResponseSchemasTest < Minitest::Test
       end,
       agent_chats_append: RecordingStudioAgents::Sessions::Append.stub(:call, ServiceResult.new(created)) do
         RecordingStudioAgents::Mcp::Chats::Append.call(@context)
+      end
+    }
+  end
+
+  def closed_and_renamed(created)
+    @context.params = { id: "chat_1", title: "Hello" }
+    {
+      agent_chats_close: RecordingStudioAgents::Sessions::Close.stub(:call, ServiceResult.new(created)) do
+        RecordingStudioAgents::Mcp::Chats::Close.call(@context)
+      end,
+      agent_chats_rename: RecordingStudioAgents::Sessions::Rename.stub(:call, ServiceResult.new(created)) do
+        RecordingStudioAgents::Mcp::Chats::Rename.call(@context)
       end
     }
   end

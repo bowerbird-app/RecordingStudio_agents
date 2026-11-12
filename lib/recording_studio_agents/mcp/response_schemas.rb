@@ -14,6 +14,8 @@ module RecordingStudioAgents
         agent_chats_create: Chats::CREATE,
         agent_chats_read: Chats::THREAD,
         agent_chats_append: Chats::APPEND,
+        agent_chats_close: Chats::CLOSE,
+        agent_chats_rename: Chats::RENAME,
         agent_items_list: Items::LIST,
         agent_items_read: Items::ITEM
       }.freeze

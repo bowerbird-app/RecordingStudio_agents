@@ -74,6 +74,33 @@ class McpToolsTest < Minitest::Test
     assert_equal({}, recorded.first[:metadata])
   end
 
+  def test_close_and_rename_authorize_edit_and_pass_the_grant
+    recording = Recording.new("chat-9", Recordable.new("Hello"))
+    renamed = Recording.new("chat-9", Recordable.new("Launch plan"))
+    catalog = catalog_double(found: recording)
+    @context.params = { id: "chat-9", title: "Launch plan" }
+    roles = []
+    watch_grant(roles)
+    seen = []
+
+    RecordingStudioAgents::ChatKit::Catalog.stub(:new, catalog) do
+      RecordingStudioAgents::Sessions::Close.stub(:call, lambda { |**kwargs|
+        seen << kwargs[:access_grant]
+        ServiceResult.new(recording)
+      }) do
+        RecordingStudioAgents::Sessions::Rename.stub(:call, lambda { |**kwargs|
+          seen << kwargs[:access_grant]
+          ServiceResult.new(renamed)
+        }) do
+          assert_equal({ id: "chat-9" }, RecordingStudioAgents::Mcp::Chats::Close.call(@context))
+          assert_equal({ id: "chat-9", title: "Launch plan" }, RecordingStudioAgents::Mcp::Chats::Rename.call(@context))
+        end
+      end
+    end
+    assert_equal %i[edit edit], roles
+    assert_equal [@context.access_grant, @context.access_grant], seen
+  end
+
   def test_create_records_the_client_and_keeps_the_permission_actor
     client = Object.new
     human = Struct.new(:id).new("user-1")

@@ -46,6 +46,10 @@ module RecordingStudioAgents
           properties: { id: { type: "string" } }
         }.freeze
 
+        CLOSE = APPEND
+
+        RENAME = CREATE
+
         EXAMPLES = {
           agent_chats_list: {
             chats: [{
@@ -60,7 +64,9 @@ module RecordingStudioAgents
             id: "chat_1", title: "Hello", created_at: "2026-11-11T04:00:00Z",
             status: { type: "active" }
           },
-          agent_chats_append: { id: "chat_1" }
+          agent_chats_append: { id: "chat_1" },
+          agent_chats_close: { id: "chat_1" },
+          agent_chats_rename: { id: "chat_1", title: "Hello" }
         }.freeze
       end
     end

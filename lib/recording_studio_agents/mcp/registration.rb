@@ -7,6 +7,8 @@ module RecordingStudioAgents
       CHAT_CREATE = :agent_chats_create
       CHAT_READ = :agent_chats_read
       CHAT_APPEND = :agent_chats_append
+      CHAT_CLOSE = :agent_chats_close
+      CHAT_RENAME = :agent_chats_rename
       ITEM_LIST = :agent_items_list
       ITEM_READ = :agent_items_read
       SKILL_NAME = "agent-chats"
@@ -37,6 +39,10 @@ module RecordingStudioAgents
         register_endpoint!(CHAT_READ, [:get, "agent_chats/:id"], Chats::Read, "Read a chat", Contracts.id)
         register_endpoint!(
           CHAT_APPEND, [:post, "agent_chats/:id/messages"], Chats::Append, "Append a message", Contracts.append
+        )
+        register_endpoint!(CHAT_CLOSE, [:delete, "agent_chats/:id"], Chats::Close, "Agent Chat - Close", Contracts.id)
+        register_endpoint!(
+          CHAT_RENAME, [:patch, "agent_chats/:id"], Chats::Rename, "Agent Chat - Rename", Contracts.rename
         )
       end
 
