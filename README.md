@@ -60,13 +60,13 @@ end
 
 ## Required configuration
 
-ChatKit and the popup need the signed-in person and the current workspace. The install generator writes both into `config/initializers/recording_studio_agents.rb`. `request_actor` uses `current_user` when the controller responds to it, and the host session otherwise, then sets `Current.actor` when that constant exists. `request_root` asks Root Switchable for that person's current root. Leave either one as the empty default and a signed-in visitor looks signed out, or a person with a workspace sees the empty state.
+ChatKit and the popup need the signed-in person and the current workspace. The install generator writes both into `config/initializers/recording_studio_agents.rb`. `request_actor` uses `current_user` when the controller responds to it, and the host session otherwise, then sets `Current.actor` when `Current` responds to `actor=`. `request_root` asks Root Switchable for that person's current root. Leave either one as the empty default and a signed-in visitor looks signed out, or a person with a workspace sees the empty state.
 
 ```ruby
 config.request_actor = lambda do |controller|
   user = controller.send(:current_user) if controller.respond_to?(:current_user, true)
   user ||= controller.request.env["warden"]&.user(:user) if controller.respond_to?(:request)
-  Current.actor = user if defined?(Current)
+  Current.actor = user if defined?(Current) && Current.respond_to?(:actor=)
   user
 end
 
@@ -154,24 +154,9 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 
 ## Popup
 
-Mount the engine. `GET /recording_studio_agents/popup` (`recording_studio_agents.popup_path`) is the page [Recording Studio Embeddable](https://github.com/bowerbird-app/RecordingStudio_Embeddable)'s floating launcher frames. Use that launcher. The page lives in Agents and renders `recording_studio_agents_chatkit` in a bare layout that fills the frame. It does not use Embeddable's `FloatingWidget::Interactive`, and it does not take a page. The chat uses the workspace from `config.request_root` (Root Switchable's current root). A signed-in person with no workspace sees an empty state instead of the chat.
+Mount the engine. `GET /recording_studio_agents/popup` (`recording_studio_agents.popup_path`) is a same-site page. Recording Studio Agents will frame it with its own launcher, a FlatPack FloatingFrame, coming in this release. That launcher is not available yet. The page renders `recording_studio_agents_chatkit` in a bare layout that fills the frame. It does not take a page. The chat uses the workspace from `config.request_root` (Root Switchable's current root). A signed-in person with no workspace sees an empty state instead of the chat.
 
-Sign in on that page opens the host (`target: "_top"`). Embeddable's built-in sandbox does not allow that navigation. When this popup is the framed page, set the launcher sandbox:
-
-```ruby
-floating_options: {
-  sandbox: %w[
-    allow-scripts
-    allow-same-origin
-    allow-forms
-    allow-popups
-    allow-top-navigation-by-user-activation
-  ],
-  allow: "clipboard-write"
-}
-```
-
-`allow-top-navigation-by-user-activation` lets Sign in navigate the top frame. The other tokens are the ones Embeddable documents for a ChatKit popup, plus the clipboard. See Embeddable's floating launcher.
+Sign in on that page opens the host (`target: "_top"`). An iframe that frames this page needs the sandbox token `allow-top-navigation-by-user-activation`, or that click stays inside the frame.
 
 The bare layout loads `config.popup_stylesheet`, which defaults to the host `tailwind` stylesheet. Set it to another asset name, or to `nil` to skip the tag. FlatPack's empty state and the chat height are utility classes, and this document does not inherit the host page's CSS.
 

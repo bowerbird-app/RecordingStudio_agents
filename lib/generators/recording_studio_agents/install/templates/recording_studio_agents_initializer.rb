@@ -27,11 +27,11 @@ RecordingStudioAgents.configure do |config|
 
   # Signed-in person for ChatKit and the popup. current_user when the controller
   # has it. A mounted engine controller usually does not, so the host session
-  # (Warden) is the fallback. Both paths set Current.actor when that exists.
+  # (Warden) is the fallback. Sets Current.actor only when that writer exists.
   config.request_actor = lambda do |controller|
     user = controller.send(:current_user) if controller.respond_to?(:current_user, true)
     user ||= controller.request.env["warden"]&.user(:user) if controller.respond_to?(:request)
-    Current.actor = user if defined?(Current)
+    Current.actor = user if defined?(Current) && Current.respond_to?(:actor=)
     user
   end
 
