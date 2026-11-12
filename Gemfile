@@ -10,8 +10,9 @@ require_relative "test/support/widen_recording_studio_requirement"
 gemspec
 
 # GitHub-only gems. The gemspec pins the versions; these lines give Bundler a source.
-# Tag v0.1.341 matches the dummy. API 0.20 and Oauth 0.21.5 require this floor.
-gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.341"
+# Tag v0.1.354 matches the dummy. FloatingFrame shipped in that tag.
+# API 0.20 and Oauth 0.21.5 require flat_pack >= 0.1.341.
+gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.354"
 gem "recording_studio", ">= 6.1.0", github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"
 gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.20.0"
 # AI 0.20 depends on Logs, which is GitHub-only. v0.7.0 requires metrics ~> 0.6.1

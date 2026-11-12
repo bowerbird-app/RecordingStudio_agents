@@ -24,6 +24,8 @@ RecordingStudioAgents.configure do |config|
   # config.mcp_tools = :write
   # Popup utility stylesheet. Nil skips the tag. The default is "tailwind".
   # config.popup_stylesheet = "tailwind"
+  # Set false and recording_studio_agents_launcher renders nothing. The default is on.
+  # config.launcher = false
 
   # Signed-in person for ChatKit and the popup. current_user when the controller
   # has it. A mounted engine controller usually does not, so the host session

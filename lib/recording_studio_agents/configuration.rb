@@ -106,7 +106,7 @@ module RecordingStudioAgents
     OVERRIDE_GATES = %i[none admin edit].freeze
 
     attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key,
-                  :popup_stylesheet
+                  :popup_stylesheet, :launcher
     attr_reader :hooks, :default_profile, :retention_period, :provider, :instructions_override,
                 :max_instructions_length, :layout, :mcp_tools
 
@@ -114,6 +114,7 @@ module RecordingStudioAgents
       assign_defaults
       @mcp_tools = :write
       @popup_stylesheet = "tailwind"
+      @launcher = true
       @hooks = RecordingStudio::Hooks.new
     end
 

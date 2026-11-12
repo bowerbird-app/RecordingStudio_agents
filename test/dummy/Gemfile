@@ -69,8 +69,8 @@ gem "jbuilder"
 gem "tailwindcss-rails"
 
 # FlatPack UI component library [https://github.com/bowerbird-app/flatpack]
-# API 0.20 and Oauth 0.21.5 require flat_pack >= 0.1.341.
-gem "flat_pack", ">= 0.1.341", github: "bowerbird-app/flatpack", tag: "v0.1.341"
+# FloatingFrame shipped in v0.1.354. API 0.20 and Oauth 0.21.5 require >= 0.1.341.
+gem "flat_pack", ">= 0.1.354", github: "bowerbird-app/flatpack", tag: "v0.1.354"
 gem "view_component", "4.19.0"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]

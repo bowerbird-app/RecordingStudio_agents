@@ -15,7 +15,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Trashable dummy GitHub tag `v0.11.3`
 - Root Switchable dummy GitHub tag `v0.9.7`
 - Cache dummy GitHub tag `v0.5.1`
-- FlatPack `>= 0.1.315` (root and dummy GitHub tag `v0.1.341`)
+- FlatPack `>= 0.1.354` (root and dummy GitHub tag `v0.1.354`)
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
 - Recording Studio Users dummy GitHub tag `v0.25.2`
 - Oauth dummy GitHub tag `v0.21.5`
@@ -34,7 +34,7 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 
 ```ruby
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
-gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.341"
+gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.354"
 gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"
 gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.20.0"
 gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.1"
@@ -154,9 +154,27 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 
 ## Popup
 
-Mount the engine. `GET /recording_studio_agents/popup` (`recording_studio_agents.popup_path`) is a same-site page. Recording Studio Agents will frame it with its own launcher, a FlatPack FloatingFrame, coming in this release. That launcher is not available yet. The page renders `recording_studio_agents_chatkit` in a bare layout that fills the frame. It does not take a page. The chat uses the workspace from `config.request_root` (Root Switchable's current root). A signed-in person with no workspace sees an empty state instead of the chat.
+`recording_studio_agents_launcher` puts a FlatPack `FloatingFrame` on the host layout. It opens `recording_studio_agents.popup_path` (`GET /recording_studio_agents/popup`) in a same-site iframe. FlatPack `0.1.354` or newer supplies that component. The root Gemfile and the dummy pin tag `v0.1.354`.
 
-Sign in on that page opens the host (`target: "_top"`). An iframe that frames this page needs the sandbox token `allow-top-navigation-by-user-activation`, or that click stays inside the frame.
+```erb
+<%= recording_studio_agents_launcher %>
+```
+
+The launcher sits at the bottom left. The framed page has no padding, so the chat meets the panel edges. The iframe sandbox is `allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation-by-user-activation`, and `allow` is `clipboard-write`. Sign in uses `target: "_top"`. That sandbox token lets the click leave the frame.
+
+```erb
+<%= recording_studio_agents_launcher(label: "Ask", title: "Studio chat", position: :bottom_right) %>
+```
+
+`label` names the launcher. `title` is the panel heading and the iframe name. `position` is `:bottom_left` (the default), `:bottom_right`, `:top_left`, or `:top_right`.
+
+`config.launcher` defaults to on. Set it to `false` and the helper renders nothing.
+
+```ruby
+config.launcher = false
+```
+
+The popup and the host page have to be on the same site. The helper does not read or change the session cookie. The page renders `recording_studio_agents_chatkit` in a bare layout that fills the frame. It does not take a page. The chat uses the workspace from `config.request_root` (Root Switchable's current root). A signed-in person with no workspace sees an empty state instead of the chat.
 
 The bare layout loads `config.popup_stylesheet`, which defaults to the host `tailwind` stylesheet. Set it to another asset name, or to `nil` to skip the tag. FlatPack's empty state and the chat height are utility classes, and this document does not inherit the host page's CSS.
 

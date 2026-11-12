@@ -43,6 +43,7 @@ class ConfigurationTest < Minitest::Test
     assert_equal "openai", configuration.provider
     assert_equal :write, configuration.mcp_tools
     assert_equal "tailwind", configuration.popup_stylesheet
+    assert_equal true, configuration.launcher
     assert_equal 30.days, configuration.retention_period
     assert_equal({}, configuration.chatkit_options)
     assert_equal(

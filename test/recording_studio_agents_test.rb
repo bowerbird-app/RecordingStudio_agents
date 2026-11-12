@@ -14,7 +14,7 @@ class RecordingStudioAgentsTest < Minitest::Test
   def test_gemspec_pins_recording_studio_and_ai
     gemspec = File.read(File.expand_path("../recording_studio_agents.gemspec", __dir__))
 
-    assert_includes gemspec, 'spec.add_dependency "flat_pack", ">= 0.1.315"'
+    assert_includes gemspec, 'spec.add_dependency "flat_pack", ">= 0.1.354"'
     assert_includes gemspec, 'spec.add_dependency "recording_studio", ">= 6.1.0"'
     assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", "~> 0.20.0"'
     assert_includes gemspec, 'spec.add_dependency "view_component", ">= 4.14", "< 5"'
@@ -32,7 +32,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     refute_includes gemfile, "until 0.20.0 is tagged"
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.1"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.7.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.341"'
+    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.354"'
     refute_includes gemfile, "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
     assert_includes gemfile, 'require_relative "test/support/widen_recording_studio_requirement"'
     assert_includes gemfile, 'gem "view_component", "4.19.0"'
@@ -68,7 +68,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     gemfile = File.read(File.expand_path("dummy/Gemfile", __dir__))
 
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.341"'
+    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.354"'
     assert_includes gemfile, 'gem "view_component", "4.19.0"'
     assert_includes gemfile, 'require_relative "../support/widen_recording_studio_requirement"'
     refute_includes gemfile, 'tag: "v4.7.0"'
@@ -88,7 +88,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     refute_includes gemfile, 'github: "bowerbird-app/RecordingStudio_cache", tag: "v0.5.0"'
     refute_includes gemfile, 'tag: "v0.6.0"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.1"'
-    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.341"'
+    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.354"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_Oauth", tag: "v0.21.5"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.31.0"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_moveable", tag: "v4.1.0"'
@@ -263,7 +263,7 @@ class RecordingStudioAgentsTest < Minitest::Test
 
     assert_includes readme, "RecordingStudio"
     assert_includes readme, "dummy GitHub tag `v6.1.0`"
-    assert_includes readme, 'github: "bowerbird-app/flatpack", tag: "v0.1.341"'
+    assert_includes readme, 'github: "bowerbird-app/flatpack", tag: "v0.1.354"'
     refute_includes readme, "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
     refute_includes readme, "dummy GitHub tag `v4.7.0`"
     assert_includes readme, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.20.0"'
@@ -278,7 +278,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     assert_includes readme, "Recording Studio API dummy GitHub tag `v0.21.2`"
     assert_includes readme, "Moveable dummy GitHub tag `v4.1.0`"
     assert_includes readme, "Icons dummy GitHub tag `v0.2.0`"
-    assert_includes readme, "root and dummy GitHub tag `v0.1.341`"
+    assert_includes readme, "root and dummy GitHub tag `v0.1.354`"
     assert_includes readme, "dummy GitHub tag `v0.7.1`"
     assert_includes readme, "dummy GitHub tag `v0.25.2`"
     assert_includes readme, "dummy GitHub tag `v0.20.0`"

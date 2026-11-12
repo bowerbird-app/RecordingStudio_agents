@@ -2,6 +2,24 @@
 
 module RecordingStudioAgents
   module ChatKitHelper
+    # Sign in uses target=_top, so the framed page needs that sandbox token.
+    POPUP_IFRAME_SANDBOX = %w[
+      allow-scripts
+      allow-same-origin
+      allow-forms
+      allow-popups
+      allow-top-navigation-by-user-activation
+    ].join(" ").freeze
+
+    def recording_studio_agents_launcher(label: "Open chat", title: "Chat", position: :bottom_left)
+      return unless RecordingStudioAgents.configuration.launcher
+
+      render FlatPack::FloatingFrame::Component.new(
+        src: recording_studio_agents.popup_path, title: title, label: label, icon: :chat,
+        position: position, padding: :none, sandbox: POPUP_IFRAME_SANDBOX, allow: "clipboard-write"
+      )
+    end
+
     def recording_studio_agents_chatkit(endpoint: nil, page_recording: nil, chatkit_options: nil, fill: false)
       append_chatkit_views
       render partial: chatkit_partial, locals: chatkit_locals(endpoint, page_recording, chatkit_options, fill)
