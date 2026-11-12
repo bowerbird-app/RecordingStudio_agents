@@ -1,6 +1,6 @@
 # Recording Studio agents on the 6.1 layout
 
-Hosts install this gem beside Recording Studio `v6.1.0` and Flatpack `0.1.319` (commit `1fcbafe94f8eb118f0a22182f63f5110fcc97a56`).
+Hosts install this gem beside Recording Studio `v6.1.0` and Flatpack tag `v0.1.341`.
 
 - Gemspec: `recording_studio` `>= 6.1.0`, `flat_pack` `>= 0.1.315`, `view_component` `>= 4.14`, `< 5`
 - This repository locks `view_component` `4.19.0`

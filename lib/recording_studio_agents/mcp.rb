@@ -10,6 +10,7 @@ require "recording_studio_agents/mcp/chat_tools"
 require "recording_studio_agents/mcp/chat_tool_call"
 require "recording_studio_agents/mcp/chat_tool_limit"
 require "recording_studio_agents/mcp/chat_tool_log"
+require "recording_studio_agents/mcp/api_actor"
 
 module RecordingStudioAgents
   module Mcp
