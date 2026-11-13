@@ -2,8 +2,20 @@
 
 module RecordingStudioAgents
   module ChatKit
+    # One savepoint insert. A duplicate call id joins the row and leaves it alone.
+    class AuditInsert
+      def self.once(audit, &)
+        audit.transaction(requires_new: true, &)
+      rescue ActiveRecord::RecordNotUnique
+        :joined
+      end
+    end
+
     # Write and round limits for one provider turn. A new ToolRound keeps counting.
     class WriteBudget
+      # joined is in memory only. The audit row stays the first caller's.
+      Entry = Data.define(:call, :row, :joined)
+
       def initialize(actor, root)
         @actor = actor
         @root = root
@@ -58,26 +70,25 @@ module RecordingStudioAgents
       end
 
       def hold(call)
-        [call, start_or_join(call)]
-      end
-
-      # A second caller with this turn and call id finds the row already started.
-      # That row is the one write. It is not inserted again.
-      def start_or_join(call)
-        audit.transaction(requires_new: true) do
-          audit.begin!(entry_for(call), actor: @actor, kind: kind_of(call))
-        end
-      rescue ActiveRecord::RecordNotUnique
-        audit.find_by!(provider_turn_id: call.provider_turn_id.to_s, call_id: call.call_id.to_s)
+        saved = AuditInsert.once(audit) { audit.begin!(entry_for(call), actor: @actor, kind: kind_of(call)) }
+        Entry.new(call: call, row: row_for(saved), joined: saved == :joined)
       end
 
       def release(item)
-        return item unless item.is_a?(Array)
+        return item unless item.is_a?(Entry)
+        return joined(item.call) if item.joined
 
-        call, row = item
-        audit.with_turn(call.provider_turn_id) do
-          audit.with_reserved(row) { Mcp::ChatTools.answer(call, actor: @actor, root: @root) }
+        audit.with_turn(item.call.provider_turn_id) do
+          audit.with_reserved(item.row) { Mcp::ChatTools.answer(item.call, actor: @actor, root: @root) }
         end
+      end
+
+      def row_for(saved)
+        saved == :joined ? nil : saved
+      end
+
+      def joined(call)
+        { call_id: call.call_id, turn_id: call.provider_turn_id, joined: true }
       end
 
       def batch_turn(calls)
@@ -119,7 +130,11 @@ module RecordingStudioAgents
       end
 
       def limited(call)
-        audit.record!(entry_for(call), actor: @actor, kind: "write", outcome: "limited")
+        saved = AuditInsert.once(audit) do
+          audit.record!(entry_for(call), actor: @actor, kind: "write", outcome: "limited")
+        end
+        return Entry.new(call: call, row: nil, joined: true) if saved == :joined
+
         { call_id: call.call_id, turn_id: call.provider_turn_id, error: "write limit reached" }
       end
 

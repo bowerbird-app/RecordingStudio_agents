@@ -18,7 +18,7 @@ module RecordingStudioAgents
       def run(calls, &emit)
         @emit = emit
         delivered = rounds(calls)
-        waiting = delivered.nil? ? Array(calls) : pending_calls(delivered)
+        waiting = delivered.nil? ? Array(calls) : PostedResults.pending(delivered)
         return delivered if waiting.empty?
 
         finish_over_cap(waiting)
@@ -26,7 +26,6 @@ module RecordingStudioAgents
 
       private
 
-      # Earlier rounds for this provider turn count. The in-process loop is only a backstop.
       def rounds(calls)
         delivered = nil
         MAX_ROUNDS.times do
@@ -43,12 +42,12 @@ module RecordingStudioAgents
         return [delivered, calls, true] if results == :closed
 
         delivered = deliver(results)
-        [delivered, pending_calls(delivered), false]
+        [delivered, PostedResults.pending(delivered), false]
       end
 
       def finish_over_cap(calls)
         delivered = deliver(calls.map { |call| refusal(call, "too many tool calls") })
-        return delivered if pending_calls(delivered).empty?
+        return delivered if PostedResults.pending(delivered).empty?
 
         abandon(delivered)
       end
@@ -74,11 +73,14 @@ module RecordingStudioAgents
       end
 
       def deliver(results)
-        post(results)
+        postable = PostedResults.list(results)
+        return PostedResults.quiet_turn if postable == :quiet
+
+        post(postable)
       rescue RecordingStudioAI::Agents::Failure => e
         raise unless timeout?(e)
 
-        retry_post(results, e)
+        retry_post(postable, e)
       end
 
       # A timeout can mean the result post is still in flight. Read the pending
@@ -125,12 +127,6 @@ module RecordingStudioAgents
 
           result.merge(turn_id: call.provider_turn_id)
         end
-      end
-
-      def pending_calls(source)
-        return [] unless source.respond_to?(:tool_calls)
-
-        Array(source.tool_calls)
       end
 
       def timeout?(error)

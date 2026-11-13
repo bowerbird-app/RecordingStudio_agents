@@ -20,7 +20,8 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     return if sqlite?
 
     @configuration.mcp_max_writes_per_turn = @previous_writes if @configuration
-    RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: %w[turn-race turn-rounds turn-same]).delete_all
+    ids = %w[turn-race turn-rounds turn-same turn-capped turn-posted]
+    RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: ids).delete_all
     remove_workspace
   end
 
@@ -55,19 +56,85 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
 
   test "two threads with the same call id share one write" do
     turn_id = "turn-same"
+    dispatches = []
+    finishes = []
     original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    original_finish = RecordingStudioAgents::ChatToolAudit.method(:finish!)
     RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**|
+      dispatches << :ran
+      sleep 0.05
       { content: [{ type: "text", text: "tool-body" }], isError: false }
+    end
+    RecordingStudioAgents::ChatToolAudit.define_singleton_method(:finish!) do |row, outcome|
+      finishes << outcome.to_s
+      original_finish.call(row, outcome)
     end
 
     results = in_parallel { budget.answer_round([write_call("same-call", turn_id: turn_id)]) }
+    row = RecordingStudioAgents::ChatToolAudit.find_by!(provider_turn_id: turn_id, call_id: "same-call")
 
+    assert_equal 1, dispatches.size
+    assert_equal ["ok"], finishes
+    assert_equal "ok", row.outcome
     assert_equal 1, RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: turn_id).count
     assert_equal 1, RecordingStudioAgents::ChatToolAudit.writes_used(turn_id)
-    assert_equal results.fetch(0), results.fetch(1)
-    refute results.fetch(0).any? { |result| result[:error].present? }
+    flat = results.flatten
+    assert_equal 1, flat.count { |result| result[:joined] }
+    assert_equal 1, flat.count { |result| result[:output].present? }
   ensure
     restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+    restore_singleton(RecordingStudioAgents::ChatToolAudit, :finish!, original_finish)
+  end
+
+  test "a duplicate call id past the cap keeps the first outcome" do
+    turn_id = "turn-capped"
+    @configuration.mcp_max_writes_per_turn = 1
+    dispatches = []
+    original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**|
+      dispatches << :ran
+      { content: [{ type: "text", text: "tool-body" }], isError: false }
+    end
+
+    budget.answer_round([write_call("kept", turn_id: turn_id)])
+    budget.answer_round([write_call("capped", turn_id: turn_id)])
+    again = budget.answer_round([write_call("capped", turn_id: turn_id)])
+    row = RecordingStudioAgents::ChatToolAudit.find_by!(provider_turn_id: turn_id, call_id: "capped")
+
+    assert_equal "limited", row.outcome
+    assert_equal 1, dispatches.size
+    assert_equal 1, again.flatten.count { |result| result[:joined] }
+    assert_equal 2, RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: turn_id).count
+  ensure
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+  end
+
+  test "a joined call is left out of the posted results" do
+    turn_id = "turn-posted"
+    dispatches = []
+    submitted = []
+    original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    original_submit = RecordingStudioAI::Agents.method(:submit_tool_results)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**|
+      dispatches << :ran
+      { content: [{ type: "text", text: "tool-body" }], isError: false }
+    end
+    RecordingStudioAI::Agents.define_singleton_method(:submit_tool_results) do |**kwargs, &|
+      submitted << kwargs.fetch(:results)
+    end
+
+    budget.answer_round([write_call("posted", turn_id: turn_id)])
+    RecordingStudioAgents::ChatKit::ToolRound.new(
+      actor: @user, root: @root, agent_args: { session: "sess" }
+    ).run([write_call("posted", turn_id: turn_id)]) { |_event| }
+    row = RecordingStudioAgents::ChatToolAudit.find_by!(provider_turn_id: turn_id, call_id: "posted")
+
+    assert_equal 1, dispatches.size
+    assert_empty submitted
+    assert_equal "ok", row.outcome
+  ensure
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+    restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
   end
 
   test "an outer transaction keeps the turn lock until it commits" do
@@ -103,6 +170,46 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     RecordingStudioAgents::ChatKit::TurnLock.with(turn_id) { }
 
     assert_equal "", take_lock(key)
+  end
+
+  test "an open transaction raises outside the test environment" do
+    original = Rails.method(:env)
+    Rails.define_singleton_method(:env) { ActiveSupport::StringInquirer.new("production") }
+
+    error = assert_raises(RecordingStudioAgents::Error) do
+      RecordingStudioAgents::ChatToolAudit.transaction do
+        RecordingStudioAgents::ChatKit::TurnLock.with("turn-host") { raise "must not yield" }
+      end
+    end
+    assert_includes error.message, "open transaction"
+  ensure
+    Rails.define_singleton_method(:env) { original.call } if original
+  end
+
+  test "boot rejects a non PostgreSQL database when chat tools are on" do
+    connection = RecordingStudioAgents::ChatToolAudit.connection
+    original = connection.method(:adapter_name)
+    connection.define_singleton_method(:adapter_name) { "SQLite" }
+
+    error = assert_raises(RecordingStudioAgents::Error) do
+      RecordingStudioAgents::ChatKit::TurnLock.check_adapter!
+    end
+    assert_includes error.message, "PostgreSQL"
+  ensure
+    restore_singleton(connection, :adapter_name, original) if connection
+  end
+
+  test "boot skips the database check when chat tools are off" do
+    previous = @configuration.mcp_tools
+    @configuration.mcp_tools = :off
+    connection = RecordingStudioAgents::ChatToolAudit.connection
+    original = connection.method(:adapter_name)
+    connection.define_singleton_method(:adapter_name) { "SQLite" }
+
+    assert_nil RecordingStudioAgents::ChatKit::TurnLock.check_adapter!
+  ensure
+    @configuration.mcp_tools = previous if @configuration
+    restore_singleton(connection, :adapter_name, original) if connection
   end
 
   test "a turn lock on another database adapter raises" do

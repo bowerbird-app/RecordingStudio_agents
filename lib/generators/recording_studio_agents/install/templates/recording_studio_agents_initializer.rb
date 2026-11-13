@@ -24,7 +24,8 @@ RecordingStudioAgents.configure do |config|
   # config.mcp_tools = :write
   # Write-tool calls allowed in one provider turn, including a resumed stream.
   # The default is 3. Earlier writes for that turn count. The count and the pending
-  # audit row share a PostgreSQL advisory lock for that turn. A later write comes back as
+  # audit row share a PostgreSQL advisory lock for that turn. Do not call this from
+  # inside an open transaction. A later write comes back as
   # "write limit reached" and the turn continues. Reads are still answered.
   # config.mcp_max_writes_per_turn = 3
   # Tool names. Nil allows every tool the mode permits. An empty allow list blocks

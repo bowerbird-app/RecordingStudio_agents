@@ -64,6 +64,10 @@ module RecordingStudioAgents
       config.after_initialize { RecordingStudioAgents::Mcp::ApiActor.warn_if_needed }
     end
 
+    initializer "recording_studio_agents.chat_tool_database", after: :load_config_initializers do
+      config.after_initialize { RecordingStudioAgents::ChatKit::TurnLock.check_adapter! }
+    end
+
     initializer "recording_studio_agents.assets" do |app|
       next unless app.config.respond_to?(:assets) && app.config.assets.respond_to?(:precompile)
 
