@@ -41,6 +41,7 @@ RecordingStudioAgents.configure do |config|
   # Flatpack theme on the popup document. The default is "rounded".
   # config.popup_theme = "rounded"
   # Set false and recording_studio_agents_launcher renders nothing. The default is on.
+  # The launcher posts the host page into the popup. It does not read the session cookie.
   # config.launcher = false
 
   # Signed-in person for ChatKit and the popup. current_user when the controller

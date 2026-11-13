@@ -47,6 +47,7 @@ require "recording_studio_agents/mcp"
 
 require "recording_studio_agents/scoped_parent"
 require "recording_studio_agents/chatkit/protocol_error"
+require "recording_studio_agents/chatkit/page_context"
 require "recording_studio_agents/chatkit/options"
 require "recording_studio_agents/chatkit/payload"
 require "recording_studio_agents/chatkit/assistant_turn"

@@ -31,6 +31,7 @@ module RecordingStudioAgents
         @access_grant = options[:access_grant]
         @event_actor = options[:event_actor]
         @metadata = options[:metadata]
+        @provider_input = options[:provider_input]
       end
 
       def perform
@@ -79,7 +80,7 @@ module RecordingStudioAgents
 
       def provider_args
         args = {
-          instructions: instructions, profile: profile, input: @input, idempotency_key: @idempotency_key,
+          instructions: instructions, profile: profile, input: model_input, idempotency_key: @idempotency_key,
           purpose: purpose, **provider_override, **attribution
         }
         tools = Mcp::ChatTools.definitions(actor: @actor, root: @root_recording)
@@ -109,6 +110,12 @@ module RecordingStudioAgents
 
       def configuration
         RecordingStudioAgents.configuration
+      end
+
+      def model_input
+        return @input if @provider_input.nil? || (@provider_input.is_a?(String) && @provider_input.strip.empty?)
+
+        @provider_input
       end
     end
   end

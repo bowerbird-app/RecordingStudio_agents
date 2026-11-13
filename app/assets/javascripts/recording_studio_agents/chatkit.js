@@ -3,6 +3,9 @@ function csrfHeaders(headers) {
   const next = new Headers(headers || {})
   if (csrf) next.set("X-CSRF-Token", csrf)
   next.set("Content-Type", "application/json")
+  const pageContext = window.RecordingStudioAgentsPageContext
+  const current = pageContext && pageContext.current()
+  if (current) next.set(pageContext.header, JSON.stringify(current))
   return next
 }
 

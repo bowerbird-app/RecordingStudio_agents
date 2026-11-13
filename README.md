@@ -176,7 +176,7 @@ A host on the Recording Studio default layout overrides that layout and adds the
 
 The launcher sits at the bottom left. The framed page has no padding, so the chat meets the panel edges. The iframe sandbox is `allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation-by-user-activation`, and `allow` is `clipboard-write`. Sign in uses `target: "_top"`. That sandbox token lets the click leave the frame.
 
-The launcher root has a stable id, `recording_studio_agents_launcher`, and `data-turbo-permanent`. Turbo Drive keeps that node, so the iframe does not reload. The helper also includes the `recording_studio_agents/launcher` script on the page. That script puts an open panel back after the visit. The host page has to run Turbo and leave the script in place. Without the script, the iframe stays and the panel closes.
+The launcher root has a stable id, `recording_studio_agents_launcher`, and `data-turbo-permanent`. Turbo Drive keeps that node, so the iframe does not reload and an open thread stays open. The helper includes `recording_studio_agents/page_context.js` and `recording_studio_agents/launcher.js`. The launcher script puts an open panel back after the visit. The host page has to run Turbo and leave both scripts in place. Without the launcher script, the iframe stays and the panel closes.
 
 ```erb
 <%= recording_studio_agents_launcher(label: "Ask", title: "Studio chat", position: :bottom_right) %>
@@ -190,7 +190,38 @@ The launcher root has a stable id, `recording_studio_agents_launcher`, and `data
 config.launcher = false
 ```
 
-The popup and the host page have to be on the same site. The helper does not read or change the session cookie. The page renders `recording_studio_agents_chatkit` in a bare layout that fills the frame. It does not take a page. The chat uses the workspace from `config.request_root` (Root Switchable's current root). A signed-in person with no workspace sees an empty state instead of the chat.
+The popup and the host page have to be on the same site. The helper does not read or change the session cookie. The page renders `recording_studio_agents_chatkit` in a bare layout that fills the frame. The workspace still comes from `config.request_root` (Root Switchable's current root). A signed-in person with no workspace sees an empty state instead of the chat.
+
+### Page context
+
+When the panel opens, and on every `turbo:load`, the launcher posts the host page into the popup iframe. `targetOrigin` is `window.location.origin`. The popup accepts the message only when `event.origin` is its own origin and `event.source` is `window.parent`. It keeps the latest accepted message and does not reload the iframe, so the open thread stays. The next chat request sends that data in the `X-Recording-Studio-Agents-Page` header. The header is data. There is no client `instructions` field.
+
+The message carries:
+
+- the current URL, capped at 2048 characters
+- `document.title`, capped at 300 characters
+- the selection from `window.getSelection()` at send time, capped at 2000 characters
+- an optional page id
+- an optional metadata object, capped at 2048 JSON characters
+
+The server checks the header again, drops anything past those caps, and ignores a page id the signed-in person cannot view. A page id that is visible through Accessible parents a new chat. The open chat is not moved and is not replaced. The next turn of that same thread gets a server-built preface in the model input. The stored message stays the person's words.
+
+Set the page id on the host page with either of these:
+
+```html
+<body data-recording-studio-agents-page-recording-id="00000000-0000-4000-8000-000000000000">
+<meta name="recording-studio-agents-page-recording-id" content="00000000-0000-4000-8000-000000000000">
+```
+
+The data attribute wins when both are present. The id is a recording id the person can view. Anything else is ignored, and the chat stays on the workspace.
+
+Set metadata as JSON on one element. Keys are short words, numbers, and underscores. Values are strings, numbers, or booleans. A key named `instructions` is rejected.
+
+```html
+<body data-recording-studio-agents-page-metadata='{"section":"kits","published":true}'>
+```
+
+The launcher does not read or set the session cookie. `postMessage` does not send it. The popup and `POST /chatkit` still use the host session because the frame is same-site, which is unchanged. Cross-site framing stays unsupported. `frame-ancestors` is unchanged.
 
 The bare layout loads `config.popup_stylesheet`, which defaults to the host `tailwind` stylesheet. Set it to another asset name, or to `nil` to skip the tag. FlatPack's empty state and the chat height are utility classes, and this document does not inherit the host page's CSS.
 
