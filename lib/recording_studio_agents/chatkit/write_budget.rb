@@ -58,7 +58,17 @@ module RecordingStudioAgents
       end
 
       def hold(call)
-        [call, audit.begin!(entry_for(call), actor: @actor, kind: kind_of(call))]
+        [call, start_or_join(call)]
+      end
+
+      # A second caller with this turn and call id finds the row already started.
+      # That row is the one write. It is not inserted again.
+      def start_or_join(call)
+        audit.transaction(requires_new: true) do
+          audit.begin!(entry_for(call), actor: @actor, kind: kind_of(call))
+        end
+      rescue ActiveRecord::RecordNotUnique
+        audit.find_by!(provider_turn_id: call.provider_turn_id.to_s, call_id: call.call_id.to_s)
       end
 
       def release(item)

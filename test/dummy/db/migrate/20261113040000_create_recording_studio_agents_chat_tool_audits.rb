@@ -6,8 +6,6 @@ class CreateRecordingStudioAgentsChatToolAudits < ActiveRecord::Migration[8.1]
     add_index :recording_studio_agents_chat_tool_audits, :occurred_at
     add_index :recording_studio_agents_chat_tool_audits, :chat_recording_id,
               name: "index_rs_agents_chat_tool_audits_on_chat"
-    add_index :recording_studio_agents_chat_tool_audits, :provider_turn_id,
-              name: "index_rs_agents_chat_tool_audits_on_turn"
     add_index :recording_studio_agents_chat_tool_audits, %i[provider_turn_id call_id],
               unique: true, name: "index_rs_agents_chat_tool_audits_on_turn_and_call"
   end

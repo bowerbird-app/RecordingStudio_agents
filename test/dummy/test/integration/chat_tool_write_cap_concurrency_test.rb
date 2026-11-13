@@ -20,7 +20,7 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     return if sqlite?
 
     @configuration.mcp_max_writes_per_turn = @previous_writes if @configuration
-    RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: %w[turn-race turn-rounds]).delete_all
+    RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: %w[turn-race turn-rounds turn-same]).delete_all
     remove_workspace
   end
 
@@ -51,6 +51,71 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
   ensure
     restore_singleton(RecordingStudioAgents::ChatToolAudit, :writes_used, original)
     restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+  end
+
+  test "two threads with the same call id share one write" do
+    turn_id = "turn-same"
+    original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**|
+      { content: [{ type: "text", text: "tool-body" }], isError: false }
+    end
+
+    results = in_parallel { budget.answer_round([write_call("same-call", turn_id: turn_id)]) }
+
+    assert_equal 1, RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: turn_id).count
+    assert_equal 1, RecordingStudioAgents::ChatToolAudit.writes_used(turn_id)
+    assert_equal results.fetch(0), results.fetch(1)
+    refute results.fetch(0).any? { |result| result[:error].present? }
+  ensure
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+  end
+
+  test "an outer transaction keeps the turn lock until it commits" do
+    turn_id = "turn-outer"
+    key = Integer(RecordingStudioAgents::ChatKit::TurnLock.advisory_key(turn_id))
+    entered = Queue.new
+    finish = Queue.new
+    worker = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        RecordingStudioAgents::ChatToolAudit.transaction do
+          RecordingStudioAgents::ChatKit::TurnLock.with(turn_id) { entered << :inside }
+          entered << :after
+          finish.pop
+        end
+      end
+    end
+
+    assert_equal :inside, entered.pop
+    assert_equal :after, entered.pop
+    assert_raises(ActiveRecord::LockWaitTimeout) { take_lock(key) }
+    finish << true
+    worker.join
+    take_lock(key)
+  ensure
+    finish << true if defined?(finish) && finish
+    worker.join if defined?(worker) && worker
+  end
+
+  test "the turn lock ends when its own transaction commits" do
+    turn_id = "turn-free"
+    key = Integer(RecordingStudioAgents::ChatKit::TurnLock.advisory_key(turn_id))
+
+    RecordingStudioAgents::ChatKit::TurnLock.with(turn_id) { }
+
+    assert_equal "", take_lock(key)
+  end
+
+  test "a turn lock on another database adapter raises" do
+    connection = RecordingStudioAgents::ChatToolAudit.connection
+    original = connection.method(:adapter_name)
+    connection.define_singleton_method(:adapter_name) { "SQLite" }
+
+    error = assert_raises(RecordingStudioAgents::Error) do
+      RecordingStudioAgents::ChatKit::TurnLock.with("turn-adapter") { raise "must not yield" }
+    end
+    assert_includes error.message, "PostgreSQL"
+  ensure
+    restore_singleton(connection, :adapter_name, original) if connection
   end
 
   test "two threads take distinct round numbers for one turn" do
@@ -102,6 +167,15 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
       ) do |access|
         access.actor = actor
         access.role = "edit"
+      end
+    end
+  end
+
+  def take_lock(key)
+    ActiveRecord::Base.connection_pool.with_connection do
+      RecordingStudioAgents::ChatToolAudit.transaction do
+        RecordingStudioAgents::ChatToolAudit.connection.execute("SET LOCAL lock_timeout = '250ms'")
+        RecordingStudioAgents::ChatToolAudit.connection.select_value("SELECT pg_advisory_xact_lock(#{key})::text")
       end
     end
   end
