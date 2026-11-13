@@ -230,8 +230,9 @@ class ChatToolsTest < ActiveSupport::TestCase
   test "the rate limit key uses the api layout for a signed in person" do
     grant = RecordingStudioAgents::Mcp::ChatTools.grant_for(@user, @root)
     period = 60
-    key = RecordingStudioAgents::Mcp::ChatToolLimit.counter_key(grant, "api_write", @user, period)
+    identifier = RecordingStudioAgents::Mcp::ChatToolLimit.identifier_for(grant, @user)
     window = Time.current.to_i / period
+    key = RecordingStudioApi::RateLimit.key(kind: "api_write", identifier: identifier, window: window, api: "public")
 
     assert_equal "recording_studio_api:api_write:actor:User:#{@user.id}:#{window}", key
   end

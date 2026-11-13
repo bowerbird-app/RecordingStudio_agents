@@ -20,7 +20,7 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     return if sqlite?
 
     @configuration.mcp_max_writes_per_turn = @previous_writes if @configuration
-    ids = %w[turn-race turn-rounds turn-same turn-capped turn-posted turn-stale turn-recovered]
+    ids = %w[turn-race turn-rounds turn-same turn-capped turn-posted turn-stale turn-live turn-deadline turn-claim]
     RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: ids).delete_all
     remove_workspace
   end
@@ -133,7 +133,7 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     assert_equal 1, dispatches.size
     assert_empty submitted
     assert_equal "ok", row.outcome
-    assert_equal "already_handled", events.map(&:type).first
+    assert_empty events
   ensure
     restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
     restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
@@ -249,36 +249,140 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     assert_empty dispatches
     assert_equal false, posted[:success]
     assert_equal "tool call outcome unknown; it was not re-run", posted[:output]
-    assert_equal "pending", row.outcome
+    assert_equal "unknown", row.outcome
   ensure
     restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
     restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
   end
 
-  test "a pending call still waiting on recover is posted as unknown" do
-    turn_id = "turn-recovered"
-    dispatches = []
-    submitted = []
+  test "a join while the tool is still running does not post unknown" do
+    turn_id = "turn-live"
+    started = Queue.new
+    release = Queue.new
     original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
     original_submit = RecordingStudioAI::Agents.method(:submit_tool_results)
-    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) { |**| dispatches << :ran }
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**|
+      started << :in
+      release.pop
+      { content: [{ type: "text", text: "tool-body" }], isError: false }
+    end
+    submitted = []
     RecordingStudioAI::Agents.define_singleton_method(:submit_tool_results) do |**kwargs, &|
       submitted << kwargs.fetch(:results)
-      Struct.new(:tool_calls).new([])
     end
-    RecordingStudioAgents::ChatToolAudit.create!(
+    worker = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        budget.answer_round([write_call("live", turn_id: turn_id)])
+      end
+    end
+
+    assert_equal :in, started.pop
+    RecordingStudioAgents::ChatKit::ToolRound.new(
+      actor: @user, root: @root, agent_args: { session: "sess" }
+    ).run([write_call("live", turn_id: turn_id)]) { |_event| }
+    row = RecordingStudioAgents::ChatToolAudit.find_by!(provider_turn_id: turn_id, call_id: "live")
+
+    assert_empty submitted
+    assert_equal "pending", row.outcome
+    release << true
+    worker.join
+    assert_equal "ok", row.reload.outcome
+  ensure
+    release << true if defined?(release) && release
+    worker.join if defined?(worker) && worker&.alive?
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+    restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
+  end
+
+  test "unknown and finish only win while the row is pending" do
+    turn_id = "turn-claim"
+    messages = []
+    previous_logger = Rails.logger
+    logger = Object.new
+    logger.define_singleton_method(:warn) { |message| messages << message }
+    Rails.logger = logger
+    pending = RecordingStudioAgents::ChatToolAudit.create!(
       occurred_at: Time.current, tool_name: "update", kind: "write", outcome: "pending",
-      call_id: "waiting", provider_turn_id: turn_id, argument_keys: []
+      call_id: "claim-unknown", provider_turn_id: turn_id, argument_keys: []
+    )
+    finished = RecordingStudioAgents::ChatToolAudit.create!(
+      occurred_at: Time.current, tool_name: "update", kind: "write", outcome: "pending",
+      call_id: "claim-ok", provider_turn_id: turn_id, argument_keys: []
     )
 
-    RecordingStudioAgents::ChatKit::ToolRound.new(
-      actor: @user, root: @root, agent_args: { session: "sess" }, recovered: true
-    ).run([write_call("waiting", turn_id: turn_id)]) { |_event| }
-    posted = submitted.flatten.first
+    assert RecordingStudioAgents::ChatToolAudit.claim_unknown!(pending)
+    refute RecordingStudioAgents::ChatToolAudit.finish!(pending, "ok")
+    assert RecordingStudioAgents::ChatToolAudit.finish!(finished, "ok")
+    refute RecordingStudioAgents::ChatToolAudit.claim_unknown!(finished)
 
-    assert_empty dispatches
-    assert_equal false, posted[:success]
-    assert_equal "tool call outcome unknown; it was not re-run", posted[:output]
+    assert_equal "unknown", pending.reload.outcome
+    assert_equal "ok", finished.reload.outcome
+    assert_equal 2, messages.count { |message| message.include?("was not stored") }
+  ensure
+    Rails.logger = previous_logger if previous_logger
+  end
+
+  test "a passed deadline leaves the row pending and posts nothing" do
+    turn_id = "turn-deadline"
+    previous = @configuration.chat_tool_deadline
+    @configuration.chat_tool_deadline = 0.05.seconds
+    original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**|
+      sleep 2
+      { content: [{ type: "text", text: "tool-body" }], isError: false }
+    end
+
+    result = budget.answer_round([write_call("slow", turn_id: turn_id)]).flatten.first
+    row = RecordingStudioAgents::ChatToolAudit.find_by!(provider_turn_id: turn_id, call_id: "slow")
+
+    assert result[:joined]
+    assert_equal "pending", row.outcome
+  ensure
+    @configuration.chat_tool_deadline = previous if @configuration && previous
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+  end
+
+  test "an already submitted tool result ends the round" do
+    turn_id = "turn-posted"
+    original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    original_submit = RecordingStudioAI::Agents.method(:submit_tool_results)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**|
+      { content: [{ type: "text", text: "tool-body" }], isError: false }
+    end
+    RecordingStudioAI::Agents.define_singleton_method(:submit_tool_results) do |**|
+      raise RecordingStudioAI::Errors::ContractValidationError.new(
+        "tool result call_id was already submitted: settled", code: "invalid_request"
+      )
+    end
+
+    delivered = RecordingStudioAgents::ChatKit::ToolRound.new(
+      actor: @user, root: @root, agent_args: { session: "sess" }
+    ).run([write_call("settled", turn_id: turn_id)]) { |_event| }
+
+    assert_empty delivered.tool_calls
+  ensure
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+    restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
+  end
+
+  test "a mismatched tool result still raises" do
+    turn_id = "turn-posted"
+    original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    original_submit = RecordingStudioAI::Agents.method(:submit_tool_results)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**|
+      { content: [{ type: "text", text: "tool-body" }], isError: false }
+    end
+    RecordingStudioAI::Agents.define_singleton_method(:submit_tool_results) do |**|
+      raise RecordingStudioAI::Errors::ContractValidationError.new(
+        "tool result turn_id does not match call mismatch", code: "invalid_request"
+      )
+    end
+
+    assert_raises(RecordingStudioAI::Errors::ContractValidationError) do
+      RecordingStudioAgents::ChatKit::ToolRound.new(
+        actor: @user, root: @root, agent_args: { session: "sess" }
+      ).run([write_call("mismatch", turn_id: turn_id)]) { |_event| }
+    end
   ensure
     restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
     restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)

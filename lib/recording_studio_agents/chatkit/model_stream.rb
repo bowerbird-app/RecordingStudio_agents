@@ -12,12 +12,11 @@ module RecordingStudioAgents
       def play(&block)
         @assistant = AssistantTurn.new(@recording.id)
         @saw_text = false
-        result = read_stream(&block)
-        answer_tools(pending_calls(result), &block)
-        recover_saved(&block) if pending_calls(result).empty? && !@saw_text
-        remember(@assistant)
+        finish_stream(read_stream(&block), &block)
       rescue RecordingStudioAI::Agents::Failure => e
         block.call(failure(e.message))
+      rescue RecordingStudioAI::Errors::ContractValidationError => e
+        RecordingStudioAgents::ChatKit::PostedResults.end_if_settled(e)
       end
 
       def cancel!
@@ -28,14 +27,21 @@ module RecordingStudioAgents
 
       private
 
+      def finish_stream(result, &)
+        calls = pending_calls(result)
+        answer_tools(calls, &)
+        recover_saved(&) if calls.empty? && !@saw_text
+        remember(@assistant)
+      end
+
       def read_stream(&block)
         RecordingStudioAI::Agents.stream(**agent_args) { |event| emit(event, &block) }
       end
 
-      def answer_tools(calls, recovered: false, &)
+      def answer_tools(calls, &)
         return if calls.empty?
 
-        tool_round(recovered: recovered).run(calls) { |event| emit(event, &) }
+        tool_round.run(calls) { |event| emit(event, &) }
       end
 
       def recover_saved(&)
@@ -43,7 +49,7 @@ module RecordingStudioAgents
         return if recovery.nil?
 
         calls = pending_calls(recovery)
-        return answer_tools(calls, recovered: true, &) if calls.any?
+        return answer_tools(calls, &) if calls.any?
 
         saved = saved_reply(recovery)
         return if saved.nil?
@@ -86,10 +92,8 @@ module RecordingStudioAgents
         )
       end
 
-      def tool_round(recovered: false)
-        ToolRound.new(
-          actor: @actor, root: @root, chat_recording: @recording, agent_args: agent_args, recovered: recovered
-        )
+      def tool_round
+        ToolRound.new(actor: @actor, root: @root, chat_recording: @recording, agent_args: agent_args)
       end
 
       def pending_calls(source)

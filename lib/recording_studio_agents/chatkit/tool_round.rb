@@ -6,12 +6,12 @@ module RecordingStudioAgents
     class ToolRound
       MAX_ROUNDS = 8
 
-      def initialize(actor:, root:, agent_args:, chat_recording: nil, recovered: false, &emit)
+      def initialize(actor:, root:, agent_args:, chat_recording: nil, &emit)
         @actor = actor
         @root = root
         @agent_args = agent_args
         @chat_recording = chat_recording
-        @budget = WriteBudget.new(actor, root, recovered: recovered)
+        @budget = WriteBudget.new(actor, root)
         @emit = emit
       end
 
@@ -74,13 +74,15 @@ module RecordingStudioAgents
 
       def deliver(results)
         postable = PostedResults.list(results)
-        return PostedResults.note(@emit) if postable == :quiet
+        return PostedResults.quiet_turn if postable == :quiet
 
         post(postable)
       rescue RecordingStudioAI::Agents::Failure => e
         raise unless timeout?(e)
 
         retry_post(postable, e)
+      rescue RecordingStudioAI::Errors::ContractValidationError => e
+        PostedResults.end_if_settled(e)
       end
 
       # A timeout can mean the result post is still in flight. Read the pending

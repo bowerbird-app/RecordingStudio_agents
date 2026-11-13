@@ -8,8 +8,6 @@ module RecordingStudioAgents
     self.table_name = "recording_studio_agents_chat_tool_audits"
 
     Entry = Data.define(:name, :arguments, :call_id)
-    # A pending row older than this was left by a caller that did not finish.
-    PENDING_STALE_AFTER = 2.minutes
     KEY = :recording_studio_agents_chat_recording
     ROUND = :recording_studio_agents_tool_round
     TURN = :recording_studio_agents_provider_turn_id
@@ -24,7 +22,19 @@ module RecordingStudioAgents
     end
 
     def self.finish!(row, outcome)
-      row.update!(outcome: outcome.to_s)
+      claim_pending!(row, outcome)
+    end
+
+    # One update. The caller posts unknown only when this wins.
+    def self.claim_unknown!(row)
+      claim_pending!(row, "unknown")
+    end
+
+    def self.claim_pending!(row, outcome) # rubocop:disable Naming/PredicateMethod -- reports whether the pending update won
+      changed = where(id: row.id, outcome: "pending").update_all(outcome: outcome.to_s, updated_at: Time.current)
+      row.outcome = outcome.to_s if changed == 1
+      log_conflict(row, outcome) unless changed == 1
+      changed == 1
     end
 
     def self.writes_used(turn_id)
@@ -100,6 +110,16 @@ module RecordingStudioAgents
 
       recording
     end
-    private_class_method :swap, :row_for, :identity, :call_fields, :argument_keys, :recording_id
+
+    def self.log_conflict(row, outcome)
+      return unless defined?(Rails) && Rails.respond_to?(:logger) && Rails.logger
+
+      current = where(id: row.id).pick(:outcome)
+      Rails.logger.warn(
+        "Recording Studio Agents: chat tool audit #{row.id} stayed #{current}, so #{outcome} was not stored"
+      )
+    end
+    private_class_method :swap, :row_for, :identity, :call_fields, :argument_keys, :recording_id,
+                         :claim_pending!, :log_conflict
   end
 end

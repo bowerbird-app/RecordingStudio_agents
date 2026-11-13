@@ -14,15 +14,28 @@ module RecordingStudioAgents
         kept
       end
 
+      # No event. ChatKit only renders known stream events, and none means "already handled".
+      # The stream ends here. The first caller posts the real result.
       def quiet_turn
         Struct.new(:tool_calls).new([])
       end
 
-      # Not assistant text. The first caller posts the tool result. This only
-      # marks the round that joined and had nothing of its own to submit.
-      def note(emit)
-        emit&.call(Struct.new(:type, :text).new("already_handled", "already handled"))
+      def settled_rejection?(error)
+        text = error.message.to_s
+        text.include?("already submitted") || text.include?("unknown tool result call_id")
+      end
+
+      def end_if_settled(error)
+        raise error unless settled_rejection?(error)
+
+        log_settled(error)
         quiet_turn
+      end
+
+      def log_settled(error)
+        return unless defined?(Rails) && Rails.respond_to?(:logger) && Rails.logger
+
+        Rails.logger.info("Recording Studio Agents: #{error.message}")
       end
 
       def pending(source)

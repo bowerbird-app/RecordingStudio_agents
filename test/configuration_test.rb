@@ -48,6 +48,8 @@ class ConfigurationTest < Minitest::Test
     assert_equal "tailwind", configuration.popup_stylesheet
     assert_equal true, configuration.launcher
     assert_equal false, configuration.allow_chat_tools_in_transaction
+    assert_equal 10.minutes, configuration.chat_tool_stale_after
+    assert_equal 2.minutes, configuration.chat_tool_deadline
     assert_equal 30.days, configuration.retention_period
     assert_equal({}, configuration.chatkit_options)
     assert_equal(
@@ -269,6 +271,22 @@ class ConfigurationTest < Minitest::Test
     assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_tool_deny = ["has space"] }
     assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_tool_deny = [1] }
     assert_nil @configuration.mcp_tool_deny
+  end
+
+  def test_chat_tool_stale_after_must_be_longer_than_the_deadline
+    @configuration.chat_tool_deadline = 30.seconds
+    @configuration.chat_tool_stale_after = 90
+    assert_equal 90.seconds, @configuration.chat_tool_stale_after
+    assert_equal 90.seconds, @configuration.to_h.fetch(:chat_tool_stale_after)
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.chat_tool_stale_after = 20.seconds }
+    assert_match "chat_tool_stale_after", error.message
+    assert_equal 90.seconds, @configuration.chat_tool_stale_after
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.chat_tool_deadline = 2.minutes }
+    assert_match "chat_tool_deadline", error.message
+    assert_equal 30.seconds, @configuration.chat_tool_deadline
+    assert_raises(RecordingStudioAgents::Error) { @configuration.chat_tool_deadline = 0 }
   end
 
   def test_mcp_tools_rejects_an_unknown_mode
