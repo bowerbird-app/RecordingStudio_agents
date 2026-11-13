@@ -71,7 +71,7 @@ module RecordingStudioAgents
     initializer "recording_studio_agents.assets" do |app|
       next unless app.config.respond_to?(:assets) && app.config.assets.respond_to?(:precompile)
 
-      app.config.assets.precompile += %w[recording_studio_agents/chatkit.js]
+      app.config.assets.precompile += %w[recording_studio_agents/chatkit.js recording_studio_agents/launcher.js]
     end
 
     initializer "recording_studio_agents.chatkit_helper" do

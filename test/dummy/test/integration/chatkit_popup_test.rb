@@ -13,6 +13,7 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     @previous_origins = @configuration.chatkit_allowed_origins
     @previous_sign_in_path = @configuration.sign_in_path
     @previous_stylesheet = @configuration.popup_stylesheet
+    @previous_theme = @configuration.popup_theme
     @previous_actor = @configuration.request_actor
     @previous_root = @configuration.request_root
     @ai = RecordingStudioAI.configuration
@@ -27,6 +28,7 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     @configuration.chatkit_allowed_origins = @previous_origins
     @configuration.sign_in_path = @previous_sign_in_path
     @configuration.popup_stylesheet = @previous_stylesheet
+    @configuration.popup_theme = @previous_theme
     @configuration.request_actor = @previous_actor
     @configuration.request_root = @previous_root
     @ai.authorization_handler = @previous_handler
@@ -60,6 +62,21 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     assert_select "openai-chatkit", count: 0
     refute_includes response.body, "Sign in to chat"
     refute_includes response.body, "flex h-dvh"
+  end
+
+  test "the popup theme attribute comes from config and defaults to rounded" do
+    sign_in_with_workspace
+
+    get recording_studio_agents.popup_path
+
+    assert_response :success
+    assert_select "html[data-theme=?]", "rounded"
+
+    @configuration.popup_theme = "featured-in"
+    get recording_studio_agents.popup_path
+
+    assert_response :success
+    assert_select "html[data-theme=?]", "featured-in"
   end
 
   test "a custom popup stylesheet renders its link and nil renders none" do

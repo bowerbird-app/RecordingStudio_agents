@@ -46,6 +46,7 @@ class ConfigurationTest < Minitest::Test
     assert_nil configuration.mcp_tool_allow
     assert_nil configuration.mcp_tool_deny
     assert_equal "tailwind", configuration.popup_stylesheet
+    assert_equal "rounded", configuration.popup_theme
     assert_equal true, configuration.launcher
     assert_equal false, configuration.allow_chat_tools_in_transaction
     assert_equal 10.minutes, configuration.chat_tool_stale_after

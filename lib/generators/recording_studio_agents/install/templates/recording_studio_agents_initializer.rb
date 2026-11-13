@@ -38,6 +38,8 @@ RecordingStudioAgents.configure do |config|
   # config.mcp_tool_deny = []
   # Popup utility stylesheet. Nil skips the tag. The default is "tailwind".
   # config.popup_stylesheet = "tailwind"
+  # Flatpack theme on the popup document. The default is "rounded".
+  # config.popup_theme = "rounded"
   # Set false and recording_studio_agents_launcher renders nothing. The default is on.
   # config.launcher = false
 

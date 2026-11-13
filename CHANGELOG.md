@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A content security policy on that action only: ChatKit script, connect, and frame hosts, plus `frame-ancestors 'self'` and `config.chatkit_allowed_origins`. The ChatKit setup script is the asset `recording_studio_agents/chatkit.js`, served from `'self'`. Per-render config is data attributes, not inline JavaScript. `script-src` does not include `'unsafe-inline'` and does not need a CSP nonce. When `asset_host` makes that script absolute, its origin is added to `script-src`. A relative script stays covered by `'self'`. `X-Frame-Options` is dropped on that response. Other pages keep the app policy.
 - `config.chatkit_allowed_origins`. Development and test default to `http://localhost:3000` and `http://127.0.0.1:3000`. Other environments default to an empty list, so a missing `CHATKIT_ALLOWED_ORIGINS` leaves `frame-ancestors` at `'self'`. `config.chatkit_domain_key` still comes from `CHATKIT_DOMAIN_KEY`.
 - `config.popup_stylesheet`, default `tailwind`. The popup layout loads that asset. Set it to `nil` to skip the tag.
+- `config.popup_theme`, default `rounded`. The popup document sets `data-theme` from that value.
+- The launcher root is `id="recording_studio_agents_launcher"` with `data-turbo-permanent`, so a Turbo Drive visit keeps the iframe. `recording_studio_agents/launcher.js` opens the panel again after the visit. FlatPack closes that popover on an outside click and marks it closed when the node reconnects.
 - Same-site framing only. The popup uses the host session cookie and Rails `protect_from_forgery`. It does not change that cookie. Cross-site framing is not supported. A later opt-in would be owned by the host's session config.
 - A sign-in prompt for signed-out visitors. `config.sign_in_path` defaults to `main_app.new_user_session_path` when that route exists, otherwise `/users/sign_in`. English and French copy.
 - A signed-in visitor with no workspace sees an empty state instead of the chat.
@@ -47,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add staging and production origins with `config.chatkit_allowed_origins` or `CHATKIT_ALLOWED_ORIGINS`, and register those origins on the OpenAI domain allowlist. Leave the list unset outside development and the popup only allows `'self'` to frame it.
 - Set `config.sign_in_path` when the host sign-in path is not Devise's `new_user_session_path`.
 - Set `config.popup_stylesheet` when the host Tailwind asset is not named `tailwind`.
+- Set `config.popup_theme` when the popup should use a Flatpack theme other than `rounded`. The launcher keeps its place across Turbo Drive visits. Call it once from the layout. On the Recording Studio default layout, override `app/views/layouts/recording_studio/default_layout.html.erb` and render `recording_studio_agents_launcher` after `yield`.
 
 ## [0.10.0] - 2026-11-11
 

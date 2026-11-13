@@ -32,6 +32,10 @@ class ChatkitLauncherTest < ActionDispatch::IntegrationTest
     assert_equal SANDBOX, iframe["sandbox"]
     assert_equal "clipboard-write", iframe["allow"]
     assert_equal "fp-floating-frame__mount", css_select(".fp-floating-frame__mount").first["class"]
+    frame = css_select("##{RecordingStudioAgents::ChatKitHelper::LAUNCHER_ELEMENT_ID}").first
+    assert_equal "true", frame["data-turbo-permanent"]
+    assert_includes frame["data-controller"], "flat-pack--floating-frame"
+    assert_select "script[src*='recording_studio_agents/launcher']", count: 1
     assert_includes SANDBOX, "allow-top-navigation-by-user-activation"
     assert_includes SANDBOX, "allow-scripts"
     assert_includes SANDBOX, "allow-same-origin"
@@ -80,5 +84,17 @@ class ChatkitLauncherTest < ActionDispatch::IntegrationTest
     assert_includes html, %(src="#{RecordingStudioAgents::Engine.routes.url_helpers.popup_path}")
     assert_includes html, %(sandbox="#{SANDBOX}")
     assert_includes html, 'class="fp-floating-frame__mount"'
+  end
+
+  test "two renders share one launcher id so Turbo can keep the node" do
+    renderer = HomeController.renderer
+    first = renderer.render(inline: "<%= recording_studio_agents_launcher %>")
+    second = renderer.render(inline: "<%= recording_studio_agents_launcher %>")
+    id = RecordingStudioAgents::ChatKitHelper::LAUNCHER_ELEMENT_ID
+
+    assert_includes first, %(id="#{id}")
+    assert_includes second, %(id="#{id}")
+    assert_includes first, 'data-turbo-permanent="true"'
+    refute_match(/fp-floating-frame-[0-9a-f]{8}/, first)
   end
 end

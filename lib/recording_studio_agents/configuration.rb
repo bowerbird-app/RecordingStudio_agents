@@ -100,14 +100,14 @@ module RecordingStudioAgents
     module_function :parsed_http_uri
   end
 
-  class Configuration
+  class Configuration # rubocop:disable Metrics/ClassLength
     include ChatkitHostSettings
     include McpToolSettings
 
     OVERRIDE_GATES = %i[none admin edit].freeze
 
     attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key,
-                  :popup_stylesheet
+                  :popup_stylesheet, :popup_theme
     attr_reader :hooks, :default_profile, :retention_period, :provider, :instructions_override,
                 :max_instructions_length, :layout, :mcp_tools, :launcher
 
@@ -116,6 +116,7 @@ module RecordingStudioAgents
       @mcp_tools = :write
       assign_tool_defaults
       @popup_stylesheet = "tailwind"
+      @popup_theme = "rounded"
       @launcher = true
       @hooks = RecordingStudio::Hooks.new
     end
@@ -177,7 +178,7 @@ module RecordingStudioAgents
         instructions: instructions, instructions_override: instructions_override,
         max_instructions_length: max_instructions_length, default_profile: default_profile,
         purpose: purpose, provider: provider, mcp_tools: mcp_tools, popup_stylesheet: popup_stylesheet,
-        retention_period: retention_period,
+        retention_period: retention_period, popup_theme: popup_theme,
         hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size)
       }.merge(mcp_limits)
     end

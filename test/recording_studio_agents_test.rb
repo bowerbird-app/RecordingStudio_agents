@@ -205,6 +205,11 @@ class RecordingStudioAgentsTest < Minitest::Test
     layout = File.read(File.expand_path("../app/views/layouts/recording_studio_agents/popup.html.erb", __dir__))
 
     assert_includes layout, "configuration.popup_stylesheet"
+    assert_includes layout, "configuration.popup_theme"
+    refute_includes layout, 'data-theme="rounded"'
+    launcher = File.read(File.expand_path("../app/assets/javascripts/recording_studio_agents/launcher.js", __dir__))
+    assert_includes launcher, "recording_studio_agents_launcher"
+    assert_includes launcher, "turbo:load"
     refute_includes layout, 'stylesheet_link_tag "tailwind"'
   end
 

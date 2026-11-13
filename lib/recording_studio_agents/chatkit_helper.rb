@@ -11,13 +11,20 @@ module RecordingStudioAgents
       allow-top-navigation-by-user-activation
     ].join(" ").freeze
 
+    # FlatPack assigns a random id unless one is passed. Turbo Drive matches
+    # data-turbo-permanent by that id, so a visit would drop the iframe and
+    # the open state. This id stays the same on every page that renders the launcher.
+    LAUNCHER_ELEMENT_ID = "recording_studio_agents_launcher"
+
     def recording_studio_agents_launcher(label: "Open chat", title: "Chat", position: :bottom_left)
       return unless RecordingStudioAgents.configuration.launcher
 
-      render FlatPack::FloatingFrame::Component.new(
+      frame = render FlatPack::FloatingFrame::Component.new(
         src: engine_route(:popup_path), title: title, label: label, icon: :chat,
-        position: position, padding: :none, sandbox: POPUP_IFRAME_SANDBOX, allow: "clipboard-write"
+        position: position, padding: :none, sandbox: POPUP_IFRAME_SANDBOX, allow: "clipboard-write",
+        id: LAUNCHER_ELEMENT_ID, data: { turbo_permanent: true }
       )
+      safe_join([frame, javascript_include_tag("recording_studio_agents/launcher", "data-turbo-track": "reload")])
     end
 
     def recording_studio_agents_chatkit(endpoint: nil, page_recording: nil, chatkit_options: nil, fill: false)

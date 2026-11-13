@@ -165,7 +165,18 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 <%= recording_studio_agents_launcher %>
 ```
 
+A host on the Recording Studio default layout overrides that layout and adds the same call after `yield`. The dummy does this in `test/dummy/app/views/layouts/recording_studio/default_layout.html.erb`:
+
+```erb
+<%= render "recording_studio/shared/default_layout" do %>
+  <%= yield %>
+  <%= recording_studio_agents_launcher %>
+<% end %>
+```
+
 The launcher sits at the bottom left. The framed page has no padding, so the chat meets the panel edges. The iframe sandbox is `allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation-by-user-activation`, and `allow` is `clipboard-write`. Sign in uses `target: "_top"`. That sandbox token lets the click leave the frame.
+
+The launcher root is `id="recording_studio_agents_launcher"` with `data-turbo-permanent`. Turbo Drive keeps that node, so the iframe does not reload. FlatPack moves the node onto `document.body` so a clipped shell does not hide it. The id is what Turbo matches. FlatPack's popover closes when the click is outside it, and it marks the panel closed again when the node reconnects. The launcher script puts an open panel back after the visit. The dummy loads Turbo (`@hotwired/turbo-rails` in the import map and `application.js`).
 
 ```erb
 <%= recording_studio_agents_launcher(label: "Ask", title: "Studio chat", position: :bottom_right) %>
@@ -182,6 +193,12 @@ config.launcher = false
 The popup and the host page have to be on the same site. The helper does not read or change the session cookie. The page renders `recording_studio_agents_chatkit` in a bare layout that fills the frame. It does not take a page. The chat uses the workspace from `config.request_root` (Root Switchable's current root). A signed-in person with no workspace sees an empty state instead of the chat.
 
 The bare layout loads `config.popup_stylesheet`, which defaults to the host `tailwind` stylesheet. Set it to another asset name, or to `nil` to skip the tag. FlatPack's empty state and the chat height are utility classes, and this document does not inherit the host page's CSS.
+
+`config.popup_theme` is the Flatpack theme on that document. It defaults to `rounded`, which is `data-theme="rounded"` on the popup `<html>`. Set it to the host theme name when the popup should match a named theme such as `featured-in`.
+
+```ruby
+config.popup_theme = "featured-in"
+```
 
 Pass `fill: true` to the helper when a host screen should use the same full-height chat. The popup does that. Other screens keep the card height.
 
