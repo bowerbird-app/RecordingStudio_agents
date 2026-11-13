@@ -233,12 +233,12 @@ GIT
 PATH
   remote: ../..
   specs:
-    recording_studio_agents (0.11.0)
+    recording_studio_agents (0.11.1)
       flat_pack (>= 0.1.354)
       rails (~> 8.1.0)
       recording_studio (~> 6.0, >= 6.1.0)
       recording_studio_ai (>= 0.21.2, < 1.0)
-      recording_studio_api (~> 0.23.0)
+      recording_studio_api (>= 0.23.0, < 1.0)
       view_component (>= 4.14, < 5)
 
 GEM
@@ -923,7 +923,7 @@ CHECKSUMS
   recording_studio (6.7.0)
   recording_studio_accessible (0.32.0)
   recording_studio_admin (2.13.0)
-  recording_studio_agents (0.11.0)
+  recording_studio_agents (0.11.1)
   recording_studio_ai (0.21.2)
   recording_studio_api (0.23.0)
   recording_studio_attachable (0.23.0)
