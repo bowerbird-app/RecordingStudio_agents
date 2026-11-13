@@ -42,6 +42,9 @@ class ConfigurationTest < Minitest::Test
     assert_equal "agent_chat", configuration.purpose
     assert_equal "openai", configuration.provider
     assert_equal :write, configuration.mcp_tools
+    assert_equal 3, configuration.mcp_max_writes_per_turn
+    assert_nil configuration.mcp_tool_allow
+    assert_nil configuration.mcp_tool_deny
     assert_equal "tailwind", configuration.popup_stylesheet
     assert_equal true, configuration.launcher
     assert_equal 30.days, configuration.retention_period
@@ -226,6 +229,45 @@ class ConfigurationTest < Minitest::Test
 
     assert_equal true, @configuration.launcher
     assert_match "launcher", error.message
+  end
+
+  def test_mcp_max_writes_per_turn_accepts_a_positive_integer
+    @configuration.mcp_max_writes_per_turn = "4"
+    assert_equal 4, @configuration.mcp_max_writes_per_turn
+    assert_equal 4, @configuration.to_h.fetch(:mcp_max_writes_per_turn)
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_max_writes_per_turn = 0 }
+
+    assert_equal 4, @configuration.mcp_max_writes_per_turn
+    assert_match "mcp_max_writes_per_turn", error.message
+    assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_max_writes_per_turn = -1 }
+    assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_max_writes_per_turn = "no" }
+    assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_max_writes_per_turn = 1.5 }
+    assert_equal 4, @configuration.mcp_max_writes_per_turn
+  end
+
+  def test_mcp_tool_lists_accept_tool_names_and_nil
+    @configuration.mcp_tool_allow = ["show", :update, "show"]
+    @configuration.mcp_tool_deny = ["create"]
+
+    assert_equal %w[show update], @configuration.mcp_tool_allow
+    assert_equal ["create"], @configuration.mcp_tool_deny
+    assert_equal ["create"], @configuration.to_h.fetch(:mcp_tool_deny)
+
+    @configuration.merge!(mcp_tool_allow: nil, mcp_tool_deny: [])
+    assert_nil @configuration.mcp_tool_allow
+    assert_equal [], @configuration.mcp_tool_deny
+  end
+
+  def test_mcp_tool_lists_reject_anything_that_is_not_tool_names
+    @configuration.mcp_tool_allow = ["show"]
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_tool_allow = "show" }
+    assert_match "mcp_tool_allow", error.message
+    assert_equal ["show"], @configuration.mcp_tool_allow
+    assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_tool_deny = ["has space"] }
+    assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_tool_deny = [1] }
+    assert_nil @configuration.mcp_tool_deny
   end
 
   def test_mcp_tools_rejects_an_unknown_mode

@@ -1,0 +1,59 @@
+# frozen_string_literal: true
+
+module RecordingStudioAgents
+  # Name lists and the per-turn write cap for in-process chat tools.
+  module McpToolSettings
+    attr_reader :mcp_max_writes_per_turn, :mcp_tool_allow, :mcp_tool_deny
+
+    def mcp_max_writes_per_turn=(value)
+      @mcp_max_writes_per_turn = strict_positive_integer(value)
+    end
+
+    def mcp_tool_allow=(value)
+      @mcp_tool_allow = tool_name_list(value, "mcp_tool_allow")
+    end
+
+    def mcp_tool_deny=(value)
+      @mcp_tool_deny = tool_name_list(value, "mcp_tool_deny")
+    end
+
+    private
+
+    def mcp_limits
+      {
+        mcp_max_writes_per_turn: mcp_max_writes_per_turn,
+        mcp_tool_allow: mcp_tool_allow, mcp_tool_deny: mcp_tool_deny
+      }
+    end
+
+    def strict_positive_integer(value)
+      count = Integer(value)
+      whole = value.is_a?(Integer) || (value.is_a?(String) && value.match?(/\A[+]?\d+\z/))
+      raise ArgumentError unless whole && count >= 1
+
+      count
+    rescue ArgumentError, TypeError
+      raise Error, "mcp_max_writes_per_turn must be a positive integer"
+    end
+
+    def assign_tool_defaults
+      @mcp_max_writes_per_turn = 3
+      @mcp_tool_allow = nil
+      @mcp_tool_deny = nil
+    end
+
+    def tool_name_list(value, name)
+      return if value.nil?
+      raise Error, "#{name} must be an array of tool names" unless value.is_a?(Array)
+
+      value.map { |entry| tool_name(entry, name) }.uniq
+    end
+
+    def tool_name(entry, label)
+      text = entry.to_s if entry.is_a?(String) || entry.is_a?(Symbol)
+      return text if text&.match?(RecordingStudioAI::Agents::ToolCall::NAME_PATTERN)
+
+      raise Error, "#{label} must be an array of tool names"
+    end
+  end
+end

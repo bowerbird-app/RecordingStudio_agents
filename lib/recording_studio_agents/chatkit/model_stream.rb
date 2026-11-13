@@ -87,7 +87,7 @@ module RecordingStudioAgents
       end
 
       def tool_round
-        ToolRound.new(actor: @actor, root: @root, agent_args: agent_args)
+        ToolRound.new(actor: @actor, root: @root, chat_recording: @recording, agent_args: agent_args)
       end
 
       def pending_calls(source)

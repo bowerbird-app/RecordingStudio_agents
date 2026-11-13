@@ -6,44 +6,52 @@ module RecordingStudioAgents
     module ChatToolCall
       module_function
 
+      OFF = "tools are off"
+      NOT_ALLOWED = "not allowed"
+      TOOL_NOT_ALLOWED = "tool is not allowed"
+      API_DISABLED = "API access is temporarily disabled"
+      TOO_MANY = "Too many requests"
+      FAILED = "tool call failed"
+      OWNED_ERRORS = [OFF, NOT_ALLOWED, TOOL_NOT_ALLOWED, API_DISABLED, TOO_MANY, FAILED].freeze
+
       def perform(name, arguments, actor:, root:, call_id:)
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         grant = ChatTools.installed? ? ChatTools.grant_for(actor, root) : nil
-        result, limited = guarded(name, arguments, grant, actor, call_id)
-        ChatToolLog.record(name, result, started, grant, limited)
+        result, status = guarded(name, arguments, grant, actor, call_id)
+        ChatToolLog.record(name, result, started, grant, status == :limited)
+        entry = ChatToolAudit::Entry.new(name: name, arguments: arguments, call_id: call_id)
+        ChatToolAudit.record!(entry, actor: actor, kind: ChatTools.kind_for(name, grant), outcome: status.to_s)
         result
       end
 
       def outcome(result)
-        text = result_text(result)
-        return { error: bounded(text.presence || "tool call failed") } if error_result?(result)
-
-        { output: bounded(text) }
+        ChatToolOutput.pack(result_text(result), error_result?(result))
       end
 
       def bounded(text)
-        value = text.to_s
-        limit = RecordingStudioAI::Agents::Request::MAX_TOOL_RESULT_BYTES
-        return value if value.bytesize <= limit
-
-        value.byteslice(0, limit).to_s.scrub("")
+        ChatToolOutput.bounded(text)
       end
 
       def guarded(name, arguments, grant, actor, call_id)
         refusal = refusal_for(name, grant)
-        return [error_result(refusal), false] if refusal
-        return [error_result("Too many requests"), true] if ChatToolLimit.limited?(grant, name, actor)
+        return [error_result(refusal), :refused] if refusal
+        return [error_result(TOO_MANY), :limited] if ChatToolLimit.limited?(grant, name, actor)
 
-        [dispatch(name, arguments, grant, call_id), false]
+        result = dispatch(name, arguments, grant, call_id)
+        [result, error_result?(result) ? :error : :ok]
       end
 
       def refusal_for(name, grant)
-        return "tools are off" if ChatTools.off? || !ChatTools.installed?
-        return "not allowed" if grant.nil? || ChatTools.self_tool?(name)
-        return "tool is not allowed" unless allowed?(name, grant)
-        return "API access is temporarily disabled" unless api_enabled?(grant)
+        return OFF if ChatTools.off? || !ChatTools.installed?
+        return NOT_ALLOWED if grant.nil? || ChatTools.self_tool?(name)
+        return TOOL_NOT_ALLOWED unless callable?(name, grant)
+        return API_DISABLED unless api_enabled?(grant)
 
         nil
+      end
+
+      def callable?(name, grant)
+        ChatTools.named_tool?(name) && allowed?(name, grant)
       end
 
       def allowed?(name, grant)

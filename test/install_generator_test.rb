@@ -157,6 +157,17 @@ class InstallGeneratorTest < Minitest::Test
     install_guide = File.read(INSTALL_TEMPLATE_PATH)
 
     assert_includes install_guide, "bin/rails generate recording_studio_agents:migrations"
+    assert_includes install_guide, "recording_studio_agents_chat_tool_audits"
+    template = File.read(
+      File.expand_path(
+        "../lib/generators/recording_studio_agents/install/templates/recording_studio_agents_initializer.rb",
+        __dir__
+      )
+    )
+    assert_includes template, "config.mcp_tools = :write"
+    assert_includes template, "config.mcp_max_writes_per_turn = 3"
+    assert_includes template, "config.mcp_tool_allow = nil"
+    assert_includes template, "config.mcp_tool_deny = []"
     assert_includes install_guide, "bin/rails generate recording_studio_logs:migrations"
     assert_includes install_guide, "bin/rails recording_studio_ai:install:migrations"
     assert_includes install_guide, "bin/rails db:migrate"

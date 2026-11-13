@@ -102,6 +102,7 @@ module RecordingStudioAgents
 
   class Configuration
     include ChatkitHostSettings
+    include McpToolSettings
 
     OVERRIDE_GATES = %i[none admin edit].freeze
 
@@ -113,6 +114,7 @@ module RecordingStudioAgents
     def initialize
       assign_defaults
       @mcp_tools = :write
+      assign_tool_defaults
       @popup_stylesheet = "tailwind"
       @launcher = true
       @hooks = RecordingStudio::Hooks.new
@@ -177,7 +179,7 @@ module RecordingStudioAgents
         purpose: purpose, provider: provider, mcp_tools: mcp_tools, popup_stylesheet: popup_stylesheet,
         retention_period: retention_period,
         hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size)
-      }
+      }.merge(mcp_limits)
     end
 
     def merge!(hash)

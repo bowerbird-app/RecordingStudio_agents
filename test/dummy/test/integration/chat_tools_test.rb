@@ -10,6 +10,9 @@ class ChatToolsTest < ActiveSupport::TestCase
     grant_edit(@user, @root)
     @configuration = RecordingStudioAgents.configuration
     @previous_tools = @configuration.mcp_tools
+    @previous_allow = @configuration.mcp_tool_allow
+    @previous_deny = @configuration.mcp_tool_deny
+    @previous_writes = @configuration.mcp_max_writes_per_turn
     @api = RecordingStudioApi.configuration
     @previous_rate_limit = @api.rate_limit_api_enabled
     @previous_read_limit = @api.rate_limit_api_read_requests
@@ -20,6 +23,9 @@ class ChatToolsTest < ActiveSupport::TestCase
 
   teardown do
     @configuration.mcp_tools = @previous_tools
+    @configuration.mcp_tool_allow = @previous_allow
+    @configuration.mcp_tool_deny = @previous_deny
+    @configuration.mcp_max_writes_per_turn = @previous_writes
     @api.rate_limit_api_enabled = @previous_rate_limit
     @api.rate_limit_api_read_requests = @previous_read_limit
     @api.rate_limit_api_read_period_seconds = @previous_read_period
@@ -230,6 +236,118 @@ class ChatToolsTest < ActiveSupport::TestCase
     assert_equal "recording_studio_api:api_write:actor:User:#{@user.id}:#{window}", key
   end
 
+  test "allow and deny apply when tools are listed and when they are called" do
+    kit = record_kit("HELLO HOUSE")
+    @configuration.mcp_tool_allow = %w[show update]
+    @configuration.mcp_tool_deny = ["update"]
+
+    names = tool_names
+    assert_includes names, "show"
+    refute_includes names, "update"
+    refute_includes names, "list"
+
+    refused = invoke("update", { "type" => "PressKit", "id" => kit.id, "name" => "RENAMED" })
+
+    assert refused[:isError]
+    assert_includes refused.dig(:content, 0, :text), "tool is not allowed"
+    assert_equal "HELLO HOUSE", kit.reload.recordable.name
+
+    shown = invoke("show", { "type" => "PressKit", "id" => kit.id }, call_id: "show-allowed")
+    refute shown[:isError]
+
+    @configuration.mcp_tool_allow = nil
+    @configuration.mcp_tool_deny = ["show"]
+    assert_includes tool_names, "update"
+    refute_includes tool_names, "show"
+
+    blocked = invoke("show", { "type" => "PressKit", "id" => kit.id }, call_id: "show-denied")
+    assert blocked[:isError]
+    assert_includes blocked.dig(:content, 0, :text), "tool is not allowed"
+  end
+
+  test "tool output sent back to the model is an untrusted envelope" do
+    kit = record_kit("HELLO HOUSE")
+    call = RecordingStudioAI::Agents::ToolCall.new(
+      call_id: "env-1", name: "show",
+      arguments: { "type" => "PressKit", "id" => kit.id }, provider_turn_id: "turn-env"
+    )
+
+    answered = RecordingStudioAgents::Mcp::ChatTools.answer(call, actor: @user, root: @root)
+    parsed = JSON.parse(answered.fetch(:output))
+
+    assert_equal ["untrusted_tool_output"], parsed.keys
+    assert_includes parsed.fetch("untrusted_tool_output"), "HELLO HOUSE"
+  end
+
+  test "a chat tool call writes an audit row without argument values" do
+    secret = "audit-secret-#{SecureRandom.hex(8)}"
+    kit = record_kit("HELLO HOUSE")
+
+    RecordingStudioAgents::ChatToolAudit.with_chat(@root) do
+      invoke("update", { "type" => "PressKit", "id" => kit.id, "name" => secret }, call_id: "audit-call")
+    end
+
+    row = RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "audit-call")
+    assert_equal "User", row.actor_type
+    assert_equal @user.id, row.actor_id
+    assert_equal @root.id, row.chat_recording_id
+    assert_equal "update", row.tool_name
+    assert_equal "write", row.kind
+    assert_equal %w[type id name], row.argument_keys
+    assert_equal "ok", row.outcome
+    assert_equal "audit-call", row.call_id
+    dumped = row.attributes.values.map(&:to_s).join(" ")
+    refute_includes row.argument_keys, secret
+    refute_includes dumped, secret
+
+    log = RecordingStudioLogs.registry.log_for(RecordingStudioAgents::ChatToolAudit)
+    assert_equal :occurred_at, log.timestamp_column
+    assert_nil log.partition_interval
+    assert_equal :indefinite, log.declared_retention
+    assert_empty RecordingStudioLogs.registry.aggregations_for(log)
+  end
+
+  test "the fourth write in one turn is refused and a read is still answered" do
+    assert_equal 3, @configuration.mcp_max_writes_per_turn
+    secret = "write-secret-#{SecureRandom.hex(6)}"
+    dispatched = []
+    submitted = []
+    script = [
+      tool_turn([write_call("w3"), write_call("w4", secret), read_call("r2")]),
+      tool_turn([])
+    ]
+    original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    original_submit = RecordingStudioAI::Agents.method(:submit_tool_results)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**kwargs|
+      dispatched << kwargs.fetch(:tool_name)
+      { content: [{ type: "text", text: "tool-body" }], isError: false }
+    end
+    RecordingStudioAI::Agents.define_singleton_method(:submit_tool_results) do |**kwargs, &|
+      submitted << kwargs.fetch(:results)
+      script.shift
+    end
+
+    RecordingStudioAgents::ChatKit::ToolRound.new(
+      actor: @user, root: @root, agent_args: { session: "sess" }, chat_recording: @root
+    ).run([write_call("w1"), write_call("w2"), read_call("r1")]) { |_event| }
+
+    assert_equal %w[update update show update show], dispatched
+    results = submitted.flatten
+    limited = results.select { |result| result[:error] == "write limit reached" }
+    assert_equal ["w4"], limited.map { |result| result[:call_id] }
+    read = results.find { |result| result[:call_id] == "r2" }
+    assert_equal "tool-body", JSON.parse(read.fetch(:output)).fetch("untrusted_tool_output")
+    row = RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "w4")
+    assert_equal @root.id, row.chat_recording_id
+    assert_equal "limited", row.outcome
+    assert_equal "write", row.kind
+    assert_equal ["id"], row.argument_keys
+    refute_includes row.attributes.values.map(&:to_s).join(" "), secret
+  ensure
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+    restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
+  end
+
   test "read only mode refuses a write without changing the record" do
     kit = record_kit("HELLO HOUSE")
     @configuration.mcp_tools = :read
@@ -242,6 +360,39 @@ class ChatToolsTest < ActiveSupport::TestCase
   end
 
   private
+
+  def tool_names
+    Array(RecordingStudioAgents::Mcp::ChatTools.definitions(actor: @user, root: @root)).map { |tool| tool[:name] }
+  end
+
+  def write_call(call_id, secret = "plain")
+    tool_call(call_id, "update", { "id" => secret })
+  end
+
+  def read_call(call_id)
+    tool_call(call_id, "show", { "id" => "kit" })
+  end
+
+  def tool_call(call_id, name, arguments)
+    RecordingStudioAI::Agents::ToolCall.new(
+      call_id: call_id, name: name, arguments: arguments, provider_turn_id: "turn_1"
+    )
+  end
+
+  def tool_turn(calls)
+    RecordingStudioAI::Agents::Turn.new(
+      provider: :openai, provider_session_id: "sess_tools", model: "demo", status: "requires_action",
+      run_id: nil, tool_calls: calls
+    )
+  end
+
+  def restore_singleton(owner, name, original)
+    return if original.nil?
+
+    owner.define_singleton_method(name) do |*args, **kwargs, &block|
+      original.call(*args, **kwargs, &block)
+    end
+  end
 
   def invoke(name, arguments, call_id: "call-1")
     RecordingStudioAgents::Mcp::ChatTools.invoke(

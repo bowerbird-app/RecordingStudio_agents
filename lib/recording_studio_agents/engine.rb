@@ -87,7 +87,10 @@ module RecordingStudioAgents
     end
 
     initializer "recording_studio_agents.mcp" do
-      config.to_prepare { RecordingStudioAgents::Mcp.register! }
+      config.to_prepare do
+        RecordingStudioAgents::Mcp.register!
+        RecordingStudioAgents::Mcp::LogsRegistration.register!
+      end
     end
   end
 end

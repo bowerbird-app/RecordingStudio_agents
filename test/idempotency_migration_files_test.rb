@@ -7,6 +7,7 @@ class IdempotencyMigrationFilesTest < Minitest::Test
     20261019040000_scope_agents_idempotency_keys_to_root.rb
     20261019040100_require_agents_root_on_idempotency_keys.rb
     20261019040200_add_instructions_to_recording_studio_agents_sessions.rb
+    20261113040000_create_recording_studio_agents_chat_tool_audits.rb
   ].freeze
 
   def test_dummy_migration_copies_match_the_gem_files

@@ -35,7 +35,7 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     events = stream_events(create_body("hello"))
     recording = RecordingStudio::Recording.find(events.first.dig("thread", "id"))
 
-    assert_equal "Answer in one sentence.", recording.recordable.instructions
+    assert_equal with_safety_preamble("Answer in one sentence."), recording.recordable.instructions
   end
 
   test "threads.create rejects instructions" do

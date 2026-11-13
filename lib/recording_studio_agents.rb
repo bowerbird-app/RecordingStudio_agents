@@ -26,6 +26,7 @@ module RecordingStudioAgents
 end
 
 require "recording_studio_agents/engine"
+require "recording_studio_agents/mcp_tool_settings"
 require "recording_studio_agents/configuration"
 require "recording_studio/capabilities/agents"
 require "recording_studio_agents/ai_attribution"
@@ -49,6 +50,7 @@ require "recording_studio_agents/chatkit/protocol_error"
 require "recording_studio_agents/chatkit/options"
 require "recording_studio_agents/chatkit/payload"
 require "recording_studio_agents/chatkit/assistant_turn"
+require "recording_studio_agents/chatkit/write_budget"
 require "recording_studio_agents/chatkit/tool_round"
 require "recording_studio_agents/chatkit/model_stream"
 require "recording_studio_agents/chatkit/turn"

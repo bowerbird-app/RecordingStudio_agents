@@ -6,10 +6,12 @@ module RecordingStudioAgents
     class ToolRound
       MAX_ROUNDS = 8
 
-      def initialize(actor:, root:, agent_args:, &emit)
+      def initialize(actor:, root:, agent_args:, chat_recording: nil, &emit)
         @actor = actor
         @root = root
         @agent_args = agent_args
+        @chat_recording = chat_recording
+        @budget = WriteBudget.new(actor, root)
         @emit = emit
       end
 
@@ -54,7 +56,7 @@ module RecordingStudioAgents
       end
 
       def answers(calls)
-        calls.map { |call| Mcp::ChatTools.answer(call, actor: @actor, root: @root) }
+        RecordingStudioAgents::ChatToolAudit.with_chat(@chat_recording) { calls.map { |call| @budget.answer(call) } }
       end
 
       def refusal(call, message)

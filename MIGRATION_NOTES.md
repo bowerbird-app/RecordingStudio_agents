@@ -39,7 +39,7 @@ bin/rails generate recording_studio_agents:migrations
 bin/rails db:migrate
 ```
 
-The generator copies `create_recording_studio_agents_sessions`, `scope_agents_idempotency_keys_to_root`, `require_agents_root_on_idempotency_keys`, and `add_instructions_to_recording_studio_agents_sessions`, in that order. The first creates the chat snapshot table, the binding table, and the item table.
+The generator copies `create_recording_studio_agents_sessions`, `scope_agents_idempotency_keys_to_root`, `require_agents_root_on_idempotency_keys`, `add_instructions_to_recording_studio_agents_sessions`, and `create_recording_studio_agents_chat_tool_audits`, in that order. The first creates the chat snapshot table, the binding table, and the item table. The last creates `recording_studio_agents_chat_tool_audits`. That table is registered with Recording Studio Logs as an unpartitioned UUID log, `retention: :indefinite`, with no summary. Do not schedule a Logs partition job for it. A row stores the actor, the chat recording id, the tool name, read or write, argument keys, the outcome, and the call id. It does not store argument values.
 
 A and B can run back to back. The generator copies both, and `db:migrate` runs A then B.
 

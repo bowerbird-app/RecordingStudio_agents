@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_13_012647) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_13_040000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -164,6 +164,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_012647) do
     t.index ["provider_session_id"], name: "index_rs_agents_bindings_on_provider_session", unique: true, where: "(provider_session_id IS NOT NULL)"
     t.index ["recording_id"], name: "index_recording_studio_agents_bindings_on_recording_id", unique: true
     t.index ["root_recording_id", "create_idempotency_key"], name: "index_rs_agents_bindings_on_root_and_create_key", unique: true
+  end
+
+  create_table "recording_studio_agents_chat_tool_audits", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "occurred_at", null: false
+    t.string "actor_type"
+    t.string "actor_id"
+    t.uuid "chat_recording_id"
+    t.string "tool_name", null: false
+    t.string "kind", null: false
+    t.string "outcome", null: false
+    t.string "call_id", null: false
+    t.jsonb "argument_keys", default: [], null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["chat_recording_id"], name: "index_rs_agents_chat_tool_audits_on_chat"
+    t.index ["occurred_at"], name: "index_recording_studio_agents_chat_tool_audits_on_occurred_at"
   end
 
   create_table "recording_studio_agents_items", id: :string, force: :cascade do |t|

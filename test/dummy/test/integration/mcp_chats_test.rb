@@ -107,8 +107,8 @@ class McpChatsTest < ActionDispatch::IntegrationTest
       recording = RecordingStudio::Recording.find(tool_payload(payload).fetch("id"))
 
       assert_equal false, payload.dig("result", "isError"), response.body
-      assert_equal "Answer in one sentence.\n\nBe terse.", recording.recordable.instructions
-      assert_equal "Answer in one sentence.\n\nBe terse.", @calls.last[:instructions]
+      assert_equal with_safety_preamble("Answer in one sentence.\n\nBe terse."), recording.recordable.instructions
+      assert_equal with_safety_preamble("Answer in one sentence.\n\nBe terse."), @calls.last[:instructions]
     end
   end
 
@@ -121,7 +121,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     recording = RecordingStudio::Recording.find(tool_payload(payload).fetch("id"))
 
     assert_equal false, payload.dig("result", "isError"), response.body
-    assert_equal "Answer in one sentence.", recording.recordable.instructions
+    assert_equal with_safety_preamble("Answer in one sentence."), recording.recordable.instructions
     assert_equal before + 1, @calls.size
   end
 
@@ -159,7 +159,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
       recording = RecordingStudio::Recording.find(tool_payload(payload).fetch("id"))
 
       assert_equal false, payload.dig("result", "isError"), response.body
-      assert_equal "Answer in one sentence.\n\nBe terse.", recording.recordable.instructions
+      assert_equal with_safety_preamble("Answer in one sentence.\n\nBe terse."), recording.recordable.instructions
     end
   end
 
