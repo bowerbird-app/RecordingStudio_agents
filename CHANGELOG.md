@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Dummy and root Gemfiles pin the current Recording Studio ecosystem GitHub release tags: Recording Studio `v6.7.0`, FlatPack `v0.1.356`, API `v0.23.0`, Accessible `v0.32.0`, Trashable `v0.14.0`, Icons `v0.2.1`, Moveable `v4.1.1`, Logs `v0.7.4`, Metrics `v0.8.0`, Root Switchable `v0.15.0`, Users `v0.28.1`, Oauth `v0.21.7`, MCP `v0.33.2`, Admin `v2.13.0`, Site Settings `v0.5.6`, Attachable `v0.23.0`, and Cache `v0.6.3`. AI stays `v0.21.2`.
+- The gemspec requires `recording_studio_api` `~> 0.23.0`. Attachable `v0.23.0` requires that range, and `~> 0.22.1` cannot install API `0.23.0`.
+- Removed `test/support/widen_recording_studio_requirement.rb`. The pinned gemspecs accept Recording Studio `>= 6.1.0`.
+- The dummy sets `config.authorize_write` so Recording Studio 6.5 allows `record!` when an actor is present. Trashable `v0.14.0` adds nullable `purge_at` on recordings. The mounted root switch page still needs an Accessible `:view` grant on the current root.
+
 ## [0.11.0] - 2026-11-11
 
 ### Added

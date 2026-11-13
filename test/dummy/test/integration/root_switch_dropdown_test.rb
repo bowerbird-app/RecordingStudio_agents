@@ -46,7 +46,8 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
     sign_in user
 
     workspace = Workspace.create!(name: "Switch Page Workspace")
-    RecordingStudio.root_recording_for(workspace)
+    root = RecordingStudio.root_recording_for(workspace)
+    grant_view(user, root)
 
     get "/recording_studio_root_switchable/v1/root_switch?scope=all_workspaces"
 
@@ -66,7 +67,9 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
     source_workspace = Workspace.create!(name: "Source Workspace")
     target_workspace = Workspace.create!(name: "Target Workspace")
     target_root_recording = RecordingStudio.root_recording_for(target_workspace)
-    RecordingStudio.root_recording_for(source_workspace)
+    source_root = RecordingStudio.root_recording_for(source_workspace)
+    grant_view(user, source_root)
+    grant_view(user, target_root_recording)
 
     patch "/recording_studio_root_switchable/v1/root_switch", params: {
       scope: "all_workspaces",
@@ -90,7 +93,9 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
     source_workspace = Workspace.create!(name: "Fallback Source Workspace")
     target_workspace = Workspace.create!(name: "Fallback Target Workspace")
     target_root_recording = RecordingStudio.root_recording_for(target_workspace)
-    RecordingStudio.root_recording_for(source_workspace)
+    source_root = RecordingStudio.root_recording_for(source_workspace)
+    grant_view(user, source_root)
+    grant_view(user, target_root_recording)
 
     patch "/recording_studio_root_switchable/v1/root_switch", params: {
       scope: "all_workspaces",
@@ -101,5 +106,19 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
     }
 
     assert_redirected_to "/"
+  end
+
+  private
+
+  def grant_view(actor, recording)
+    Current.actor = actor
+    RecordingStudioAccessible::AccessCreationContext.allow do
+      RecordingStudio.root_recording_or_self(recording).record(
+        RecordingStudio::Access, actor: actor, parent_recording: recording
+      ) do |access|
+        access.actor = actor
+        access.role = "view"
+      end
+    end
   end
 end

@@ -7,6 +7,18 @@ require_relative "dummy/config/environment"
 require "rails/test_help"
 
 class RecordingStudioDeclarationsTest < ActiveSupport::TestCase
+  setup do
+    @writer = User.find_or_create_by!(email: "declarations-writer@example.com") do |user|
+      user.password = "DeclarationsPassword!2026"
+      user.password_confirmation = "DeclarationsPassword!2026"
+    end
+    Current.actor = @writer
+  end
+
+  teardown do
+    Current.actor = nil
+  end
+
   test "dummy recordable declarations validate and expose parent/root introspection" do
     assert RecordingStudio.validate_recordable_declarations!
     assert_equal ["Workspace", "RecordingStudioUser::People"], RecordingStudio.root_recordable_types
@@ -44,7 +56,8 @@ class RecordingStudioDeclarationsTest < ActiveSupport::TestCase
       action: "created",
       recordable: folder,
       root_recording: root_recording,
-      parent_recording: root_recording
+      parent_recording: root_recording,
+      actor: @writer
     )
 
     assert_equal folder, event.recording.recordable
@@ -108,7 +121,8 @@ class RecordingStudioDeclarationsTest < ActiveSupport::TestCase
       action: "created",
       recordable: recordable,
       root_recording: root_recording,
-      parent_recording: parent_recording
+      parent_recording: parent_recording,
+      actor: @writer
     ).recording
   end
 

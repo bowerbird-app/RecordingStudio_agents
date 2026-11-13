@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_13_040000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_13_050002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -606,6 +606,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_040000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "api_key", default: "public", null: false
+    t.datetime "arrived_at", default: -> { "clock_timestamp()" }
+    t.integer "latency_bucket_ms"
     t.index ["api_client_id", "occurred_at"], name: "index_rs_api_request_logs_on_client_and_time"
     t.index ["api_credential_id", "occurred_at"], name: "index_rs_api_request_logs_on_credential_and_time"
     t.index ["api_key", "occurred_at"], name: "index_rs_api_request_logs_on_api_and_time"
@@ -725,6 +727,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_040000) do
     t.uuid "api_client_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.virtual "failed_count", type: :integer, as: "\nCASE\n    WHEN failed THEN 1\n    ELSE 0\nEND", stored: true
+    t.virtual "rate_limited_count", type: :integer, as: "\nCASE\n    WHEN rate_limited THEN 1\n    ELSE 0\nEND", stored: true
     t.index ["api_client_id", "occurred_at"], name: "index_rs_mcp_usage_logs_on_client_and_time"
     t.index ["occurred_at"], name: "index_recording_studio_mcp_usage_logs_on_occurred_at"
   end
@@ -882,8 +886,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_040000) do
     t.datetime "trashed_at"
     t.datetime "updated_at", null: false
     t.boolean "trash_root", default: false, null: false
+    t.datetime "purge_at"
     t.index ["parent_recording_id"], name: "idx_rs_attachable_parent_active", where: "(((recordable_type)::text = 'RecordingStudioAttachable::Attachment'::text) AND (trashed_at IS NULL))"
     t.index ["parent_recording_id"], name: "index_recording_studio_recordings_on_parent_recording_id"
+    t.index ["purge_at"], name: "idx_rs_recordings_due_purge_at", where: "(trashed_at IS NOT NULL)"
     t.index ["recordable_type", "recordable_id", "parent_recording_id", "trashed_at"], name: "index_recording_studio_recordings_on_recordable_parent_trashed"
     t.index ["recordable_type", "recordable_id"], name: "index_recording_studio_recordings_on_recordable"
     t.index ["recordable_type", "recordable_id"], name: "index_rs_unique_root_recording_per_recordable", unique: true, where: "(parent_recording_id IS NULL)"

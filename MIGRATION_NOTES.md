@@ -5,15 +5,15 @@
 - Gem version `0.11.0`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
-- Recording Studio `~> 6.0, >= 6.1.0` (dummy GitHub tag `v6.1.0`)
+- Recording Studio `~> 6.0, >= 6.1.0` (dummy GitHub tag `v6.7.0`)
 - Recording Studio AI `>= 0.21.2, < 1.0` (dummy GitHub tag `v0.21.2`)
-- Metrics dummy tag `v0.7.0`
-- Logs dummy tag `v0.7.1` (GitHub-only; AI 0.21.2 depends on it)
-- Accessible dummy tag `v0.20.0`, Trashable dummy tag `v0.11.3` (`require: false`), and Root Switchable dummy tag `v0.9.7`
-- Cache dummy tag `v0.5.1`
-- FlatPack `>= 0.1.354`. The root Gemfile and the dummy pin tag `v0.1.354`. `FloatingFrame` shipped in that tag. API 0.20 and Oauth 0.21.6 require `>= 0.1.341`.
+- Metrics dummy tag `v0.8.0`
+- Logs dummy tag `v0.7.4` (GitHub-only; AI 0.21.2 depends on it)
+- Accessible dummy tag `v0.32.0`, Trashable dummy tag `v0.14.0` (`require: false`), and Root Switchable dummy tag `v0.15.0`
+- Cache dummy tag `v0.6.3`
+- FlatPack `>= 0.1.354`. The root Gemfile and the dummy pin tag `v0.1.356`. `FloatingFrame` shipped in `v0.1.354`.
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
-- Users dummy tag `v0.25.2`, Oauth dummy tag `v0.21.6`, MCP dummy tag `v0.33.1`, API dummy tag `v0.22.1`, Moveable dummy tag `v4.1.0`, Icons dummy tag `v0.2.0`, Admin dummy tag `v2.3.3`, Site Settings dummy tag `v0.5.1`, Attachable dummy tag `v0.20.2` (`require: false`)
+- Users dummy tag `v0.28.1`, Oauth dummy tag `v0.21.7`, MCP dummy tag `v0.33.2`, API dummy tag `v0.23.0`, Moveable dummy tag `v4.1.1`, Icons dummy tag `v0.2.1`, Admin dummy tag `v2.13.0`, Site Settings dummy tag `v0.5.6`, Attachable dummy tag `v0.23.0` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
 
 ## Layout
@@ -28,9 +28,9 @@ On a screen, set `content_for :title` and, when you have one, `content_for :subt
 
 ## Sibling gems
 
-The dummy keeps the pins in the Requirements list. Accessible, Trashable, Cache, Attachable, Site Settings, and Icons still reject Recording Studio 6.1.0. Both Gemfiles require `test/support/widen_recording_studio_requirement.rb` for that requirement only. MCP `v0.33.1` and Oauth `v0.21.6` allow API `< 0.23`, so the file no longer rewrites `recording_studio_api`. That file is not installed with the gem.
+The dummy keeps the pins in the Requirements list. Accessible `v0.32.0`, Trashable `v0.14.0`, Cache `v0.6.3`, Attachable `v0.23.0`, Site Settings `v0.5.6`, and Icons `v0.2.1` accept Recording Studio `>= 6.1.0`. The Gemfiles pin those tags. There is no Bundler gemspec rewrite.
 
-Site Settings `v0.5.1` still includes `RecordingStudio::UsesDefaultLayout`. The dummy defines an empty module in `test/dummy/config/application.rb` until that gem stops. Root Switchable `v0.9.7` still passes PageNav `anchor_url` / `anchor_label` and Card `style:`. `test/dummy/config/initializers/flatpack_removed_kwargs.rb` accepts those keywords. A host on the same pins needs the same two shims.
+Recording Studio 6.5 refuses `record!` unless `config.authorize_write` is set. The dummy allows a write when an actor is present. Trashable `v0.14.0` adds nullable `purge_at` on `recording_studio_recordings`. Copy that migration and run `bin/rails db:migrate`, then `bin/rails recording_studio_trashable:restamp_purge_at` on a database that already has trash. Root Switchable `v0.15.0` requires an Accessible `:view` grant on the current root before the mounted switch page renders. A blank current root still requires an actor.
 
 ## Host migration
 
