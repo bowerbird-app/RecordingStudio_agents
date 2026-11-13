@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
-# Sibling gemspecs in this repository still require recording_studio below 5,
-# and MCP and Oauth still reject recording_studio_api 0.22. Bundler evaluates
-# those gemspecs through Gem::Specification, so this rewrite runs before
-# resolution. The file is not packaged in the gem.
+# These pinned gemspecs still reject recording_studio 6.1.0: Accessible (~> 4.7),
+# Trashable (~> 4.7), Cache (~> 4.2), Attachable (~> 4.2), Site Settings (~> 4.2),
+# and Icons (>= 6.3.0). Bundler evaluates them through Gem::Specification, so
+# this rewrite runs before resolution. MCP 0.33.1 and Oauth 0.21.6 already allow
+# 6.1.0 and API < 0.23, so this file does not touch recording_studio_api.
+# The file is not packaged in the gem.
 module WidenRecordingStudioRequirement
   def add_dependency(name, *requirements)
     super(name, *widened(name.to_s, requirements))
@@ -19,7 +21,6 @@ module WidenRecordingStudioRequirement
   def widened(name, requirements)
     requirements = requirements.flatten
     return [">= 6.1.0"] if name == "recording_studio" && !allows?(requirements, "6.1.0")
-    return [">= 0.22.1"] if name == "recording_studio_api" && !allows?(requirements, "0.22.1")
 
     requirements
   end

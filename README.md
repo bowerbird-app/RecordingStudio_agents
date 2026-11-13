@@ -18,15 +18,15 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - FlatPack `>= 0.1.354` (root and dummy GitHub tag `v0.1.354`)
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
 - Recording Studio Users dummy GitHub tag `v0.25.2`
-- Oauth dummy GitHub tag `v0.21.5`
-- Recording Studio MCP dummy GitHub tag `v0.31.0`
+- Oauth dummy GitHub tag `v0.21.6`
+- Recording Studio MCP dummy GitHub tag `v0.33.1`
 - Recording Studio API dummy GitHub tag `v0.22.1`
 - Moveable dummy GitHub tag `v4.1.0` and Icons dummy GitHub tag `v0.2.0` (API dependencies)
 - Recording Studio Logs dummy GitHub tag `v0.7.1`
 - Recording Studio Admin dummy GitHub tag `v2.3.3`
 - Site Settings dummy GitHub tag `v0.5.1`
 
-This gem depends on Recording Studio API `~> 0.22.1`. It does not depend on MCP or Oauth. The dummy pins API `v0.22.1`, MCP `v0.31.0`, and Oauth `v0.21.5`. MCP and Oauth still declare API below 0.22, so both Gemfiles widen that requirement while resolving. API 0.20 records the access-grant actor on a resource update. An in-process chat write uses the signed-in person as that actor. `agent_chats_create` still records the OAuth client, because this gem chooses that actor. An older API leaves the in-process event actor empty. API 0.21.2 keys a create with no API client as `actor:<Type>:<id>`. A grant with neither a client nor an actor raises `AuthorizationError`.
+This gem depends on Recording Studio API `~> 0.22.1`. It does not depend on MCP or Oauth. The dummy pins API `v0.22.1`, MCP `v0.33.1`, and Oauth `v0.21.6`. Those MCP and Oauth tags allow API `< 0.23`. API 0.20 records the access-grant actor on a resource update. An in-process chat write uses the signed-in person as that actor. `agent_chats_create` still records the OAuth client, because this gem chooses that actor. An older API leaves the in-process event actor empty. API 0.21.2 keys a create with no API client as `actor:<Type>:<id>`. A grant with neither a client nor an actor raises `AuthorizationError`.
 
 The provider API key stays in Recording Studio AI. This gem does not read one.
 
@@ -43,7 +43,7 @@ gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics",
 gem "view_component", "4.19.0"
 ```
 
-Metrics `v0.7.0` and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. AI 0.21.2 does too. Several other dummy pins still declare `recording_studio` below 5, including Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, API, Oauth, MCP, Site Settings, and Cache. Both Gemfiles load `test/support/widen_recording_studio_requirement.rb` before Bundler reads gemspecs. That file rewrites a `recording_studio` requirement that rejects 6.1.0 into `>= 6.1.0`. It is not part of the installed gem. A host Gemfile that includes one of those older gems has to widen the requirement the same way.
+Accessible `v0.20.0` (`~> 4.7`), Trashable `v0.11.3` (`~> 4.7`), Cache `v0.5.1` (`~> 4.2`), Attachable `v0.20.2` (`~> 4.2`), Site Settings `v0.5.1` (`~> 4.2`), and Icons `v0.2.0` (`>= 6.3.0`) still reject Recording Studio 6.1.0. Both Gemfiles load `test/support/widen_recording_studio_requirement.rb`, which rewrites only that requirement to `>= 6.1.0`. MCP `v0.33.1` and Oauth `v0.21.6` already allow 6.1.0 and API `< 0.23`, so the file no longer rewrites `recording_studio_api`. It is not part of the installed gem.
 
 Register the recordable, opt a parent type into `:agents`, and copy migrations:
 
