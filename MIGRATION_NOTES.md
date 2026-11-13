@@ -5,8 +5,8 @@
 - Gem version `0.11.0`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
-- Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`)
-- Recording Studio AI `~> 0.21.2` (dummy GitHub tag `v0.21.2`)
+- Recording Studio `~> 6.0, >= 6.1.0` (dummy GitHub tag `v6.1.0`)
+- Recording Studio AI `>= 0.21.2, < 1.0` (dummy GitHub tag `v0.21.2`)
 - Metrics dummy tag `v0.7.0`
 - Logs dummy tag `v0.7.1` (GitHub-only; AI 0.21.2 depends on it)
 - Accessible dummy tag `v0.20.0`, Trashable dummy tag `v0.11.3` (`require: false`), and Root Switchable dummy tag `v0.9.7`
