@@ -155,6 +155,60 @@ class ChatToolsTest < ActiveSupport::TestCase
     end
   end
 
+  test "a redis error fails closed when the host fail closed settings are off" do
+    require "redis"
+    previous_closed = @api.rate_limit_fail_closed
+    previous_buckets = @api.rate_limit_fail_closed_buckets
+    previous_check = @api.rate_limit_check_fail_closed
+    kit = record_kit("HELLO HOUSE")
+    @api.rate_limit_api_enabled = true
+    @api.rate_limit_fail_closed = false
+    @api.rate_limit_fail_closed_buckets = []
+    @api.rate_limit_check_fail_closed = false
+    redis = Object.new
+    redis.define_singleton_method(:eval) { |*| raise ::Redis::BaseError, "redis down" }
+    original = RecordingStudioApi::Concerns::RateLimiting.method(:redis_client)
+    RecordingStudioApi::Concerns::RateLimiting.define_singleton_method(:redis_client) { redis }
+
+    result = invoke("update", { "type" => "PressKit", "id" => kit.id, "name" => "RENAMED" }, call_id: "closed-off")
+
+    assert result[:isError]
+    assert_includes result.dig(:content, 0, :text), "Too many requests"
+    assert_equal "HELLO HOUSE", kit.reload.recordable.name
+    assert_equal "limited", RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "closed-off").outcome
+  ensure
+    @api.rate_limit_fail_closed = previous_closed
+    @api.rate_limit_fail_closed_buckets = previous_buckets
+    @api.rate_limit_check_fail_closed = previous_check
+    if original
+      RecordingStudioApi::Concerns::RateLimiting.define_singleton_method(:redis_client) do |*args, **kwargs, &block|
+        original.call(*args, **kwargs, &block)
+      end
+    end
+  end
+
+  test "a non redis rate limit error propagates" do
+    kit = record_kit("HELLO HOUSE")
+    @api.rate_limit_api_enabled = true
+    redis = Object.new
+    redis.define_singleton_method(:eval) { |*| raise RuntimeError, "limiter blew up" }
+    original = RecordingStudioApi::Concerns::RateLimiting.method(:redis_client)
+    RecordingStudioApi::Concerns::RateLimiting.define_singleton_method(:redis_client) { redis }
+
+    error = assert_raises(RuntimeError) do
+      invoke("update", { "type" => "PressKit", "id" => kit.id, "name" => "RENAMED" }, call_id: "not-redis")
+    end
+
+    assert_equal "limiter blew up", error.message
+    assert_equal "HELLO HOUSE", kit.reload.recordable.name
+  ensure
+    if original
+      RecordingStudioApi::Concerns::RateLimiting.define_singleton_method(:redis_client) do |*args, **kwargs, &block|
+        original.call(*args, **kwargs, &block)
+      end
+    end
+  end
+
   test "a redis error is logged and follows the fail closed setting" do
     require "redis"
     kit = record_kit("HELLO HOUSE")

@@ -20,7 +20,7 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     return if sqlite?
 
     @configuration.mcp_max_writes_per_turn = @previous_writes if @configuration
-    ids = %w[turn-race turn-rounds turn-same turn-capped turn-posted turn-stale turn-live turn-deadline turn-claim]
+    ids = %w[turn-race turn-rounds turn-same turn-capped turn-posted turn-stale turn-live turn-deadline turn-claim turn-grace]
     RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: ids).delete_all
     remove_workspace
   end
@@ -322,7 +322,7 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     Rails.logger = previous_logger if previous_logger
   end
 
-  test "a passed deadline leaves the row pending and posts nothing" do
+  test "a passed deadline posts a timeout and stores unknown" do
     turn_id = "turn-deadline"
     previous = @configuration.chat_tool_deadline
     @configuration.chat_tool_deadline = 0.05.seconds
@@ -334,12 +334,48 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
 
     result = budget.answer_round([write_call("slow", turn_id: turn_id)]).flatten.first
     row = RecordingStudioAgents::ChatToolAudit.find_by!(provider_turn_id: turn_id, call_id: "slow")
+    message = RecordingStudioAgents::ChatKit::JoinedCall::TIMED_OUT
 
-    assert result[:joined]
-    assert_equal "pending", row.outcome
+    assert_equal false, result[:success]
+    assert_equal message, result[:output]
+    assert_equal message, result[:error]
+    assert_equal "unknown", row.outcome
   ensure
     @configuration.chat_tool_deadline = previous if @configuration && previous
     restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+  end
+
+  test "a join after the deadline and grace posts unknown" do
+    turn_id = "turn-grace"
+    dispatches = []
+    submitted = []
+    original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    original_submit = RecordingStudioAI::Agents.method(:submit_tool_results)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) { |**| dispatches << :ran }
+    RecordingStudioAI::Agents.define_singleton_method(:submit_tool_results) do |**kwargs, &|
+      submitted << kwargs.fetch(:results)
+      Struct.new(:tool_calls).new([])
+    end
+    waited = @configuration.chat_tool_deadline + RecordingStudioAgents::McpToolSettings::CHAT_TOOL_STALE_GRACE
+    RecordingStudioAgents::ChatToolAudit.create!(
+      occurred_at: waited.ago - 5.seconds, tool_name: "update", kind: "write", outcome: "pending",
+      call_id: "grace", provider_turn_id: turn_id, argument_keys: []
+    )
+
+    RecordingStudioAgents::ChatKit::ToolRound.new(
+      actor: @user, root: @root, agent_args: { session: "sess" }
+    ).run([write_call("grace", turn_id: turn_id)]) { |_event| }
+    row = RecordingStudioAgents::ChatToolAudit.find_by!(provider_turn_id: turn_id, call_id: "grace")
+    posted = submitted.flatten.first
+
+    assert_empty dispatches
+    assert_operator waited, :<, @configuration.chat_tool_stale_after
+    assert_equal false, posted[:success]
+    assert_equal "tool call outcome unknown; it was not re-run", posted[:output]
+    assert_equal "unknown", row.outcome
+  ensure
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+    restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
   end
 
   test "an already submitted tool result ends the round" do

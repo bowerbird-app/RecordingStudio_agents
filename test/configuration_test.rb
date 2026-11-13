@@ -282,6 +282,8 @@ class ConfigurationTest < Minitest::Test
     error = assert_raises(RecordingStudioAgents::Error) { @configuration.chat_tool_stale_after = 20.seconds }
     assert_match "chat_tool_stale_after", error.message
     assert_equal 90.seconds, @configuration.chat_tool_stale_after
+    assert_raises(RecordingStudioAgents::Error) { @configuration.chat_tool_stale_after = 60.seconds }
+    assert_equal 90.seconds, @configuration.chat_tool_stale_after
 
     error = assert_raises(RecordingStudioAgents::Error) { @configuration.chat_tool_deadline = 2.minutes }
     assert_match "chat_tool_deadline", error.message

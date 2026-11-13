@@ -7,6 +7,7 @@ module RecordingStudioAgents
     # A duplicate call. A live one is omitted. A stale pending row is a failure.
     class JoinedCall
       UNKNOWN = "tool call outcome unknown; it was not re-run"
+      TIMED_OUT = "tool call timed out; it was not re-run"
 
       def self.entry(audit, call)
         row = audit.find_by!(provider_turn_id: call.provider_turn_id.to_s, call_id: call.call_id.to_s)
@@ -14,11 +15,17 @@ module RecordingStudioAgents
         WriteBudget::Entry.new(call: call, row: row, joined: !stale, stale: stale)
       end
 
-      # Pending past chat_tool_stale_after. The dispatch deadline is shorter, so the owner is gone.
+      # Pending once the deadline plus a short grace has passed. stale_after must be longer than that.
       def self.stale?(row)
         return false unless row.outcome == "pending"
 
-        row.occurred_at < Time.current - RecordingStudioAgents.configuration.chat_tool_stale_after
+        row.occurred_at < Time.current - gone_after
+      end
+
+      def self.gone_after
+        configuration = RecordingStudioAgents.configuration
+        waited = configuration.chat_tool_deadline + RecordingStudioAgents::McpToolSettings::CHAT_TOOL_STALE_GRACE
+        [waited, configuration.chat_tool_stale_after].min
       end
 
       def self.omit(call)
@@ -27,9 +34,17 @@ module RecordingStudioAgents
 
       # error matches output so Recording Studio AI posts success: false.
       def self.unknown(call)
+        failure(call, UNKNOWN)
+      end
+
+      def self.timed_out(call)
+        failure(call, TIMED_OUT)
+      end
+
+      def self.failure(call, message)
         {
           call_id: call.call_id, turn_id: call.provider_turn_id,
-          success: false, output: UNKNOWN, error: UNKNOWN
+          success: false, output: message, error: message
         }
       end
     end
@@ -163,13 +178,19 @@ module RecordingStudioAgents
 
         run_call(item)
       rescue Timeout::Error
-        JoinedCall.omit(item.call)
+        claim_timeout(item)
       end
 
       def claim_unknown(item)
         return JoinedCall.omit(item.call) unless audit.claim_unknown!(item.row)
 
         JoinedCall.unknown(item.call)
+      end
+
+      def claim_timeout(item)
+        return JoinedCall.omit(item.call) unless audit.claim_unknown!(item.row)
+
+        JoinedCall.timed_out(item.call)
       end
 
       def run_call(item)

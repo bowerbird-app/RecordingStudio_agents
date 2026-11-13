@@ -3,6 +3,9 @@
 module RecordingStudioAgents
   # Name lists and the per-turn write cap for in-process chat tools.
   module McpToolSettings
+    # A pending row is stale after the deadline plus this grace, so a timed-out owner is gone.
+    CHAT_TOOL_STALE_GRACE = 30.seconds
+
     attr_reader :mcp_max_writes_per_turn, :mcp_tool_allow, :mcp_tool_deny, :allow_chat_tools_in_transaction,
                 :chat_tool_stale_after, :chat_tool_deadline
 
@@ -26,16 +29,14 @@ module RecordingStudioAgents
 
     def chat_tool_stale_after=(value)
       duration = positive_duration(value, "chat_tool_stale_after")
-      raise Error, "chat_tool_stale_after must be longer than chat_tool_deadline" unless duration > chat_tool_deadline
+      raise Error, stale_order_message unless covers_grace?(duration, chat_tool_deadline)
 
       @chat_tool_stale_after = duration
     end
 
     def chat_tool_deadline=(value)
       duration = positive_duration(value, "chat_tool_deadline")
-      unless duration < chat_tool_stale_after
-        raise Error, "chat_tool_deadline must be shorter than chat_tool_stale_after"
-      end
+      raise Error, stale_order_message unless covers_grace?(chat_tool_stale_after, duration)
 
       @chat_tool_deadline = duration
     end
@@ -68,6 +69,14 @@ module RecordingStudioAgents
       @allow_chat_tools_in_transaction = false
       @chat_tool_deadline = 2.minutes
       @chat_tool_stale_after = 10.minutes
+    end
+
+    def covers_grace?(stale, deadline)
+      stale > deadline + CHAT_TOOL_STALE_GRACE
+    end
+
+    def stale_order_message
+      "chat_tool_stale_after must be longer than chat_tool_deadline plus the 30 second grace"
     end
 
     def positive_duration(value, name)

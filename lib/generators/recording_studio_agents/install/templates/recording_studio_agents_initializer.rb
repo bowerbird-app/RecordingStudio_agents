@@ -26,8 +26,9 @@ RecordingStudioAgents.configure do |config|
   # The default is 3. Earlier writes for that turn count. The count and the pending
   # audit row share a PostgreSQL advisory lock for that turn. Do not call this from
   # inside an open transaction. allow_chat_tools_in_transaction permits that and
-  # defaults to false. chat_tool_deadline stops a dispatch (default 2 minutes).
-  # chat_tool_stale_after must be longer (default 10 minutes). A later write comes back as
+  # defaults to false. chat_tool_deadline stops a dispatch (default 2 minutes) and
+  # stores unknown. A pending row is stale after that deadline plus 30 seconds.
+  # chat_tool_stale_after must be longer than that (default 10 minutes). A later write comes back as
   # "write limit reached" and the turn continues. Reads are still answered.
   # config.mcp_max_writes_per_turn = 3
   # Tool names. Nil allows every tool the mode permits. An empty allow list blocks
