@@ -32,10 +32,10 @@ module RecordingStudioAgents
         RecordingStudioAI::Agents.stream(**agent_args) { |event| emit(event, &block) }
       end
 
-      def answer_tools(calls, &)
+      def answer_tools(calls, recovered: false, &)
         return if calls.empty?
 
-        tool_round.run(calls) { |event| emit(event, &) }
+        tool_round(recovered: recovered).run(calls) { |event| emit(event, &) }
       end
 
       def recover_saved(&)
@@ -43,7 +43,7 @@ module RecordingStudioAgents
         return if recovery.nil?
 
         calls = pending_calls(recovery)
-        return answer_tools(calls, &) if calls.any?
+        return answer_tools(calls, recovered: true, &) if calls.any?
 
         saved = saved_reply(recovery)
         return if saved.nil?
@@ -86,8 +86,10 @@ module RecordingStudioAgents
         )
       end
 
-      def tool_round
-        ToolRound.new(actor: @actor, root: @root, chat_recording: @recording, agent_args: agent_args)
+      def tool_round(recovered: false)
+        ToolRound.new(
+          actor: @actor, root: @root, chat_recording: @recording, agent_args: agent_args, recovered: recovered
+        )
       end
 
       def pending_calls(source)

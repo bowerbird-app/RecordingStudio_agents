@@ -20,7 +20,7 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     return if sqlite?
 
     @configuration.mcp_max_writes_per_turn = @previous_writes if @configuration
-    ids = %w[turn-race turn-rounds turn-same turn-capped turn-posted]
+    ids = %w[turn-race turn-rounds turn-same turn-capped turn-posted turn-stale turn-recovered]
     RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: ids).delete_all
     remove_workspace
   end
@@ -123,15 +123,17 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
       submitted << kwargs.fetch(:results)
     end
 
+    events = []
     budget.answer_round([write_call("posted", turn_id: turn_id)])
     RecordingStudioAgents::ChatKit::ToolRound.new(
       actor: @user, root: @root, agent_args: { session: "sess" }
-    ).run([write_call("posted", turn_id: turn_id)]) { |_event| }
+    ).run([write_call("posted", turn_id: turn_id)]) { |event| events << event }
     row = RecordingStudioAgents::ChatToolAudit.find_by!(provider_turn_id: turn_id, call_id: "posted")
 
     assert_equal 1, dispatches.size
     assert_empty submitted
     assert_equal "ok", row.outcome
+    assert_equal "already_handled", events.map(&:type).first
   ensure
     restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
     restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
@@ -172,9 +174,9 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     assert_equal "", take_lock(key)
   end
 
-  test "an open transaction raises outside the test environment" do
-    original = Rails.method(:env)
-    Rails.define_singleton_method(:env) { ActiveSupport::StringInquirer.new("production") }
+  test "an open transaction raises unless the host allows it" do
+    previous = @configuration.allow_chat_tools_in_transaction
+    @configuration.allow_chat_tools_in_transaction = false
 
     error = assert_raises(RecordingStudioAgents::Error) do
       RecordingStudioAgents::ChatToolAudit.transaction do
@@ -183,33 +185,103 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     end
     assert_includes error.message, "open transaction"
   ensure
-    Rails.define_singleton_method(:env) { original.call } if original
+    @configuration.allow_chat_tools_in_transaction = previous if @configuration
   end
 
   test "boot rejects a non PostgreSQL database when chat tools are on" do
-    connection = RecordingStudioAgents::ChatToolAudit.connection
-    original = connection.method(:adapter_name)
-    connection.define_singleton_method(:adapter_name) { "SQLite" }
+    config = RecordingStudioAgents::ChatToolAudit.connection_db_config
+    original = config.method(:configuration_hash)
+    config.define_singleton_method(:configuration_hash) { { adapter: "sqlite3" } }
 
     error = assert_raises(RecordingStudioAgents::Error) do
       RecordingStudioAgents::ChatKit::TurnLock.check_adapter!
     end
     assert_includes error.message, "PostgreSQL"
   ensure
-    restore_singleton(connection, :adapter_name, original) if connection
+    restore_singleton(config, :configuration_hash, original) if config
+  end
+
+  test "boot skips the database check when there is no database config" do
+    original = RecordingStudioAgents::ChatToolAudit.method(:connection_db_config)
+    RecordingStudioAgents::ChatToolAudit.define_singleton_method(:connection_db_config) { nil }
+
+    assert_nil RecordingStudioAgents::ChatKit::TurnLock.check_adapter!
+  ensure
+    restore_singleton(RecordingStudioAgents::ChatToolAudit, :connection_db_config, original)
   end
 
   test "boot skips the database check when chat tools are off" do
     previous = @configuration.mcp_tools
     @configuration.mcp_tools = :off
-    connection = RecordingStudioAgents::ChatToolAudit.connection
-    original = connection.method(:adapter_name)
-    connection.define_singleton_method(:adapter_name) { "SQLite" }
+    original = RecordingStudioAgents::ChatToolAudit.method(:connection_db_config)
+    RecordingStudioAgents::ChatToolAudit.define_singleton_method(:connection_db_config) do
+      raise "must not read the database"
+    end
 
     assert_nil RecordingStudioAgents::ChatKit::TurnLock.check_adapter!
   ensure
     @configuration.mcp_tools = previous if @configuration
-    restore_singleton(connection, :adapter_name, original) if connection
+    restore_singleton(RecordingStudioAgents::ChatToolAudit, :connection_db_config, original)
+  end
+
+  test "a stale pending call is posted as unknown and is not re-run" do
+    turn_id = "turn-stale"
+    dispatches = []
+    submitted = []
+    original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    original_submit = RecordingStudioAI::Agents.method(:submit_tool_results)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) { |**| dispatches << :ran }
+    RecordingStudioAI::Agents.define_singleton_method(:submit_tool_results) do |**kwargs, &|
+      submitted << kwargs.fetch(:results)
+      Struct.new(:tool_calls).new([])
+    end
+    RecordingStudioAgents::ChatToolAudit.create!(
+      occurred_at: 3.hours.ago, tool_name: "update", kind: "write", outcome: "pending",
+      call_id: "stale", provider_turn_id: turn_id, argument_keys: []
+    )
+
+    RecordingStudioAgents::ChatKit::ToolRound.new(
+      actor: @user, root: @root, agent_args: { session: "sess" }
+    ).run([write_call("stale", turn_id: turn_id)]) { |_event| }
+    row = RecordingStudioAgents::ChatToolAudit.find_by!(provider_turn_id: turn_id, call_id: "stale")
+    posted = submitted.flatten.first
+
+    assert_empty dispatches
+    assert_equal false, posted[:success]
+    assert_equal "tool call outcome unknown; it was not re-run", posted[:output]
+    assert_equal "pending", row.outcome
+  ensure
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+    restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
+  end
+
+  test "a pending call still waiting on recover is posted as unknown" do
+    turn_id = "turn-recovered"
+    dispatches = []
+    submitted = []
+    original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    original_submit = RecordingStudioAI::Agents.method(:submit_tool_results)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) { |**| dispatches << :ran }
+    RecordingStudioAI::Agents.define_singleton_method(:submit_tool_results) do |**kwargs, &|
+      submitted << kwargs.fetch(:results)
+      Struct.new(:tool_calls).new([])
+    end
+    RecordingStudioAgents::ChatToolAudit.create!(
+      occurred_at: Time.current, tool_name: "update", kind: "write", outcome: "pending",
+      call_id: "waiting", provider_turn_id: turn_id, argument_keys: []
+    )
+
+    RecordingStudioAgents::ChatKit::ToolRound.new(
+      actor: @user, root: @root, agent_args: { session: "sess" }, recovered: true
+    ).run([write_call("waiting", turn_id: turn_id)]) { |_event| }
+    posted = submitted.flatten.first
+
+    assert_empty dispatches
+    assert_equal false, posted[:success]
+    assert_equal "tool call outcome unknown; it was not re-run", posted[:output]
+  ensure
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+    restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
   end
 
   test "a turn lock on another database adapter raises" do

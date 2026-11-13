@@ -3,7 +3,7 @@
 module RecordingStudioAgents
   # Name lists and the per-turn write cap for in-process chat tools.
   module McpToolSettings
-    attr_reader :mcp_max_writes_per_turn, :mcp_tool_allow, :mcp_tool_deny
+    attr_reader :mcp_max_writes_per_turn, :mcp_tool_allow, :mcp_tool_deny, :allow_chat_tools_in_transaction
 
     def mcp_max_writes_per_turn=(value)
       @mcp_max_writes_per_turn = strict_positive_integer(value)
@@ -17,12 +17,19 @@ module RecordingStudioAgents
       @mcp_tool_deny = tool_name_list(value, "mcp_tool_deny")
     end
 
+    def allow_chat_tools_in_transaction=(value)
+      raise Error, "allow_chat_tools_in_transaction must be true or false" unless [true, false].include?(value)
+
+      @allow_chat_tools_in_transaction = value
+    end
+
     private
 
     def mcp_limits
       {
         mcp_max_writes_per_turn: mcp_max_writes_per_turn,
-        mcp_tool_allow: mcp_tool_allow, mcp_tool_deny: mcp_tool_deny
+        mcp_tool_allow: mcp_tool_allow, mcp_tool_deny: mcp_tool_deny,
+        allow_chat_tools_in_transaction: allow_chat_tools_in_transaction
       }
     end
 
@@ -40,6 +47,7 @@ module RecordingStudioAgents
       @mcp_max_writes_per_turn = 3
       @mcp_tool_allow = nil
       @mcp_tool_deny = nil
+      @allow_chat_tools_in_transaction = false
     end
 
     def tool_name_list(value, name)

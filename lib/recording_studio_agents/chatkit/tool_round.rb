@@ -6,12 +6,12 @@ module RecordingStudioAgents
     class ToolRound
       MAX_ROUNDS = 8
 
-      def initialize(actor:, root:, agent_args:, chat_recording: nil, &emit)
+      def initialize(actor:, root:, agent_args:, chat_recording: nil, recovered: false, &emit)
         @actor = actor
         @root = root
         @agent_args = agent_args
         @chat_recording = chat_recording
-        @budget = WriteBudget.new(actor, root)
+        @budget = WriteBudget.new(actor, root, recovered: recovered)
         @emit = emit
       end
 
@@ -74,7 +74,7 @@ module RecordingStudioAgents
 
       def deliver(results)
         postable = PostedResults.list(results)
-        return PostedResults.quiet_turn if postable == :quiet
+        return PostedResults.note(@emit) if postable == :quiet
 
         post(postable)
       rescue RecordingStudioAI::Agents::Failure => e

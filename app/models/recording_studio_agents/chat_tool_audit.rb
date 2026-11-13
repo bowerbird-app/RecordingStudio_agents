@@ -8,6 +8,8 @@ module RecordingStudioAgents
     self.table_name = "recording_studio_agents_chat_tool_audits"
 
     Entry = Data.define(:name, :arguments, :call_id)
+    # A pending row older than this was left by a caller that did not finish.
+    PENDING_STALE_AFTER = 2.minutes
     KEY = :recording_studio_agents_chat_recording
     ROUND = :recording_studio_agents_tool_round
     TURN = :recording_studio_agents_provider_turn_id

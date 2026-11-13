@@ -18,6 +18,13 @@ module RecordingStudioAgents
         Struct.new(:tool_calls).new([])
       end
 
+      # Not assistant text. The first caller posts the tool result. This only
+      # marks the round that joined and had nothing of its own to submit.
+      def note(emit)
+        emit&.call(Struct.new(:type, :text).new("already_handled", "already handled"))
+        quiet_turn
+      end
+
       def pending(source)
         return [] unless source.respond_to?(:tool_calls)
 

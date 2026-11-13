@@ -2,6 +2,40 @@
 
 module RecordingStudioAgents
   module ChatKit
+    # A duplicate call. A live one is omitted. A stale pending row is a failure.
+    class JoinedCall
+      UNKNOWN = "tool call outcome unknown; it was not re-run"
+
+      def self.entry(audit, call, recovered:)
+        row = audit.find_by!(provider_turn_id: call.provider_turn_id.to_s, call_id: call.call_id.to_s)
+        stale = stale?(row, recovered)
+        WriteBudget::Entry.new(call: call, row: row, joined: !stale, stale: stale)
+      end
+
+      def self.stale?(row, recovered)
+        return false unless row.outcome == "pending"
+        return true if recovered
+
+        row.occurred_at < Time.current - audit_window
+      end
+
+      def self.audit_window
+        RecordingStudioAgents::ChatToolAudit::PENDING_STALE_AFTER
+      end
+
+      def self.omit(call)
+        { call_id: call.call_id, turn_id: call.provider_turn_id, joined: true }
+      end
+
+      # error matches output so Recording Studio AI posts success: false.
+      def self.unknown(call)
+        {
+          call_id: call.call_id, turn_id: call.provider_turn_id,
+          success: false, output: UNKNOWN, error: UNKNOWN
+        }
+      end
+    end
+
     # One savepoint insert. A duplicate call id joins the row and leaves it alone.
     class AuditInsert
       def self.once(audit, &)
@@ -13,12 +47,13 @@ module RecordingStudioAgents
 
     # Write and round limits for one provider turn. A new ToolRound keeps counting.
     class WriteBudget
-      # joined is in memory only. The audit row stays the first caller's.
-      Entry = Data.define(:call, :row, :joined)
+      # joined and stale stay in memory. The audit row stays the first caller's.
+      Entry = Data.define(:call, :row, :joined, :stale)
 
-      def initialize(actor, root)
+      def initialize(actor, root, recovered: false)
         @actor = actor
         @root = root
+        @recovered = recovered
         @local_writes = Hash.new(0)
         @plain_rounds = 0
       end
@@ -71,24 +106,21 @@ module RecordingStudioAgents
 
       def hold(call)
         saved = AuditInsert.once(audit) { audit.begin!(entry_for(call), actor: @actor, kind: kind_of(call)) }
-        Entry.new(call: call, row: row_for(saved), joined: saved == :joined)
+        saved == :joined ? JoinedCall.entry(audit, call, recovered: @recovered) : fresh(call, saved)
+      end
+
+      def fresh(call, row)
+        Entry.new(call: call, row: row, joined: false, stale: false)
       end
 
       def release(item)
         return item unless item.is_a?(Entry)
-        return joined(item.call) if item.joined
+        return JoinedCall.unknown(item.call) if item.stale
+        return JoinedCall.omit(item.call) if item.joined
 
         audit.with_turn(item.call.provider_turn_id) do
           audit.with_reserved(item.row) { Mcp::ChatTools.answer(item.call, actor: @actor, root: @root) }
         end
-      end
-
-      def row_for(saved)
-        saved == :joined ? nil : saved
-      end
-
-      def joined(call)
-        { call_id: call.call_id, turn_id: call.provider_turn_id, joined: true }
       end
 
       def batch_turn(calls)
@@ -133,7 +165,7 @@ module RecordingStudioAgents
         saved = AuditInsert.once(audit) do
           audit.record!(entry_for(call), actor: @actor, kind: "write", outcome: "limited")
         end
-        return Entry.new(call: call, row: nil, joined: true) if saved == :joined
+        return JoinedCall.entry(audit, call, recovered: @recovered) if saved == :joined
 
         { call_id: call.call_id, turn_id: call.provider_turn_id, error: "write limit reached" }
       end

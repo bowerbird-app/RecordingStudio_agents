@@ -14,3 +14,4 @@ require "rails"
 require "active_support/time"
 Time.zone ||= "UTC"
 require "recording_studio_agents"
+RecordingStudioAgents.configuration.allow_chat_tools_in_transaction = true

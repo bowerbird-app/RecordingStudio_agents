@@ -4,6 +4,7 @@ ENV["RAILS_ENV"] ||= "test"
 
 require_relative "../config/environment"
 require "rails/test_help"
+RecordingStudioAgents.configuration.allow_chat_tools_in_transaction = true
 
 module AgentsInstructionHelper
   def with_safety_preamble(body)

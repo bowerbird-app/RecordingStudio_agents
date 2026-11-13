@@ -13,8 +13,8 @@ module RecordingStudioAgents
       # Hosts must not run a chat tool round inside an open transaction. This
       # opens the lock transaction itself, and the lock ends when that transaction
       # commits, before the tool runs. An outer transaction would keep the lock
-      # until the outer transaction commits. Tests may join one, because they use
-      # transactional fixtures. Anywhere else, an open transaction raises.
+      # until the outer transaction commits. Set allow_chat_tools_in_transaction
+      # to permit that. This gem's tests set it, because they use transactional fixtures.
       def with(turn_id)
         return yield if turn_id.blank?
 
@@ -28,15 +28,27 @@ module RecordingStudioAgents
       def check_adapter!
         return if RecordingStudioAgents.configuration.mcp_tools == :off
 
-        connection = RecordingStudioAgents::ChatToolAudit.connection
-        raise unsupported_adapter unless postgres?(connection)
+        adapter = configured_adapter
+        return if adapter.blank?
+        raise unsupported_adapter unless adapter.to_s.match?(/postgre/i)
       end
 
       def refuse_outer_transaction!
-        return if Rails.env.test?
+        return if RecordingStudioAgents.configuration.allow_chat_tools_in_transaction
         return if RecordingStudioAgents::ChatToolAudit.connection.open_transactions.zero?
 
         raise RecordingStudioAgents::Error, "chat tool rounds must not run inside an open transaction"
+      end
+
+      # The database config only. This does not open a connection.
+      def configured_adapter
+        config = RecordingStudioAgents::ChatToolAudit.connection_db_config
+        return if config.nil?
+
+        hash = config.configuration_hash
+        hash[:adapter] || hash["adapter"]
+      rescue ActiveRecord::ConnectionNotEstablished
+        nil
       end
 
       def lock_turn(turn_id)
