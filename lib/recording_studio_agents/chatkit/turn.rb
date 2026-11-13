@@ -3,22 +3,28 @@
 module RecordingStudioAgents
   module ChatKit
     class Turn
-      def self.open(actor:, root:, text:, recording: nil, parent: nil)
-        created = recording.nil?
-        recording = created ? create(actor, root, text, parent || root) : append(actor, root, recording, text)
-        new(actor, root, recording, created: created)
+      def self.open(actor:, root:, text:, parent: nil, preface: nil)
+        model_input = PageContext.model_input(text, preface)
+        new(actor, root, create(actor, root, text, parent || root, model_input), created: true)
       end
 
-      def self.create(actor, root, text, parent)
+      def self.follow(actor:, root:, text:, recording:, preface: nil)
+        model_input = PageContext.model_input(text, preface)
+        append(actor, root, recording, text, model_input)
+        new(actor, root, recording, created: false)
+      end
+
+      def self.create(actor, root, text, parent, model_input)
         Sessions::Create.call(
           parent_recording: parent, root_recording: root, actor: actor, input: text,
-          idempotency_key: SecureRandom.uuid, title: text.truncate(60)
+          provider_input: model_input, idempotency_key: SecureRandom.uuid, title: text.truncate(60)
         ).value!
       end
 
-      def self.append(actor, root, recording, text)
+      def self.append(actor, root, recording, text, model_input)
         Sessions::Append.call(
-          root_recording: root, recording: recording, actor: actor, input: text, idempotency_key: SecureRandom.uuid
+          root_recording: root, recording: recording, actor: actor, input: text,
+          provider_input: model_input, idempotency_key: SecureRandom.uuid
         ).value!
         recording
       end

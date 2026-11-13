@@ -35,7 +35,10 @@ class ChatkitLauncherTest < ActionDispatch::IntegrationTest
     frame = css_select("##{RecordingStudioAgents::ChatKitHelper::LAUNCHER_ELEMENT_ID}").first
     assert_equal "true", frame["data-turbo-permanent"]
     assert_includes frame["data-controller"], "flat-pack--floating-frame"
+    assert_select "script[src*='recording_studio_agents/page_context']", count: 1
     assert_select "script[src*='recording_studio_agents/launcher']", count: 1
+    assert_operator response.body.index("recording_studio_agents/page_context"), :<,
+      response.body.index("recording_studio_agents/launcher")
     assert_includes SANDBOX, "allow-top-navigation-by-user-activation"
     assert_includes SANDBOX, "allow-scripts"
     assert_includes SANDBOX, "allow-same-origin"

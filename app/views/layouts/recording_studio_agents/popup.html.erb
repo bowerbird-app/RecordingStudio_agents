@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html data-theme="<%= RecordingStudioAgents.configuration.popup_theme %>">
+<html data-theme="<%= RecordingStudioAgents.configuration.popup_theme %>" data-recording-studio-agents-popup="true">
   <head>
     <title><%= t("recording_studio_agents.popups.show.document_title") %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -16,6 +16,8 @@
   </head>
 
   <body>
+    <p id="recording-studio-agents-page-context" hidden></p>
+    <%= javascript_include_tag "recording_studio_agents/page_context" %>
     <%= yield %>
   </body>
 </html>

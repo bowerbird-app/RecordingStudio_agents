@@ -28,7 +28,8 @@ module RecordingStudioAgents
         request.raw_post,
         actor: actor,
         root_recording: root,
-        page_recording: page_recording(root, actor)
+        page_recording: page_recording(root, actor),
+        page_context: ChatKit::PageContext.parse(request.headers[ChatKit::PageContext::HEADER])
       )
     end
 

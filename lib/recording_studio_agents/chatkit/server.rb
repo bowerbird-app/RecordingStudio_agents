@@ -33,14 +33,15 @@ module RecordingStudioAgents
     end
 
     class Server
-      def self.call(raw, actor:, root_recording:, page_recording: nil)
-        new(actor, root_recording, page_recording: page_recording).call(raw)
+      def self.call(raw, actor:, root_recording:, page_recording: nil, page_context: nil)
+        new(actor, root_recording, page_recording: page_recording, page_context: page_context).call(raw)
       end
 
-      def initialize(actor, root_recording, page_recording: nil)
+      def initialize(actor, root_recording, page_recording: nil, page_context: nil)
         @actor = actor
         @root = root_recording
         @page_recording = page_recording
+        @page_context = page_context || PageContext.parse(nil)
       end
 
       def call(raw)
@@ -60,6 +61,7 @@ module RecordingStudioAgents
 
       def dispatch(type, params)
         params = {} unless params.is_a?(Hash)
+        reject_client_instructions!(params)
         streaming(type, params) || catalog_result(type, params) || error("unsupported operation")
       end
 
@@ -81,9 +83,8 @@ module RecordingStudioAgents
       end
 
       def stream_new(params)
-        reject_client_instructions!(params)
         text = Payload.user_text(params["input"])
-        Result.stream(Turn.open(actor: @actor, root: @root, text: text, parent: @page_recording))
+        Result.stream(Turn.open(actor: @actor, root: @root, text: text, parent: turn_parent, preface: preface))
       end
 
       def reject_client_instructions!(params)
@@ -98,7 +99,24 @@ module RecordingStudioAgents
       end
 
       def continue(recording, params)
-        Turn.open(actor: @actor, root: @root, text: Payload.user_text(params["input"]), recording: recording)
+        Turn.follow(
+          actor: @actor, root: @root, text: Payload.user_text(params["input"]),
+          recording: recording, preface: preface
+        )
+      end
+
+      def turn_parent
+        @page_recording || resolved_page
+      end
+
+      def preface
+        @page_context.preface(@page_recording || resolved_page)
+      end
+
+      def resolved_page
+        return @resolved_page if defined?(@resolved_page)
+
+        @resolved_page = @page_context.page_for(@root, @actor)
       end
 
       def catalog

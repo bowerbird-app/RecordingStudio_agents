@@ -43,6 +43,10 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "ChatKit setup"
     assert_includes response.body, 'data-theme="rounded"'
+    assert_select "html[data-recording-studio-agents-popup=?]", "true"
+    assert_select "#recording-studio-agents-page-context", count: 1
+    assert_select "script[src*='recording_studio_agents/page_context']", count: 1
+    assert_select "script[src*='recording_studio_agents/launcher']", count: 0
     refute_includes response.body, "data-recording-studio-default-layout"
     refute_includes response.body, "page_recording_id"
     refute_includes response.body, "Sign in to chat"
