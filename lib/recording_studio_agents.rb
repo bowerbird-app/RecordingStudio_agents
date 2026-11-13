@@ -28,6 +28,7 @@ end
 require "recording_studio_agents/engine"
 require "recording_studio_agents/configuration"
 require "recording_studio/capabilities/agents"
+require "recording_studio_agents/ai_attribution"
 require "recording_studio_agents/provider_sessions"
 require "recording_studio_agents/sessions/root_guard"
 require "recording_studio_agents/sessions/global_key"

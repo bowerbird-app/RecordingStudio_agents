@@ -209,6 +209,8 @@ config.authorization_handler = RecordingStudioAI::AccessibleAuthorization.method
 
 The dummy app sets this. It needs the `recording-studio-accessible` gem, which Recording Studio AI's handler already calls.
 
+Recording Studio AI 0.21.1's default `attribution_validator` accepts only a `Recording`. `Agents.stream` rebuilds the stored root as an object with an id, and that default then rejects the turn. This gem replaces that default: the id is loaded, and it must be a root recording whose parent is empty and whose `root_recording_id` is its own id. A context recording must belong to that root. Assign `config.attribution_validator` in `config/initializers/recording_studio_ai.rb` for a stricter check. This gem leaves a host-assigned validator in place.
+
 A signed-out visitor sees a sign-in prompt instead of the chat. The button uses `config.sign_in_path`. When that is unset, the path is `main_app.new_user_session_path` if the route exists, and `/users/sign_in` otherwise. A string is a path. A lambda receives the controller:
 
 ```ruby
