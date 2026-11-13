@@ -9,7 +9,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
 - Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`)
-- Recording Studio AI `~> 0.20.0` (dummy GitHub tag `v0.20.0`)
+- Recording Studio AI `~> 0.21.1` (dummy GitHub tag `v0.21.1`)
 - Recording Studio Metrics dummy GitHub tag `v0.7.0`
 - Accessible dummy GitHub tag `v0.20.0`
 - Trashable dummy GitHub tag `v0.11.3`
@@ -36,13 +36,13 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
 gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.354"
 gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.20.0"
+gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.21.1"
 gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.1"
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.7.0"
 gem "view_component", "4.19.0"
 ```
 
-Metrics `v0.7.0` and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. AI 0.20.0 does too. Several other dummy pins still declare `recording_studio` below 5, including Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, API, Oauth, MCP, Site Settings, and Cache. Both Gemfiles load `test/support/widen_recording_studio_requirement.rb` before Bundler reads gemspecs. That file rewrites a `recording_studio` requirement that rejects 6.1.0 into `>= 6.1.0`. It is not part of the installed gem. A host Gemfile that includes one of those older gems has to widen the requirement the same way.
+Metrics `v0.7.0` and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. AI 0.21.1 does too. Several other dummy pins still declare `recording_studio` below 5, including Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, API, Oauth, MCP, Site Settings, and Cache. Both Gemfiles load `test/support/widen_recording_studio_requirement.rb` before Bundler reads gemspecs. That file rewrites a `recording_studio` requirement that rejects 6.1.0 into `>= 6.1.0`. It is not part of the installed gem. A host Gemfile that includes one of those older gems has to widen the requirement the same way.
 
 Register the recordable, opt a parent type into `:agents`, and copy migrations:
 
@@ -101,7 +101,7 @@ bin/rails recording_studio_ai:install:migrations
 bin/rails db:migrate
 ```
 
-Install Logs run tables (if the host does not already have them) and the Recording Studio AI migrations, in that order, before `db:migrate`. A new chat writes a Recording Studio AI run before it calls the provider. `recording_studio_ai` is a runtime dependency, and those tables are not created by this gem. The dummy installs Logs, then Recording Studio AI, in that same order. AI 0.20.0 builds `rsai_terminal_runs_guard` and `rsai_terminal_batches_guard` before it drops `correlation_id`, and it does not replace them. Rebuild those two functions after the column drop, or the next update of a run fails with `record "old" has no field "correlation_id"`. The dummy migration `RefreshRecordingStudioAITerminalGuards` does that rebuild.
+Install Logs run tables (if the host does not already have them) and the Recording Studio AI migrations, in that order, before `db:migrate`. A new chat writes a Recording Studio AI run before it calls the provider. `recording_studio_ai` is a runtime dependency, and those tables are not created by this gem. The dummy installs Logs, then Recording Studio AI, in that same order. AI 0.21.1 ships `RefreshRecordingStudioAITerminalGuards` (`20261112120000`) so `rsai_terminal_runs_guard` and `rsai_terminal_batches_guard` match the columns after `correlation_id` is dropped. Re-run `bin/rails recording_studio_ai:install:migrations` on a host that already copied the 0.20.0 migrations, then `bin/rails db:migrate`.
 
 Schedule `RecordingStudioAgents::ExpireSessionsJob`. It closes chats whose `expires_at` has passed. Closing deletes the provider session through Recording Studio AI first. An already-gone provider session is success, and the local chat, items, and binding are removed. A different provider failure leaves the local rows in place for a later retry.
 
@@ -158,7 +158,7 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 
 ## Popup
 
-`recording_studio_agents_launcher` puts a FlatPack `FloatingFrame` on the host layout. It opens `recording_studio_agents.popup_path` (`GET /recording_studio_agents/popup`) in a same-site iframe. FlatPack `0.1.354` or newer supplies that component. The root Gemfile and the dummy pin tag `v0.1.354`.
+`recording_studio_agents_launcher` puts a FlatPack `FloatingFrame` on the host layout. It opens the popup through `RecordingStudioAgents::Engine.routes`, so the path follows the host mount (`GET /recording_studio_agents/popup` at the default mount). It is a same-site iframe. FlatPack `0.1.354` or newer supplies that component. The root Gemfile and the dummy pin tag `v0.1.354`.
 
 ```erb
 <%= recording_studio_agents_launcher %>
@@ -172,7 +172,7 @@ The launcher sits at the bottom left. The framed page has no padding, so the cha
 
 `label` names the launcher. `title` is the panel heading and the iframe name. `position` is `:bottom_left` (the default), `:bottom_right`, `:top_left`, or `:top_right`.
 
-`config.launcher` defaults to on. Set it to `false` and the helper renders nothing.
+`config.launcher` defaults to on and must be `true` or `false`. Set it to `false` and the helper renders nothing.
 
 ```ruby
 config.launcher = false

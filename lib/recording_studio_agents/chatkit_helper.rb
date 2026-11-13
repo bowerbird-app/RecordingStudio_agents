@@ -15,7 +15,7 @@ module RecordingStudioAgents
       return unless RecordingStudioAgents.configuration.launcher
 
       render FlatPack::FloatingFrame::Component.new(
-        src: recording_studio_agents.popup_path, title: title, label: label, icon: :chat,
+        src: engine_route(:popup_path), title: title, label: label, icon: :chat,
         position: position, padding: :none, sandbox: POPUP_IFRAME_SANDBOX, allow: "clipboard-write"
       )
     end
@@ -56,12 +56,16 @@ module RecordingStudioAgents
     end
 
     def scoped_endpoint(endpoint, page_recording)
-      path = endpoint.presence || recording_studio_agents.chatkit_path
+      path = endpoint.presence || engine_route(:chatkit_path)
       return path if page_recording.nil?
 
       id = page_recording_id(page_recording)
       joiner = path.include?("?") ? "&" : "?"
       "#{path}#{joiner}#{ScopedParent::QUERY_PARAM}=#{ERB::Util.url_encode(id)}"
+    end
+
+    def engine_route(name)
+      RecordingStudioAgents::Engine.routes.url_helpers.public_send(name)
     end
 
     def page_recording_id(page_recording)

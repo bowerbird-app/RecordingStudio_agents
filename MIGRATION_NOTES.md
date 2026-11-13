@@ -6,9 +6,9 @@
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`)
-- Recording Studio AI `~> 0.20.0` (dummy GitHub tag `v0.20.0`)
+- Recording Studio AI `~> 0.21.1` (dummy GitHub tag `v0.21.1`)
 - Metrics dummy tag `v0.7.0`
-- Logs dummy tag `v0.7.1` (GitHub-only; AI 0.20.0 depends on it)
+- Logs dummy tag `v0.7.1` (GitHub-only; AI 0.21.1 depends on it)
 - Accessible dummy tag `v0.20.0`, Trashable dummy tag `v0.11.3` (`require: false`), and Root Switchable dummy tag `v0.9.7`
 - Cache dummy tag `v0.5.1`
 - FlatPack `>= 0.1.354`. The root Gemfile and the dummy pin tag `v0.1.354`. `FloatingFrame` shipped in that tag. API 0.20 and Oauth 0.21.5 require `>= 0.1.341`.
@@ -28,7 +28,7 @@ On a screen, set `content_for :title` and, when you have one, `content_for :subt
 
 ## Sibling gems
 
-The dummy keeps the pins in the Requirements list. AI `v0.20.0`, Metrics `v0.7.0`, and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, and the other dummy pins listed above still declare `recording_studio` below 5. Both Gemfiles require `test/support/widen_recording_studio_requirement.rb` so Bundler can resolve 6.1.0 beside those pins. That file is not installed with the gem.
+The dummy keeps the pins in the Requirements list. AI `v0.21.1`, Metrics `v0.7.0`, and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, and the other dummy pins listed above still declare `recording_studio` below 5. Both Gemfiles require `test/support/widen_recording_studio_requirement.rb` so Bundler can resolve 6.1.0 beside those pins. That file is not installed with the gem.
 
 Site Settings `v0.5.1` still includes `RecordingStudio::UsesDefaultLayout`. The dummy defines an empty module in `test/dummy/config/application.rb` until that gem stops. Root Switchable `v0.9.7` still passes PageNav `anchor_url` / `anchor_label` and Card `style:`. `test/dummy/config/initializers/flatpack_removed_kwargs.rb` accepts those keywords. A host on the same pins needs the same two shims.
 

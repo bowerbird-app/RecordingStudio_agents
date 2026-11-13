@@ -215,6 +215,19 @@ class ConfigurationTest < Minitest::Test
     assert_equal :off, @configuration.to_h.fetch(:mcp_tools)
   end
 
+  def test_launcher_accepts_only_a_boolean
+    @configuration.launcher = false
+    assert_equal false, @configuration.launcher
+
+    @configuration.merge!(launcher: true)
+    assert_equal true, @configuration.launcher
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.launcher = "yes" }
+
+    assert_equal true, @configuration.launcher
+    assert_match "launcher", error.message
+  end
+
   def test_mcp_tools_rejects_an_unknown_mode
     error = assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_tools = :ask }
 

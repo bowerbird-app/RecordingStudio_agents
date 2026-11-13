@@ -56,6 +56,17 @@ class ChatkitLauncherTest < ActionDispatch::IntegrationTest
     assert_select ".fp-floating-frame", count: 0
   end
 
+  test "the launcher path uses the engine routes when the mount helper is missing" do
+    view = HomeController.new.view_context
+    view.define_singleton_method(:recording_studio_agents) { raise "mount helper" }
+
+    html = view.render(inline: "<%= recording_studio_agents_launcher %>")
+    path = RecordingStudioAgents::Engine.routes.url_helpers.popup_path
+
+    assert_includes html, %(src="#{path}")
+    assert_equal "/recording_studio_agents/popup", path
+  end
+
   test "label title and position overrides reach the frame" do
     html = HomeController.renderer.render(
       inline: <<~ERB
@@ -66,7 +77,7 @@ class ChatkitLauncherTest < ActionDispatch::IntegrationTest
     assert_includes html, "Ask"
     assert_includes html, "Studio chat"
     assert_includes html, 'data-fp-position="top_right"'
-    assert_includes html, %(src="#{recording_studio_agents.popup_path}")
+    assert_includes html, %(src="#{RecordingStudioAgents::Engine.routes.url_helpers.popup_path}")
     assert_includes html, %(sandbox="#{SANDBOX}")
     assert_includes html, 'class="fp-floating-frame__mount"'
   end

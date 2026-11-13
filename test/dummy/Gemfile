@@ -8,7 +8,7 @@ gem "recording_studio_agents", path: "../.."
 
 # RecordingStudio engine
 gem "recording_studio", ">= 6.1.0", github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.20.0"
+gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.21.1"
 gem "recording_studio_accessible", github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.20.0"
 # Required by accessible for trashable query helpers (GitHub-only; not on RubyGems).
 # Pinned at v0.11.3. v0.11.1 requires metrics >= 0.3.0, < 0.4.

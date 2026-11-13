@@ -106,9 +106,9 @@ module RecordingStudioAgents
     OVERRIDE_GATES = %i[none admin edit].freeze
 
     attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key,
-                  :popup_stylesheet, :launcher
+                  :popup_stylesheet
     attr_reader :hooks, :default_profile, :retention_period, :provider, :instructions_override,
-                :max_instructions_length, :layout, :mcp_tools
+                :max_instructions_length, :layout, :mcp_tools, :launcher
 
     def initialize
       assign_defaults
@@ -151,6 +151,12 @@ module RecordingStudioAgents
       @mcp_tools = allowed_symbol(value, Mcp::ChatTools::MODES, "mcp_tools")
     end
 
+    def launcher=(value)
+      raise Error, "launcher must be true or false" unless [true, false].include?(value)
+
+      @launcher = value
+    end
+
     def chatkit_options=(value)
       unless value.nil? || value.is_a?(Hash) || value.respond_to?(:call)
         raise Error, "chatkit_options must be a hash or a lambda"
@@ -166,12 +172,9 @@ module RecordingStudioAgents
 
     def to_h
       {
-        instructions: instructions,
-        instructions_override: instructions_override,
-        max_instructions_length: max_instructions_length,
-        default_profile: default_profile,
-        purpose: purpose,
-        provider: provider, mcp_tools: mcp_tools, popup_stylesheet: popup_stylesheet,
+        instructions: instructions, instructions_override: instructions_override,
+        max_instructions_length: max_instructions_length, default_profile: default_profile,
+        purpose: purpose, provider: provider, mcp_tools: mcp_tools, popup_stylesheet: popup_stylesheet,
         retention_period: retention_period,
         hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size)
       }
