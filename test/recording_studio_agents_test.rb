@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.10.0", ::RecordingStudioAgents::VERSION
+    assert_equal "0.10.1", ::RecordingStudioAgents::VERSION
   end
 
   def test_engine_exists
@@ -15,8 +15,8 @@ class RecordingStudioAgentsTest < Minitest::Test
     gemspec = File.read(File.expand_path("../recording_studio_agents.gemspec", __dir__))
 
     assert_includes gemspec, 'spec.add_dependency "flat_pack", ">= 0.1.315"'
-    assert_includes gemspec, 'spec.add_dependency "recording_studio", ">= 6.1.0"'
-    assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", "~> 0.19.0"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio", "~> 6.0", ">= 6.1.0"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", ">= 0.19.0", "< 1.0"'
     assert_includes gemspec, 'spec.add_dependency "view_component", ">= 4.14", "< 5"'
     assert_includes gemspec, "https://github.com/bowerbird-app/RecordingStudio_agents"
     refute_includes gemspec, "recording_studio_mcp"
