@@ -12,11 +12,6 @@ class ApplicationController < ActionController::Base
   before_action :authenticate_user!
   before_action :set_current_actor
 
-  # Root Switchable's config.layout is :application_layout, so its controller calls this method.
-  def application_layout
-    recording_studio_resolved_layout
-  end
-
   def recording_studio_resolved_layout
     return "application" if devise_controller?
 

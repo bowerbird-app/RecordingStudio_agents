@@ -30,6 +30,12 @@ RecordingStudio.configure do |config|
   # Actor resolver for events when no actor is explicitly supplied
   config.actor = -> { Current.actor }
 
+  # Recording Studio 6.5 refuses record! unless a write authorizer is set.
+  # The dummy allows a write when an actor is present.
+  config.authorize_write = lambda { |actor:, **|
+    actor.present?
+  }
+
   # Emit ActiveSupport::Notifications events
   config.event_notifications_enabled = true
 
