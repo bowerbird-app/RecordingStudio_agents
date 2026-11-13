@@ -15,19 +15,17 @@ module RecordingStudioAgents
         turn_id = batch_turn(calls)
         return plain_round? if turn_id.nil?
 
-        RecordingStudioAgents::ChatToolAudit.rounds_used(turn_id) < ToolRound::MAX_ROUNDS
+        TurnLock.with(turn_id) { rounds_left?(turn_id) }
       end
 
       def answer_round(calls)
-        RecordingStudioAgents::ChatToolAudit.with_round(next_round(calls)) do
-          calls.map { |call| answer(call) }
-        end
-      end
+        turn_id = batch_turn(calls)
+        return plain_answers(calls) if turn_id.nil?
 
-      def answer(call)
-        RecordingStudioAgents::ChatToolAudit.with_turn(call.provider_turn_id) do
-          over_cap?(call) ? limited(call) : Mcp::ChatTools.answer(call, actor: @actor, root: @root)
-        end
+        prepared = TurnLock.with(turn_id) { prepare(calls, turn_id) }
+        return :closed if prepared == :closed
+
+        prepared.map { |item| release(item) }
       end
 
       private
@@ -37,11 +35,39 @@ module RecordingStudioAgents
         @plain_rounds <= ToolRound::MAX_ROUNDS
       end
 
-      def next_round(calls)
-        turn_id = batch_turn(calls)
-        return if turn_id.nil?
+      def plain_answers(calls)
+        audit.with_round(nil) { calls.map { |call| answer(call) } }
+      end
 
-        RecordingStudioAgents::ChatToolAudit.rounds_used(turn_id) + 1
+      def prepare(calls, turn_id)
+        return :closed unless rounds_left?(turn_id)
+
+        audit.with_round(audit.rounds_used(turn_id) + 1) { calls.map { |call| reserve(call) } }
+      end
+
+      def rounds_left?(turn_id)
+        audit.rounds_used(turn_id) < ToolRound::MAX_ROUNDS
+      end
+
+      def answer(call)
+        release(TurnLock.with(call.provider_turn_id) { reserve(call) })
+      end
+
+      def reserve(call)
+        audit.with_turn(call.provider_turn_id) { over_cap?(call) ? limited(call) : hold(call) }
+      end
+
+      def hold(call)
+        [call, audit.begin!(entry_for(call), actor: @actor, kind: kind_of(call))]
+      end
+
+      def release(item)
+        return item unless item.is_a?(Array)
+
+        call, row = item
+        audit.with_turn(call.provider_turn_id) do
+          audit.with_reserved(row) { Mcp::ChatTools.answer(call, actor: @actor, root: @root) }
+        end
       end
 
       def batch_turn(calls)
@@ -60,7 +86,7 @@ module RecordingStudioAgents
         turn_id = call.provider_turn_id
         return @local_writes[turn_id.to_s] if turn_id.blank?
 
-        RecordingStudioAgents::ChatToolAudit.writes_used(turn_id)
+        audit.writes_used(turn_id)
       end
 
       def remember_blank(call)
@@ -70,8 +96,12 @@ module RecordingStudioAgents
       end
 
       def write?(call)
+        kind_of(call) == "write"
+      end
+
+      def kind_of(call)
         grant = Mcp::ChatTools.installed? ? Mcp::ChatTools.grant_for(@actor, @root) : nil
-        Mcp::ChatTools.kind_for(call.name, grant) == "write"
+        Mcp::ChatTools.kind_for(call.name, grant)
       end
 
       def cap
@@ -79,13 +109,16 @@ module RecordingStudioAgents
       end
 
       def limited(call)
-        entry = RecordingStudioAgents::ChatToolAudit::Entry.new(
-          name: call.name, arguments: call.arguments, call_id: call.call_id
-        )
-        RecordingStudioAgents::ChatToolAudit.record!(
-          entry, actor: @actor, kind: "write", outcome: "limited"
-        )
+        audit.record!(entry_for(call), actor: @actor, kind: "write", outcome: "limited")
         { call_id: call.call_id, turn_id: call.provider_turn_id, error: "write limit reached" }
+      end
+
+      def entry_for(call)
+        audit::Entry.new(name: call.name, arguments: call.arguments, call_id: call.call_id)
+      end
+
+      def audit
+        RecordingStudioAgents::ChatToolAudit
       end
     end
   end

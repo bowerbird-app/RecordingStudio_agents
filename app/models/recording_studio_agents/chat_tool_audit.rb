@@ -11,6 +11,7 @@ module RecordingStudioAgents
     KEY = :recording_studio_agents_chat_recording
     ROUND = :recording_studio_agents_tool_round
     TURN = :recording_studio_agents_provider_turn_id
+    RESERVED = :recording_studio_agents_reserved_audit
 
     def self.record!(entry, actor:, kind:, outcome:)
       create!(row_for(entry, actor, kind, outcome))
@@ -48,6 +49,14 @@ module RecordingStudioAgents
 
     def self.with_turn(turn_id, &)
       swap(TURN, turn_id, &)
+    end
+
+    def self.with_reserved(row, &)
+      swap(RESERVED, row, &)
+    end
+
+    def self.current_reserved
+      Thread.current[RESERVED]
     end
 
     def self.swap(key, value)

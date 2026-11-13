@@ -30,12 +30,20 @@ module RecordingStudioAgents
       def rounds(calls)
         delivered = nil
         MAX_ROUNDS.times do
-          break if calls.empty? || !@budget.round_open?(calls)
-
-          delivered = deliver(answers(calls))
-          calls = pending_calls(delivered)
+          delivered, calls, stop = step(calls, delivered)
+          break if stop
         end
         delivered
+      end
+
+      def step(calls, delivered)
+        return [delivered, calls, true] if calls.empty? || !@budget.round_open?(calls)
+
+        results = answers(calls)
+        return [delivered, calls, true] if results == :closed
+
+        delivered = deliver(results)
+        [delivered, pending_calls(delivered), false]
       end
 
       def finish_over_cap(calls)

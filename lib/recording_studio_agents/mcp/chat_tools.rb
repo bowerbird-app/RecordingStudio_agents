@@ -42,6 +42,9 @@ module RecordingStudioAgents
       end
 
       def note_call(call, actor, root, outcome)
+        reserved = ChatToolAudit.current_reserved
+        return ChatToolAudit.finish!(reserved, outcome) if reserved
+
         ChatToolAudit.record!(
           ChatToolAudit::Entry.new(name: call.name, arguments: nil, call_id: call.call_id),
           actor: actor, kind: kind_for(call.name, grant_for(actor, root)), outcome: outcome

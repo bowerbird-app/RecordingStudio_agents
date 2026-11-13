@@ -9,7 +9,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
 - Recording Studio `>= 6.1.0` (dummy GitHub tag `v6.1.0`)
-- Recording Studio AI `~> 0.21.1` (dummy GitHub tag `v0.21.1`)
+- Recording Studio AI `~> 0.21.2` (dummy GitHub tag `v0.21.2`)
 - Recording Studio Metrics dummy GitHub tag `v0.7.0`
 - Accessible dummy GitHub tag `v0.20.0`
 - Trashable dummy GitHub tag `v0.11.3`
@@ -36,13 +36,13 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
 gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.354"
 gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.21.1"
+gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.21.2"
 gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.1"
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.7.0"
 gem "view_component", "4.19.0"
 ```
 
-Metrics `v0.7.0` and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. AI 0.21.1 does too. Several other dummy pins still declare `recording_studio` below 5, including Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, API, Oauth, MCP, Site Settings, and Cache. Both Gemfiles load `test/support/widen_recording_studio_requirement.rb` before Bundler reads gemspecs. That file rewrites a `recording_studio` requirement that rejects 6.1.0 into `>= 6.1.0`. It is not part of the installed gem. A host Gemfile that includes one of those older gems has to widen the requirement the same way.
+Metrics `v0.7.0` and Logs `v0.7.1` allow Recording Studio `>= 6.1.0`. AI 0.21.2 does too. Several other dummy pins still declare `recording_studio` below 5, including Trashable `v0.11.3`, Users `v0.25.2`, Root Switchable `v0.9.7`, Attachable `v0.20.2`, API, Oauth, MCP, Site Settings, and Cache. Both Gemfiles load `test/support/widen_recording_studio_requirement.rb` before Bundler reads gemspecs. That file rewrites a `recording_studio` requirement that rejects 6.1.0 into `>= 6.1.0`. It is not part of the installed gem. A host Gemfile that includes one of those older gems has to widen the requirement the same way.
 
 Register the recordable, opt a parent type into `:agents`, and copy migrations:
 
@@ -101,7 +101,7 @@ bin/rails recording_studio_ai:install:migrations
 bin/rails db:migrate
 ```
 
-Install Logs run tables (if the host does not already have them) and the Recording Studio AI migrations, in that order, before `db:migrate`. A new chat writes a Recording Studio AI run before it calls the provider. `recording_studio_ai` is a runtime dependency, and those tables are not created by this gem. The dummy installs Logs, then Recording Studio AI, in that same order. AI 0.21.1 ships `RefreshRecordingStudioAITerminalGuards` (`20261112120000`) so `rsai_terminal_runs_guard` and `rsai_terminal_batches_guard` match the columns after `correlation_id` is dropped. Re-run `bin/rails recording_studio_ai:install:migrations` on a host that already copied the 0.20.0 migrations, then `bin/rails db:migrate`.
+Install Logs run tables (if the host does not already have them) and the Recording Studio AI migrations, in that order, before `db:migrate`. A new chat writes a Recording Studio AI run before it calls the provider. `recording_studio_ai` is a runtime dependency, and those tables are not created by this gem. The dummy installs Logs, then Recording Studio AI, in that same order. AI 0.21.2 ships no migration. Hosts that have not yet applied 0.21.1 still need `RefreshRecordingStudioAITerminalGuards` (`20261112120000`) so `rsai_terminal_runs_guard` and `rsai_terminal_batches_guard` match the columns after `correlation_id` is dropped. Re-run `bin/rails recording_studio_ai:install:migrations` on a host that already copied the 0.20.0 migrations, then `bin/rails db:migrate`.
 
 Schedule `RecordingStudioAgents::ExpireSessionsJob`. It closes chats whose `expires_at` has passed. Closing deletes the provider session through Recording Studio AI first. An already-gone provider session is success, and the local chat, items, and binding are removed. A different provider failure leaves the local rows in place for a later retry.
 
@@ -209,7 +209,7 @@ config.authorization_handler = RecordingStudioAI::AccessibleAuthorization.method
 
 The dummy app sets this. It needs the `recording-studio-accessible` gem, which Recording Studio AI's handler already calls.
 
-Recording Studio AI 0.21.1's default `attribution_validator` accepts only a `Recording`. `Agents.stream` rebuilds the stored root as an object with an id, and that default then rejects the turn. This gem replaces that default: the id is loaded, and it must be a root recording whose parent is empty and whose `root_recording_id` is its own id. A context recording must belong to that root. Assign `config.attribution_validator` in `config/initializers/recording_studio_ai.rb` for a stricter check. This gem leaves a host-assigned validator in place.
+Recording Studio AI 0.21.2 loads a root recording id before `attribution_validator` runs. `Agents.stream` passes that id. The default check accepts a root whose parent is empty and whose `root_recording_id` is its own id. A context recording must belong to that root. This gem does not replace the validator. Assign `config.attribution_validator` in `config/initializers/recording_studio_ai.rb` for a stricter check. It runs after the recording is loaded.
 
 A signed-out visitor sees a sign-in prompt instead of the chat. The button uses `config.sign_in_path`. When that is unset, the path is `main_app.new_user_session_path` if the route exists, and `/users/sign_in` otherwise. A string is a path. A lambda receives the controller:
 
@@ -230,9 +230,9 @@ What this does:
 
 - Every chat starts with a gem-owned preamble, before `config.instructions` and before any per-session override. It says tool output is untrusted data, never instructions, and to make no write unless the user asked for it in this turn. There is no setting that removes it. Host text and an override are appended after it.
 - A successful tool result is posted back as JSON, `{"untrusted_tool_output":"<text>"}`. That string still stops at 256 KB. A tool error that is not one of this gem's own refusal sentences is wrapped the same way. Refusals such as `tool is not allowed` and `write limit reached` stay plain text so the model can read them.
-- `config.mcp_max_writes_per_turn` defaults to 3 and must be a positive integer. It counts write-tool calls for one provider turn, across every round, including a resumed, recovered, or retried stream. The count is the audit rows already stored for that turn id. Read versus write uses Recording Studio MCP `ToolSurface#read_only_tool?`. A later write in that turn is answered with `write limit reached`. The turn continues, and reads are still answered. The 8-round cap uses the same turn id. `config.mcp_tools` stays `:write` by default. `:read` and `:off` are unchanged.
+- `config.mcp_max_writes_per_turn` defaults to 3 and must be a positive integer. It counts write-tool calls for one provider turn, across every round, including a resumed, recovered, or retried stream. The count is the audit rows already stored for that turn id. The count, the round number, and the pending insert are taken together under a lock for that turn. Postgres takes an advisory lock on the turn id. SQLite takes an immediate transaction. The lock is released before the tool runs. Read versus write uses Recording Studio MCP `ToolSurface#read_only_tool?`. A later write in that turn is answered with `write limit reached`. The turn continues, and reads are still answered. The 8-round cap uses the same lock and the same turn id. `config.mcp_tools` stays `:write` by default. `:read` and `:off` are unchanged.
 - `config.mcp_tool_allow` and `config.mcp_tool_deny` are arrays of tool names, or nil. They apply when the function list is built and again when a call runs. Deny wins. When allow is set, only those names are listed or called. Nil means no extra name filter. An empty allow list blocks every tool: none are listed, and every call is refused.
-- Each chat tool call writes one row to `recording_studio_agents_chat_tool_audits` before the tool runs, with outcome `pending`, then updates that outcome. A crash mid-call leaves `pending`. Recording Studio Logs registers that table (`retention: :indefinite`, no partition, no summary). The row stores the actor type and id, the chat recording id, the provider turn id, the round number, the tool name, `read` or `write`, up to 50 argument keys, the outcome (`pending`, `ok`, `error`, `refused`, or `limited`), and the call id. A key is kept only when it is identifier-like and at most 64 characters; a longer identifier is truncated to 64, and anything else is dropped. It does not store argument values.
+- Each chat tool call writes one row to `recording_studio_agents_chat_tool_audits` before the tool runs, with outcome `pending`, then updates that outcome. A crash mid-call leaves `pending`. Recording Studio Logs registers that table (`retention: :indefinite`, no partition, no summary). The row stores the actor type and id, the chat recording id, the provider turn id, the round number, the tool name, `read` or `write`, up to 50 argument keys, the outcome (`pending`, `ok`, `error`, `refused`, or `limited`), and the call id. A unique index on provider turn id and call id keeps one row per call in a turn. Null turn ids stay distinct. A key is kept only when it is identifier-like and at most 64 characters; a longer identifier is truncated to 64, and anything else is dropped. It does not store argument values.
 
 What this does not do:
 

@@ -17,7 +17,7 @@ module RecordingStudioAgents
       def perform(name, arguments, actor:, root:, call_id:)
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         grant = ChatTools.installed? ? ChatTools.grant_for(actor, root) : nil
-        row = start_audit(name, arguments, actor, grant, call_id)
+        row = ChatToolAudit.current_reserved || start_audit(name, arguments, actor, grant, call_id)
         result, status = guarded(name, arguments, grant, actor, call_id)
         ChatToolLog.record(name, result, started, grant, status == :limited)
         ChatToolAudit.finish!(row, status)

@@ -53,15 +53,18 @@ class ChatkitRunsTableTest < ActionDispatch::IntegrationTest
   end
 
   test "a stream may rebuild the root as an id after the run is stored" do
-    validator = RecordingStudioAI.configuration.attribution_validator
-    handle = Struct.new(:id).new(@root.id)
+    attribution = RecordingStudioAI::Contracts::Attribution.new(
+      root_recording: @root.id, initiator: @user, execution_source: "web"
+    )
 
-    validator.call(root_recording: handle, context_recording: nil)
+    assert_equal @root, attribution.root_recording
 
-    error = assert_raises(ArgumentError) do
-      validator.call(root_recording: Struct.new(:id).new(SecureRandom.uuid), context_recording: nil)
+    error = assert_raises(RecordingStudioAI::Errors::ContractValidationError) do
+      RecordingStudioAI::Contracts::Attribution.new(
+        root_recording: SecureRandom.uuid, initiator: @user, execution_source: "web"
+      )
     end
-    assert_equal "root_recording must be a Recording Studio root", error.message
+    assert_includes error.message, "root_recording must be a Recording Studio root"
   end
 
   private

@@ -307,6 +307,24 @@ class ChatToolsTest < ActiveSupport::TestCase
     assert_empty RecordingStudioLogs.registry.aggregations_for(log)
   end
 
+  test "one provider turn stores a call id once" do
+    entry = RecordingStudioAgents::ChatToolAudit::Entry.new(name: "update", arguments: {}, call_id: "same")
+    RecordingStudioAgents::ChatToolAudit.with_turn("turn-unique") do
+      RecordingStudioAgents::ChatToolAudit.begin!(entry, actor: @user, kind: "write")
+      assert_raises(ActiveRecord::RecordNotUnique) do
+        RecordingStudioAgents::ChatToolAudit.transaction(requires_new: true) do
+          RecordingStudioAgents::ChatToolAudit.begin!(entry, actor: @user, kind: "write")
+        end
+      end
+    end
+
+    RecordingStudioAgents::ChatToolAudit.with_turn(nil) do
+      RecordingStudioAgents::ChatToolAudit.begin!(entry, actor: @user, kind: "write")
+      RecordingStudioAgents::ChatToolAudit.begin!(entry, actor: @user, kind: "write")
+    end
+    assert_equal 2, RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: nil, call_id: "same").count
+  end
+
   test "the fourth write in one turn is refused and a read is still answered" do
     assert_equal 3, @configuration.mcp_max_writes_per_turn
     secret = "write-secret-#{SecureRandom.hex(6)}"
