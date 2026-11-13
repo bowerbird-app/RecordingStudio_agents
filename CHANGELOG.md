@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-13
+
+### Changed
+- Allow Recording Studio AI `>= 0.19.0, < 1.0` instead of `~> 0.19.0` (which rejected `0.20.0` and later). Allow Recording Studio `~> 6.0` together with the existing `>= 6.1.0` floor, so 6.1 through the last 6.x release install and 7.0 does not. Dummy GitHub pins stay Recording Studio `v6.1.0` and AI `v0.19.1`.
+
+### Host upgrade notes
+- No API or migration change. Hosts can move to any Recording Studio AI release from `0.19.0` up to, but not including, `1.0`, and any Recording Studio release from `6.1.0` up to, but not including, `7.0`.
+
 ## [0.10.0] - 2026-11-11
 
 ### Added
