@@ -17,6 +17,7 @@ module RecordingStudioAgents
         @recording_id = options[:recording_id]
         @execution_source = options.fetch(:execution_source, :web)
         @access_grant = options[:access_grant]
+        @provider_input = options[:provider_input]
       end
 
       private
@@ -70,7 +71,7 @@ module RecordingStudioAgents
 
       def input_args(recording)
         {
-          session: handle_for(recording), input: @input, idempotency_key: @idempotency_key,
+          session: handle_for(recording), input: model_input, idempotency_key: @idempotency_key,
           purpose: recording.recordable.purpose, **attribution(recording)
         }
       end
@@ -99,6 +100,12 @@ module RecordingStudioAgents
           expires_at: Time.current + RecordingStudioAgents.configuration.retention_period,
           preview: @input.to_s.truncate(280)
         )
+      end
+
+      def model_input
+        return @input if @provider_input.nil? || (@provider_input.is_a?(String) && @provider_input.strip.empty?)
+
+        @provider_input
       end
 
       def attribution(recording)
