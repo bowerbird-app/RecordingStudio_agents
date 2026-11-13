@@ -176,7 +176,7 @@ A host on the Recording Studio default layout overrides that layout and adds the
 
 The launcher sits at the bottom left. The framed page has no padding, so the chat meets the panel edges. The iframe sandbox is `allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation-by-user-activation`, and `allow` is `clipboard-write`. Sign in uses `target: "_top"`. That sandbox token lets the click leave the frame.
 
-The launcher root is `id="recording_studio_agents_launcher"` with `data-turbo-permanent`. Turbo Drive keeps that node, so the iframe does not reload. FlatPack moves the node onto `document.body` so a clipped shell does not hide it. The id is what Turbo matches. FlatPack's popover closes when the click is outside it, and it marks the panel closed again when the node reconnects. The launcher script puts an open panel back after the visit. The dummy loads Turbo (`@hotwired/turbo-rails` in the import map and `application.js`).
+The launcher root has a stable id, `recording_studio_agents_launcher`, and `data-turbo-permanent`. Turbo Drive keeps that node, so the iframe does not reload. The helper also includes the `recording_studio_agents/launcher` script on the page. That script puts an open panel back after the visit. The host page has to run Turbo and leave the script in place. Without the script, the iframe stays and the panel closes.
 
 ```erb
 <%= recording_studio_agents_launcher(label: "Ask", title: "Studio chat", position: :bottom_right) %>
