@@ -9,6 +9,16 @@ class McpChatToolsTest < Minitest::Test
     assert_nil RecordingStudioAgents::Mcp::ChatTools.definitions(actor: Object.new, root: Object.new)
   end
 
+  def test_an_empty_allow_list_blocks_every_tool_name
+    configuration = RecordingStudioAgents.configuration
+    previous = configuration.mcp_tool_allow
+    configuration.mcp_tool_allow = []
+
+    refute RecordingStudioAgents::Mcp::ChatTools.named_tool?("show")
+  ensure
+    configuration.mcp_tool_allow = previous if configuration
+  end
+
   def test_an_unknown_mode_falls_back_to_write
     configuration = RecordingStudioAgents.configuration
     previous = configuration.mcp_tools

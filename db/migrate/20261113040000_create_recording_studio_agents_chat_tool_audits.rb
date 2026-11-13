@@ -6,6 +6,8 @@ class CreateRecordingStudioAgentsChatToolAudits < ActiveRecord::Migration[8.1]
     add_index :recording_studio_agents_chat_tool_audits, :occurred_at
     add_index :recording_studio_agents_chat_tool_audits, :chat_recording_id,
               name: "index_rs_agents_chat_tool_audits_on_chat"
+    add_index :recording_studio_agents_chat_tool_audits, :provider_turn_id,
+              name: "index_rs_agents_chat_tool_audits_on_turn"
   end
 
   def columns(table)
@@ -15,6 +17,8 @@ class CreateRecordingStudioAgentsChatToolAudits < ActiveRecord::Migration[8.1]
     table.uuid :chat_recording_id
     required_strings(table)
     table.jsonb :argument_keys, null: false, default: []
+    table.string :provider_turn_id
+    table.integer :round_number
     table.timestamps
   end
 

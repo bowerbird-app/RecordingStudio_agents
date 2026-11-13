@@ -19,7 +19,6 @@ module RecordingStudioAgents
           owner: OWNER,
           retention: :indefinite
         )
-        RecordingStudioLogs.finalize!
       end
     end
   end

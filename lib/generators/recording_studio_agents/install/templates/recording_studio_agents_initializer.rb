@@ -22,11 +22,13 @@ RecordingStudioAgents.configure do |config|
   # Workspace tools the chat may call. :write is the default (reads and writes).
   # :read keeps read-only tools. :off sends none. Chat and item tools are never sent.
   # config.mcp_tools = :write
-  # Write-tool calls allowed in one assistant reply. The default is 3. A later write
-  # comes back as "write limit reached" and the turn continues. Reads are still answered.
+  # Write-tool calls allowed in one provider turn, including a resumed stream.
+  # The default is 3. Earlier writes for that turn count. A later write comes back
+  # as "write limit reached" and the turn continues. Reads are still answered.
   # config.mcp_max_writes_per_turn = 3
-  # Tool names. Nil allows every tool the mode permits. An empty allow list allows none.
-  # Deny wins when a name is on both lists. Applied when tools are listed and when a call runs.
+  # Tool names. Nil allows every tool the mode permits. An empty allow list blocks
+  # every tool. Deny wins when a name is on both lists. Applied when tools are
+  # listed and when a call runs.
   # config.mcp_tool_allow = nil
   # config.mcp_tool_deny = []
   # Popup utility stylesheet. Nil skips the tag. The default is "tailwind".

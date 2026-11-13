@@ -18,17 +18,19 @@ module RecordingStudioAgents
       def run(calls, &emit)
         @emit = emit
         delivered = rounds(calls)
-        return delivered if pending_calls(delivered).empty?
+        waiting = delivered.nil? ? Array(calls) : pending_calls(delivered)
+        return delivered if waiting.empty?
 
-        finish_over_cap(pending_calls(delivered))
+        finish_over_cap(waiting)
       end
 
       private
 
+      # Earlier rounds for this provider turn count. The in-process loop is only a backstop.
       def rounds(calls)
         delivered = nil
         MAX_ROUNDS.times do
-          break if calls.empty?
+          break if calls.empty? || !@budget.round_open?(calls)
 
           delivered = deliver(answers(calls))
           calls = pending_calls(delivered)
@@ -56,7 +58,7 @@ module RecordingStudioAgents
       end
 
       def answers(calls)
-        RecordingStudioAgents::ChatToolAudit.with_chat(@chat_recording) { calls.map { |call| @budget.answer(call) } }
+        RecordingStudioAgents::ChatToolAudit.with_chat(@chat_recording) { @budget.answer_round(calls) }
       end
 
       def refusal(call, message)

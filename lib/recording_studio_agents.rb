@@ -26,6 +26,7 @@ module RecordingStudioAgents
 end
 
 require "recording_studio_agents/engine"
+require "recording_studio_agents/chat_tool_argument_keys"
 require "recording_studio_agents/mcp_tool_settings"
 require "recording_studio_agents/configuration"
 require "recording_studio/capabilities/agents"

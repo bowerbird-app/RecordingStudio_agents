@@ -176,10 +176,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_040000) do
     t.string "outcome", null: false
     t.string "call_id", null: false
     t.jsonb "argument_keys", default: [], null: false
+    t.string "provider_turn_id"
+    t.integer "round_number"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["chat_recording_id"], name: "index_rs_agents_chat_tool_audits_on_chat"
     t.index ["occurred_at"], name: "index_recording_studio_agents_chat_tool_audits_on_occurred_at"
+    t.index ["provider_turn_id"], name: "index_rs_agents_chat_tool_audits_on_turn"
   end
 
   create_table "recording_studio_agents_items", id: :string, force: :cascade do |t|

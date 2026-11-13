@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "recording_studio_agents/chat_tool_argument_keys"
+
 module RecordingStudioAgents
   # One row per in-process chat tool call. Argument keys only. Values stay out.
   class ChatToolAudit < ApplicationRecord
@@ -7,19 +9,57 @@ module RecordingStudioAgents
 
     Entry = Data.define(:name, :arguments, :call_id)
     KEY = :recording_studio_agents_chat_recording
+    ROUND = :recording_studio_agents_tool_round
+    TURN = :recording_studio_agents_provider_turn_id
 
     def self.record!(entry, actor:, kind:, outcome:)
-      create!(identity(actor).merge(call_fields(entry, kind, outcome)))
+      create!(row_for(entry, actor, kind, outcome))
     end
 
-    def self.with_chat(recording)
-      return yield if recording.nil?
+    def self.begin!(entry, actor:, kind:)
+      record!(entry, actor: actor, kind: kind, outcome: "pending")
+    end
 
-      previous = Thread.current[KEY]
-      Thread.current[KEY] = recording
+    def self.finish!(row, outcome)
+      row.update!(outcome: outcome.to_s)
+    end
+
+    def self.writes_used(turn_id)
+      return 0 if turn_id.blank?
+
+      where(provider_turn_id: turn_id.to_s, kind: "write").where.not(outcome: "limited").count
+    end
+
+    def self.rounds_used(turn_id)
+      return 0 if turn_id.blank?
+
+      where(provider_turn_id: turn_id.to_s).maximum(:round_number).to_i
+    end
+
+    def self.with_chat(recording, &block)
+      return block.call if recording.nil?
+
+      swap(KEY, recording, &block)
+    end
+
+    def self.with_round(number, &)
+      swap(ROUND, number, &)
+    end
+
+    def self.with_turn(turn_id, &)
+      swap(TURN, turn_id, &)
+    end
+
+    def self.swap(key, value)
+      previous = Thread.current[key]
+      Thread.current[key] = value
       yield
     ensure
-      Thread.current[KEY] = previous if recording
+      Thread.current[key] = previous
+    end
+
+    def self.row_for(entry, actor, kind, outcome)
+      identity(actor).merge(call_fields(entry, kind, outcome))
     end
 
     def self.identity(actor)
@@ -33,18 +73,14 @@ module RecordingStudioAgents
 
     def self.call_fields(entry, kind, outcome)
       {
-        tool_name: entry.name.to_s,
-        kind: kind,
-        argument_keys: argument_keys(entry.arguments),
-        outcome: outcome,
-        call_id: entry.call_id.to_s
+        tool_name: entry.name.to_s, kind: kind, argument_keys: argument_keys(entry.arguments),
+        outcome: outcome, call_id: entry.call_id.to_s,
+        provider_turn_id: Thread.current[TURN].to_s.presence, round_number: Thread.current[ROUND]
       }
     end
 
     def self.argument_keys(arguments)
-      return [] unless arguments.is_a?(Hash)
-
-      arguments.each_key.map(&:to_s)
+      ChatToolArgumentKeys.list(arguments)
     end
 
     def self.recording_id(recording)
@@ -53,6 +89,6 @@ module RecordingStudioAgents
 
       recording
     end
-    private_class_method :identity, :call_fields, :argument_keys, :recording_id
+    private_class_method :swap, :row_for, :identity, :call_fields, :argument_keys, :recording_id
   end
 end

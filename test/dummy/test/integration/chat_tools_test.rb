@@ -339,6 +339,7 @@ class ChatToolsTest < ActiveSupport::TestCase
     assert_equal "tool-body", JSON.parse(read.fetch(:output)).fetch("untrusted_tool_output")
     row = RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "w4")
     assert_equal @root.id, row.chat_recording_id
+    assert_equal "turn_1", row.provider_turn_id
     assert_equal "limited", row.outcome
     assert_equal "write", row.kind
     assert_equal ["id"], row.argument_keys
@@ -346,6 +347,116 @@ class ChatToolsTest < ActiveSupport::TestCase
   ensure
     restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
     restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
+  end
+
+  test "four writes in one round refuse the fourth and still answer a read" do
+    calls = [
+      write_call("p1", turn_id: "turn-parallel"), write_call("p2", turn_id: "turn-parallel"),
+      write_call("p3", turn_id: "turn-parallel"), write_call("p4", turn_id: "turn-parallel"),
+      read_call("pr", turn_id: "turn-parallel")
+    ]
+
+    ran = scripted_round(calls)
+
+    assert_equal %w[update update update show], ran.fetch(:dispatched)
+    limited = ran.fetch(:submitted).select { |result| result[:error] == "write limit reached" }
+    assert_equal ["p4"], limited.map { |result| result[:call_id] }
+    assert_equal [1], RecordingStudioAgents::ChatToolAudit.where(provider_turn_id: "turn-parallel").distinct.pluck(:round_number)
+    assert_equal "ok", RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "pr").outcome
+  end
+
+  test "a resumed turn counts earlier writes and refuses the fourth" do
+    turn_id = "turn-resume"
+    first = scripted_round([write_call("a1", turn_id: turn_id), write_call("a2", turn_id: turn_id)])
+    second = scripted_round([write_call("a3", turn_id: turn_id), write_call("a4", turn_id: turn_id)])
+
+    assert_equal %w[update update], first.fetch(:dispatched)
+    assert_equal ["update"], second.fetch(:dispatched)
+    limited = second.fetch(:submitted).select { |result| result[:error] == "write limit reached" }
+    assert_equal ["a4"], limited.map { |result| result[:call_id] }
+    assert_equal "ok", RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "a3").outcome
+    assert_equal "turn-resume", RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "a1").provider_turn_id
+    assert_equal 2, RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "a4").round_number
+    assert_equal 3, RecordingStudioAgents::ChatToolAudit.writes_used(turn_id)
+  end
+
+  test "a resumed turn counts earlier rounds and refuses the next one" do
+    8.times do |index|
+      RecordingStudioAgents::ChatToolAudit.with_turn("turn-rounds") do
+        RecordingStudioAgents::ChatToolAudit.with_round(index + 1) do
+          RecordingStudioAgents::ChatToolAudit.record!(
+            RecordingStudioAgents::ChatToolAudit::Entry.new(
+              name: "show", arguments: { "id" => "kit" }, call_id: "prior-#{index}"
+            ),
+            actor: @user, kind: "read", outcome: "ok"
+          )
+        end
+      end
+    end
+
+    ran = scripted_round([read_call("next-round", turn_id: "turn-rounds")])
+
+    assert_empty ran.fetch(:dispatched)
+    refusal = ran.fetch(:submitted).find { |result| result[:call_id] == "next-round" }
+    assert_equal "too many tool calls", refusal[:error]
+  end
+
+  test "a tool call is pending before it runs and stays pending when it crashes" do
+    kit = record_kit("HELLO HOUSE")
+    seen = nil
+    original = RecordingStudioMcp::Dispatcher.method(:call)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**|
+      seen = RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "pending-ok").outcome
+      { content: [{ type: "text", text: "ok" }], isError: false }
+    end
+    invoke("show", { "type" => "PressKit", "id" => kit.id }, call_id: "pending-ok")
+    assert_equal "pending", seen
+    assert_equal "ok", RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "pending-ok").outcome
+
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) { |**| raise "dispatcher blew up" }
+    assert_raises(RuntimeError) do
+      invoke("show", { "type" => "PressKit", "id" => kit.id }, call_id: "pending-crash")
+    end
+    crashed = RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "pending-crash")
+    assert_equal "pending", crashed.outcome
+    refute_includes crashed.attributes.values.map(&:to_s).join(" "), "dispatcher blew up"
+  ensure
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original)
+  end
+
+  test "an empty allow list blocks every tool" do
+    kit = record_kit("HELLO HOUSE")
+    @configuration.mcp_tool_allow = []
+
+    assert_nil RecordingStudioAgents::Mcp::ChatTools.definitions(actor: @user, root: @root)
+    blocked = invoke("show", { "type" => "PressKit", "id" => kit.id }, call_id: "empty-allow")
+
+    assert blocked[:isError]
+    assert_includes blocked.dig(:content, 0, :text), "tool is not allowed"
+    assert_equal "HELLO HOUSE", kit.reload.recordable.name
+    assert_equal "refused", RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "empty-allow").outcome
+  end
+
+  test "stored argument keys drop values and non identifiers" do
+    secret = "key-secret-#{SecureRandom.hex(6)}"
+    long = "n" * 80
+    arguments = { "bad key" => secret, "9nope" => secret, long => secret }
+    55.times { |index| arguments["field_#{index}"] = secret }
+    original = RecordingStudioMcp::Dispatcher.method(:call)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**|
+      { content: [{ type: "text", text: "ok" }], isError: false }
+    end
+
+    invoke("update", arguments, call_id: "key-cap")
+
+    row = RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "key-cap")
+    assert_equal 50, row.argument_keys.size
+    assert_equal "n" * 64, row.argument_keys.first
+    refute_includes row.argument_keys, "bad key"
+    refute_includes row.argument_keys, "9nope"
+    refute_includes row.attributes.values.map(&:to_s).join(" "), secret
+  ensure
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original)
   end
 
   test "read only mode refuses a write without changing the record" do
@@ -365,18 +476,41 @@ class ChatToolsTest < ActiveSupport::TestCase
     Array(RecordingStudioAgents::Mcp::ChatTools.definitions(actor: @user, root: @root)).map { |tool| tool[:name] }
   end
 
-  def write_call(call_id, secret = "plain")
-    tool_call(call_id, "update", { "id" => secret })
+  def write_call(call_id, secret = "plain", turn_id: "turn_1")
+    tool_call(call_id, "update", { "id" => secret }, turn_id: turn_id)
   end
 
-  def read_call(call_id)
-    tool_call(call_id, "show", { "id" => "kit" })
+  def read_call(call_id, turn_id: "turn_1")
+    tool_call(call_id, "show", { "id" => "kit" }, turn_id: turn_id)
   end
 
-  def tool_call(call_id, name, arguments)
+  def tool_call(call_id, name, arguments, turn_id: "turn_1")
     RecordingStudioAI::Agents::ToolCall.new(
-      call_id: call_id, name: name, arguments: arguments, provider_turn_id: "turn_1"
+      call_id: call_id, name: name, arguments: arguments, provider_turn_id: turn_id
     )
+  end
+
+  def scripted_round(calls)
+    dispatched = []
+    submitted = []
+    script = [tool_turn([])]
+    original_dispatch = RecordingStudioMcp::Dispatcher.method(:call)
+    original_submit = RecordingStudioAI::Agents.method(:submit_tool_results)
+    RecordingStudioMcp::Dispatcher.define_singleton_method(:call) do |**kwargs|
+      dispatched << kwargs.fetch(:tool_name)
+      { content: [{ type: "text", text: "tool-body" }], isError: false }
+    end
+    RecordingStudioAI::Agents.define_singleton_method(:submit_tool_results) do |**kwargs, &|
+      submitted << kwargs.fetch(:results)
+      script.shift || tool_turn([])
+    end
+    RecordingStudioAgents::ChatKit::ToolRound.new(
+      actor: @user, root: @root, agent_args: { session: "sess" }, chat_recording: @root
+    ).run(calls) { |_event| }
+    { dispatched: dispatched, submitted: submitted.flatten }
+  ensure
+    restore_singleton(RecordingStudioMcp::Dispatcher, :call, original_dispatch)
+    restore_singleton(RecordingStudioAI::Agents, :submit_tool_results, original_submit)
   end
 
   def tool_turn(calls)
