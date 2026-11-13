@@ -60,6 +60,20 @@ module RecordingStudioAgents
       RecordingStudioAgents.configuration.hooks.run(:after_initialize, self)
     end
 
+    initializer "recording_studio_agents.api_actor_warning", after: :load_config_initializers do
+      config.after_initialize { RecordingStudioAgents::Mcp::ApiActor.warn_if_needed }
+    end
+
+    initializer "recording_studio_agents.chat_tool_database", after: :load_config_initializers do
+      config.after_initialize { RecordingStudioAgents::ChatKit::TurnLock.check_adapter! }
+    end
+
+    initializer "recording_studio_agents.assets" do |app|
+      next unless app.config.respond_to?(:assets) && app.config.assets.respond_to?(:precompile)
+
+      app.config.assets.precompile += %w[recording_studio_agents/chatkit.js recording_studio_agents/launcher.js]
+    end
+
     initializer "recording_studio_agents.chatkit_helper" do
       ActiveSupport.on_load(:action_controller_base) do
         helper RecordingStudioAgents::ChatKitHelper
@@ -73,7 +87,10 @@ module RecordingStudioAgents
     end
 
     initializer "recording_studio_agents.mcp" do
-      config.to_prepare { RecordingStudioAgents::Mcp.register! }
+      config.to_prepare do
+        RecordingStudioAgents::Mcp.register!
+        RecordingStudioAgents::Mcp::LogsRegistration.register!
+      end
     end
   end
 end

@@ -1,0 +1,24 @@
+<% if @actor.present? && @root.present? %>
+  <%= recording_studio_agents_chatkit(fill: true) %>
+<% elsif @actor.present? %>
+  <%= render FlatPack::EmptyState::Component.new(
+    title: t(".workspace_title"),
+    description: t(".workspace_description"),
+    width: :sm
+  ) %>
+<% else %>
+  <%= render FlatPack::EmptyState::Component.new(
+    title: t(".sign_in_title"),
+    description: t(".sign_in_description"),
+    width: :sm
+  ) do |empty| %>
+    <% empty.item do %>
+      <%= render FlatPack::Button::Component.new(
+        text: t(".sign_in_action"),
+        href: popup_sign_in_path,
+        style: :primary,
+        target: "_top"
+      ) %>
+    <% end %>
+  <% end %>
+<% end %>

@@ -9,6 +9,7 @@ module RecordingStudioAgents
       CHAT_APPEND = :agent_chats_append
       ITEM_LIST = :agent_items_list
       ITEM_READ = :agent_items_read
+      OWN_TOOLS = [CHAT_LIST, CHAT_CREATE, CHAT_READ, CHAT_APPEND, ITEM_LIST, ITEM_READ].map(&:to_s).freeze
       SKILL_NAME = "agent-chats"
 
       module_function
@@ -16,6 +17,10 @@ module RecordingStudioAgents
       def register!
         register_endpoints!
         register_skill!
+      end
+
+      def own_tool?(name)
+        OWN_TOOLS.include?(name.to_s)
       end
 
       def register_endpoints!

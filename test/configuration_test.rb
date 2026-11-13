@@ -41,8 +41,23 @@ class ConfigurationTest < Minitest::Test
     assert_equal :medium, configuration.default_profile
     assert_equal "agent_chat", configuration.purpose
     assert_equal "openai", configuration.provider
+    assert_equal :write, configuration.mcp_tools
+    assert_equal 3, configuration.mcp_max_writes_per_turn
+    assert_nil configuration.mcp_tool_allow
+    assert_nil configuration.mcp_tool_deny
+    assert_equal "tailwind", configuration.popup_stylesheet
+    assert_equal "rounded", configuration.popup_theme
+    assert_equal true, configuration.launcher
+    assert_equal false, configuration.allow_chat_tools_in_transaction
+    assert_equal 10.minutes, configuration.chat_tool_stale_after
+    assert_equal 2.minutes, configuration.chat_tool_deadline
     assert_equal 30.days, configuration.retention_period
     assert_equal({}, configuration.chatkit_options)
+    assert_equal(
+      RecordingStudioAgents::ChatkitHostSettings::DEFAULT_CHATKIT_ALLOWED_ORIGINS,
+      configuration.chatkit_allowed_origins
+    )
+    assert_equal "/users/sign_in", configuration.sign_in_path
     assert_nil configuration.layout
     assert_instance_of RecordingStudio::Hooks, configuration.hooks
   end
@@ -145,5 +160,148 @@ class ConfigurationTest < Minitest::Test
     RecordingStudioAgents.configure
 
     assert_kind_of RecordingStudioAgents::Configuration, RecordingStudioAgents.configuration
+  end
+
+  def test_chatkit_allowed_origins_accept_a_comma_separated_list
+    @configuration.chatkit_allowed_origins = " https://staging.example ,https://app.example "
+
+    assert_equal ["https://staging.example", "https://app.example"], @configuration.chatkit_allowed_origins
+  end
+
+  def test_chatkit_allowed_origins_normalize_like_an_embeddable_origin
+    @configuration.chatkit_allowed_origins = "HTTPS://App.Example:443/chat"
+
+    assert_equal ["https://app.example"], @configuration.chatkit_allowed_origins
+  end
+
+  def test_chatkit_allowed_origins_reject_a_non_http_value
+    error = assert_raises(RecordingStudioAgents::Error) do
+      @configuration.chatkit_allowed_origins = "ftp://files.example"
+    end
+
+    assert_match "http(s) origins", error.message
+    assert_equal(
+      RecordingStudioAgents::ChatkitHostSettings::DEFAULT_CHATKIT_ALLOWED_ORIGINS,
+      @configuration.chatkit_allowed_origins
+    )
+  end
+
+  def test_frame_ancestor_defaults_are_local_only
+    development = with_rails_env("development") { RecordingStudioAgents::Configuration.new.chatkit_allowed_origins }
+    test_env = with_rails_env("test") { RecordingStudioAgents::Configuration.new.chatkit_allowed_origins }
+    production = with_rails_env("production") { RecordingStudioAgents::Configuration.new.chatkit_allowed_origins }
+
+    local = RecordingStudioAgents::ChatkitHostSettings::DEFAULT_CHATKIT_ALLOWED_ORIGINS
+    assert_equal local, development
+    assert_equal local, test_env
+    assert_empty production
+  end
+
+  def with_rails_env(name, &)
+    Rails.stub(:env, ActiveSupport::EnvironmentInquirer.new(name), &)
+  end
+
+  def test_sign_in_path_accepts_a_string_or_a_lambda
+    @configuration.sign_in_path = "/login"
+    assert_equal "/login", @configuration.sign_in_path
+
+    callable = ->(controller) { controller }
+    @configuration.sign_in_path = callable
+    assert_equal callable, @configuration.sign_in_path
+
+    @configuration.sign_in_path = nil
+    assert_equal "/users/sign_in", @configuration.sign_in_path
+  end
+
+  def test_mcp_tools_accepts_write_read_and_off
+    @configuration.mcp_tools = "read"
+    assert_equal :read, @configuration.mcp_tools
+
+    @configuration.merge!(mcp_tools: "off")
+    assert_equal :off, @configuration.mcp_tools
+    assert_equal :off, @configuration.to_h.fetch(:mcp_tools)
+  end
+
+  def test_launcher_accepts_only_a_boolean
+    @configuration.launcher = false
+    assert_equal false, @configuration.launcher
+
+    @configuration.merge!(launcher: true)
+    assert_equal true, @configuration.launcher
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.launcher = "yes" }
+
+    assert_equal true, @configuration.launcher
+    assert_match "launcher", error.message
+  end
+
+  def test_mcp_max_writes_per_turn_accepts_a_positive_integer
+    @configuration.mcp_max_writes_per_turn = "4"
+    assert_equal 4, @configuration.mcp_max_writes_per_turn
+    assert_equal 4, @configuration.to_h.fetch(:mcp_max_writes_per_turn)
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_max_writes_per_turn = 0 }
+
+    assert_equal 4, @configuration.mcp_max_writes_per_turn
+    assert_match "mcp_max_writes_per_turn", error.message
+    assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_max_writes_per_turn = -1 }
+    assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_max_writes_per_turn = "no" }
+    assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_max_writes_per_turn = 1.5 }
+    assert_equal 4, @configuration.mcp_max_writes_per_turn
+  end
+
+  def test_mcp_tool_lists_accept_tool_names_and_nil
+    @configuration.mcp_tool_allow = ["show", :update, "show"]
+    @configuration.mcp_tool_deny = ["create"]
+
+    assert_equal %w[show update], @configuration.mcp_tool_allow
+    assert_equal ["create"], @configuration.mcp_tool_deny
+    assert_equal ["create"], @configuration.to_h.fetch(:mcp_tool_deny)
+
+    @configuration.merge!(mcp_tool_allow: nil, mcp_tool_deny: [])
+    assert_nil @configuration.mcp_tool_allow
+    assert_equal [], @configuration.mcp_tool_deny
+  end
+
+  def test_mcp_tool_lists_reject_anything_that_is_not_tool_names
+    @configuration.mcp_tool_allow = ["show"]
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_tool_allow = "show" }
+    assert_match "mcp_tool_allow", error.message
+    assert_equal ["show"], @configuration.mcp_tool_allow
+    assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_tool_deny = ["has space"] }
+    assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_tool_deny = [1] }
+    assert_nil @configuration.mcp_tool_deny
+  end
+
+  def test_chat_tool_stale_after_must_be_longer_than_the_deadline
+    @configuration.chat_tool_deadline = 30.seconds
+    @configuration.chat_tool_stale_after = 90
+    assert_equal 90.seconds, @configuration.chat_tool_stale_after
+    assert_equal 90.seconds, @configuration.to_h.fetch(:chat_tool_stale_after)
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.chat_tool_stale_after = 20.seconds }
+    assert_match "chat_tool_stale_after", error.message
+    assert_equal 90.seconds, @configuration.chat_tool_stale_after
+    assert_raises(RecordingStudioAgents::Error) { @configuration.chat_tool_stale_after = 60.seconds }
+    assert_equal 90.seconds, @configuration.chat_tool_stale_after
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.chat_tool_deadline = 2.minutes }
+    assert_match "chat_tool_deadline", error.message
+    assert_equal 30.seconds, @configuration.chat_tool_deadline
+    assert_raises(RecordingStudioAgents::Error) { @configuration.chat_tool_deadline = 0 }
+  end
+
+  def test_mcp_tools_rejects_an_unknown_mode
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.mcp_tools = :ask }
+
+    assert_equal :write, @configuration.mcp_tools
+    assert_match "mcp_tools", error.message
+  end
+
+  def test_sign_in_path_rejects_a_number
+    assert_raises(RecordingStudioAgents::Error) { @configuration.sign_in_path = 1 }
+
+    assert_equal "/users/sign_in", @configuration.sign_in_path
   end
 end

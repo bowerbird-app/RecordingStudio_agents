@@ -1,15 +1,123 @@
 # frozen_string_literal: true
 
 module RecordingStudioAgents
-  class Configuration
+  # Popup framing origins and the host sign-in path.
+  module ChatkitHostSettings
+    DEFAULT_CHATKIT_ALLOWED_ORIGINS = %w[http://localhost:3000 http://127.0.0.1:3000].freeze
+    FALLBACK_SIGN_IN_PATH = "/users/sign_in"
+
+    def chatkit_allowed_origins
+      return @chatkit_allowed_origins if defined?(@chatkit_allowed_origins)
+
+      @chatkit_allowed_origins = default_chatkit_allowed_origins
+    end
+
+    def chatkit_allowed_origins=(value)
+      @chatkit_allowed_origins = normalize_origins(value)
+    end
+
+    def sign_in_path=(value)
+      if value.nil?
+        @sign_in_path = nil
+        return
+      end
+
+      raise Error, "sign_in_path must be a path or a lambda" unless value.is_a?(String) || value.respond_to?(:call)
+
+      @sign_in_path = value
+    end
+
+    def sign_in_path
+      return @sign_in_path if defined?(@sign_in_path) && @sign_in_path.present?
+
+      default_sign_in_path
+    end
+
+    private
+
+    def default_chatkit_allowed_origins
+      return DEFAULT_CHATKIT_ALLOWED_ORIGINS.dup if defined?(Rails) && Rails.env.local?
+
+      []
+    end
+
+    def default_sign_in_path
+      helpers = rails_url_helpers
+      return helpers.new_user_session_path if helpers.respond_to?(:new_user_session_path)
+
+      FALLBACK_SIGN_IN_PATH
+    rescue NoMethodError, ArgumentError
+      FALLBACK_SIGN_IN_PATH
+    end
+
+    def rails_url_helpers
+      return unless defined?(Rails)
+
+      Rails.application&.routes&.url_helpers
+    end
+
+    # Same shape as RecordingStudioEmbeddable::Floating::Origin.parse:
+    # scheme, host, and a non-default port. A path or query is dropped.
+    # A relative URL, or anything that is not http(s), is nil.
+    def origin(value)
+      raw = value.to_s.strip
+      return if raw.empty? || raw == "*" || raw.match?(/[\s\r\n]/)
+
+      uri = parsed_http_uri(raw)
+      return if uri.nil?
+
+      host = uri.host.downcase
+      default_port = uri.scheme == "https" ? 443 : 80
+      authority = uri.port == default_port ? host : "#{host}:#{uri.port}"
+      "#{uri.scheme}://#{authority}"
+    end
+    module_function :origin
+
+    def normalize_origins(value)
+      entries = value.is_a?(String) ? value.split(",") : Array(value)
+      entries.flat_map { |entry| entry.to_s.split(",") }.filter_map { |entry| parse_origin(entry) }
+    end
+
+    def parse_origin(value)
+      raw = value.to_s.strip
+      return if raw.empty?
+
+      parsed = origin(raw)
+      raise Error, "chatkit_allowed_origins must be http(s) origins" if parsed.nil?
+
+      parsed
+    end
+
+    def parsed_http_uri(raw)
+      uri = URI.parse(raw)
+      return unless uri.is_a?(URI::HTTP) && uri.host.present?
+      return unless %w[http https].include?(uri.scheme)
+
+      uri
+    rescue URI::InvalidURIError
+      nil
+    end
+    module_function :parsed_http_uri
+  end
+
+  class Configuration # rubocop:disable Metrics/ClassLength
+    include ChatkitHostSettings
+    include McpToolSettings
+
     OVERRIDE_GATES = %i[none admin edit].freeze
 
-    attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key
+    attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key,
+                  :popup_stylesheet, :popup_theme
     attr_reader :hooks, :default_profile, :retention_period, :provider, :instructions_override,
-                :max_instructions_length, :layout
+                :max_instructions_length, :layout, :mcp_tools, :launcher
 
     def initialize
       assign_defaults
+      @mcp_tools = :write
+      assign_tool_defaults
+      @popup_stylesheet = "tailwind"
+      @popup_theme = "rounded"
+      @launcher = true
       @hooks = RecordingStudio::Hooks.new
     end
 
@@ -42,6 +150,16 @@ module RecordingStudioAgents
       @retention_period = normalize_retention(value)
     end
 
+    def mcp_tools=(value)
+      @mcp_tools = allowed_symbol(value, Mcp::ChatTools::MODES, "mcp_tools")
+    end
+
+    def launcher=(value)
+      raise Error, "launcher must be true or false" unless [true, false].include?(value)
+
+      @launcher = value
+    end
+
     def chatkit_options=(value)
       unless value.nil? || value.is_a?(Hash) || value.respond_to?(:call)
         raise Error, "chatkit_options must be a hash or a lambda"
@@ -57,15 +175,12 @@ module RecordingStudioAgents
 
     def to_h
       {
-        instructions: instructions,
-        instructions_override: instructions_override,
-        max_instructions_length: max_instructions_length,
-        default_profile: default_profile,
-        purpose: purpose,
-        provider: provider,
-        retention_period: retention_period,
+        instructions: instructions, instructions_override: instructions_override,
+        max_instructions_length: max_instructions_length, default_profile: default_profile,
+        purpose: purpose, provider: provider, mcp_tools: mcp_tools, popup_stylesheet: popup_stylesheet,
+        retention_period: retention_period, popup_theme: popup_theme,
         hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size)
-      }
+      }.merge(mcp_limits)
     end
 
     def merge!(hash)

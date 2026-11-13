@@ -107,8 +107,8 @@ class McpChatsTest < ActionDispatch::IntegrationTest
       recording = RecordingStudio::Recording.find(tool_payload(payload).fetch("id"))
 
       assert_equal false, payload.dig("result", "isError"), response.body
-      assert_equal "Answer in one sentence.\n\nBe terse.", recording.recordable.instructions
-      assert_equal "Answer in one sentence.\n\nBe terse.", @calls.last[:instructions]
+      assert_equal with_safety_preamble("Answer in one sentence.\n\nBe terse."), recording.recordable.instructions
+      assert_equal with_safety_preamble("Answer in one sentence.\n\nBe terse."), @calls.last[:instructions]
     end
   end
 
@@ -121,7 +121,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     recording = RecordingStudio::Recording.find(tool_payload(payload).fetch("id"))
 
     assert_equal false, payload.dig("result", "isError"), response.body
-    assert_equal "Answer in one sentence.", recording.recordable.instructions
+    assert_equal with_safety_preamble("Answer in one sentence."), recording.recordable.instructions
     assert_equal before + 1, @calls.size
   end
 
@@ -159,7 +159,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
       recording = RecordingStudio::Recording.find(tool_payload(payload).fetch("id"))
 
       assert_equal false, payload.dig("result", "isError"), response.body
-      assert_equal "Answer in one sentence.\n\nBe terse.", recording.recordable.instructions
+      assert_equal with_safety_preamble("Answer in one sentence.\n\nBe terse."), recording.recordable.instructions
     end
   end
 
@@ -398,7 +398,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     ], fresh.sections
   end
 
-  test "an MCP edit stores the oauth client as actor and the approving person in metadata" do
+  test "an MCP edit stores the grant actor, the oauth client as impersonator, and the approving person" do
     kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
 
     post_mcp("tools/call", name: "update", arguments: {
@@ -410,8 +410,9 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
     assert_equal false, payload.dig("result", "isError"), response.body
     assert_equal "Approved brick hello.", kit.reload.recordable.description
-    assert_equal "RecordingStudioOauth::OauthClient", event.actor_type
-    assert_equal @oauth_client.id, event.actor_id
+    assert_equal "RecordingStudioOauth::OauthAuthorization", event.actor_type
+    assert_equal @oauth_client, event.actor.oauth_client
+    assert_equal @oauth_client, event.impersonator
     assert_equal "User", event.metadata["authorized_by_type"]
     assert_equal @user.id, event.metadata["authorized_by_id"]
   end
@@ -439,8 +440,9 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
     assert_equal false, payload.dig("result", "isError"), response.body
     assert_equal "Server description.", kit.reload.recordable.description
-    assert_equal "RecordingStudioOauth::OauthClient", event.actor_type
-    assert_equal @oauth_client.id, event.actor_id
+    assert_equal "RecordingStudioOauth::OauthAuthorization", event.actor_type
+    assert_equal @oauth_client, event.actor.oauth_client
+    assert_equal @oauth_client, event.impersonator
     assert_equal "User", event.metadata["authorized_by_type"]
     assert_equal @user.id, event.metadata["authorized_by_id"]
     assert_nil event.metadata["note"]

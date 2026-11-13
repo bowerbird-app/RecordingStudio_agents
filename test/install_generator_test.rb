@@ -135,11 +135,47 @@ class InstallGeneratorTest < Minitest::Test
     assert_equal ["INSTALL.md"], shown_templates
   end
 
+  def test_initializer_template_sets_the_signed_in_person_and_workspace
+    template = File.read(
+      File.expand_path(
+        "../lib/generators/recording_studio_agents/install/templates/recording_studio_agents_initializer.rb",
+        __dir__
+      )
+    )
+
+    assert_includes template, "config.request_actor = lambda do |controller|"
+    assert_includes template, "controller.send(:current_user)"
+    assert_includes template, "Current.actor = user if defined?(Current) && Current.respond_to?(:actor=)"
+    refute_includes template, "Current.actor = user if defined?(Current)\n"
+    assert_includes template, "config.request_root = lambda do |controller|"
+    assert_includes template, "RecordingStudio::RootSwitchable.resolve_current_root"
+    refute_includes template, "# config.request_actor"
+    refute_includes template, "# config.request_root"
+  end
+
   def test_install_guide_includes_migration_and_host_setup_steps
     install_guide = File.read(INSTALL_TEMPLATE_PATH)
 
     assert_includes install_guide, "bin/rails generate recording_studio_agents:migrations"
+    assert_includes install_guide, "recording_studio_agents_chat_tool_audits"
+    template = File.read(
+      File.expand_path(
+        "../lib/generators/recording_studio_agents/install/templates/recording_studio_agents_initializer.rb",
+        __dir__
+      )
+    )
+    assert_includes template, "config.mcp_tools = :write"
+    assert_includes template, "config.mcp_max_writes_per_turn = 3"
+    assert_includes template, "config.mcp_tool_allow = nil"
+    assert_includes template, "config.mcp_tool_deny = []"
+    assert_includes install_guide, "bin/rails generate recording_studio_logs:migrations"
+    assert_includes install_guide, "bin/rails recording_studio_ai:install:migrations"
     assert_includes install_guide, "bin/rails db:migrate"
+    logs_at = install_guide.index("bin/rails generate recording_studio_logs:migrations")
+    ai_at = install_guide.index("bin/rails recording_studio_ai:install:migrations")
+    migrate_at = install_guide.index("bin/rails db:migrate")
+    assert_operator logs_at, :<, ai_at
+    assert_operator ai_at, :<, migrate_at
     assert_includes install_guide, "auth, layout, and current actor integration"
     assert_includes install_guide, "recording_studio_recordable"
     refute_includes install_guide, "RecordingStudio v3"

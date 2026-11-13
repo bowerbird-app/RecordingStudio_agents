@@ -10,11 +10,13 @@ module RecordingStudioAgents
       end
 
       def play(&block)
-        assistant = AssistantTurn.new(@recording.id)
-        recover(assistant, &block) unless stream(assistant, &block)
-        remember(assistant)
+        @assistant = AssistantTurn.new(@recording.id)
+        @saw_text = false
+        finish_stream(read_stream(&block), &block)
       rescue RecordingStudioAI::Agents::Failure => e
         block.call(failure(e.message))
+      rescue RecordingStudioAI::Errors::ContractValidationError => e
+        RecordingStudioAgents::ChatKit::PostedResults.end_if_settled(e)
       end
 
       def cancel!
@@ -25,38 +27,60 @@ module RecordingStudioAgents
 
       private
 
-      def stream(assistant, &)
-        saw = false
-        RecordingStudioAI::Agents.stream(**agent_args) do |event|
-          saw = true if text_event?(event)
-          assistant.apply(event).each(&)
-        end
-        saw
+      def finish_stream(result, &)
+        calls = pending_calls(result)
+        answer_tools(calls, &)
+        recover_saved(&) if calls.empty? && !@saw_text
+        remember(@assistant)
       end
 
-      def recover(assistant, &)
-        saved = saved_reply
+      def read_stream(&block)
+        RecordingStudioAI::Agents.stream(**agent_args) { |event| emit(event, &block) }
+      end
+
+      def answer_tools(calls, &)
+        return if calls.empty?
+
+        tool_round.run(calls) { |event| emit(event, &) }
+      end
+
+      def recover_saved(&)
+        recovery = recovered_session
+        return if recovery.nil?
+
+        calls = pending_calls(recovery)
+        return answer_tools(calls, &) if calls.any?
+
+        saved = saved_reply(recovery)
         return if saved.nil?
 
-        assistant.apply(saved).each(&)
+        emit(saved, &)
       end
 
-      def saved_reply
-        item = recovered_item
+      def recovered_session
+        RecordingStudioAI::Agents.recover(**agent_args)
+      rescue RecordingStudioAI::Agents::Failure
+        nil
+      end
+
+      def saved_reply(recovery)
+        item = Array(recovery&.items).reverse.find { |entry| reply?(entry) }
         return if item.nil?
 
         RecordingStudioAI::Providers::StreamEvent.new(type: "message_completed", text: item.text)
       end
 
-      def recovered_item
-        recovery = RecordingStudioAI::Agents.recover(**agent_args)
-        Array(recovery&.items).reverse.find { |entry| reply?(entry) }
-      rescue StandardError
-        nil
-      end
-
       def reply?(entry)
         entry.role != "user" && entry.text.present?
+      end
+
+      def emit(event, &)
+        if @assistant.savable? && text_event?(event)
+          remember(@assistant)
+          @assistant = AssistantTurn.new(@recording.id)
+        end
+        @saw_text = true if text_event?(event)
+        @assistant.apply(event).each(&)
       end
 
       def remember(assistant)
@@ -66,6 +90,16 @@ module RecordingStudioAgents
           id: assistant.item_id, recording: @recording, root_recording: @root, role: "assistant",
           text: assistant.text, status: "done", created_at: assistant.created_at
         )
+      end
+
+      def tool_round
+        ToolRound.new(actor: @actor, root: @root, chat_recording: @recording, agent_args: agent_args)
+      end
+
+      def pending_calls(source)
+        return [] unless source.respond_to?(:tool_calls)
+
+        Array(source.tool_calls)
       end
 
       def text_event?(event)

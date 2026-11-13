@@ -3,17 +3,22 @@
 module RecordingStudioAgents
   class ChatkitController < ApplicationController
     include ActionController::Live
+    include RequestContext
 
     layout false
 
     def create
-      actor = resolve(:request_actor)
-      root = resolve(:request_root)
-      return render_error("sign in is required", 401) if actor.blank? || root.blank?
+      actor = recording_studio_agents_resolve(:request_actor)
+      return signed_out if actor.blank?
+
+      root = recording_studio_agents_resolve(:request_root)
+      return signed_out if root.blank?
 
       render_result chat_result(actor, root)
     rescue ChatKit::ProtocolError => e
       render_error(e.message, e.status)
+    rescue RecordingStudioAI::Errors::ContractValidationError => e
+      render_error(e.message, e.code.to_s == "authorization" ? 403 : 400)
     end
 
     private
@@ -50,9 +55,8 @@ module RecordingStudioAgents
       response.headers["X-Accel-Buffering"] = "no"
     end
 
-    def resolve(name)
-      resolver = RecordingStudioAgents.configuration.public_send(name)
-      resolver.respond_to?(:call) ? resolver.call(self) : nil
+    def signed_out
+      render_error("sign in is required", 401)
     end
 
     def render_error(message, status)

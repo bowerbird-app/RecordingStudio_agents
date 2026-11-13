@@ -6,6 +6,13 @@ require "recording_studio_agents/mcp/chats"
 require "recording_studio_agents/mcp/items"
 require "recording_studio_agents/mcp/response_schemas"
 require "recording_studio_agents/mcp/registration"
+require "recording_studio_agents/mcp/chat_tools"
+require "recording_studio_agents/mcp/chat_tool_call"
+require "recording_studio_agents/mcp/chat_tool_output"
+require "recording_studio_agents/mcp/chat_tool_limit"
+require "recording_studio_agents/mcp/chat_tool_log"
+require "recording_studio_agents/mcp/logs_registration"
+require "recording_studio_agents/mcp/api_actor"
 
 module RecordingStudioAgents
   module Mcp

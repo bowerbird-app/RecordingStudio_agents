@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html data-theme="<%= RecordingStudioAgents.configuration.popup_theme %>">
+  <head>
+    <title><%= t("recording_studio_agents.popups.show.document_title") %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "flat_pack/variables", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "flat_pack/application", "data-turbo-track": "reload" %>
+    <%# FlatPack empty states and the chat height are utility classes. This
+        document does not inherit the host page CSS, so it loads
+        config.popup_stylesheet (default "tailwind"). Nil skips the tag. %>
+    <% if (sheet = RecordingStudioAgents.configuration.popup_stylesheet.presence) %>
+      <%= stylesheet_link_tag sheet, "data-turbo-track": "reload" %>
+    <% end %>
+  </head>
+
+  <body>
+    <%= yield %>
+  </body>
+</html>

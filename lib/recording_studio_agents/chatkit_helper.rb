@@ -2,9 +2,34 @@
 
 module RecordingStudioAgents
   module ChatKitHelper
-    def recording_studio_agents_chatkit(endpoint: nil, page_recording: nil, chatkit_options: nil)
+    # Sign in uses target=_top, so the framed page needs that sandbox token.
+    POPUP_IFRAME_SANDBOX = %w[
+      allow-scripts
+      allow-same-origin
+      allow-forms
+      allow-popups
+      allow-top-navigation-by-user-activation
+    ].join(" ").freeze
+
+    # FlatPack assigns a random id unless one is passed. Turbo Drive matches
+    # data-turbo-permanent by that id, so a visit would drop the iframe and
+    # the open state. This id stays the same on every page that renders the launcher.
+    LAUNCHER_ELEMENT_ID = "recording_studio_agents_launcher"
+
+    def recording_studio_agents_launcher(label: "Open chat", title: "Chat", position: :bottom_left)
+      return unless RecordingStudioAgents.configuration.launcher
+
+      frame = render FlatPack::FloatingFrame::Component.new(
+        src: engine_route(:popup_path), title: title, label: label, icon: :chat,
+        position: position, padding: :none, sandbox: POPUP_IFRAME_SANDBOX, allow: "clipboard-write",
+        id: LAUNCHER_ELEMENT_ID, data: { turbo_permanent: true }
+      )
+      safe_join([frame, javascript_include_tag("recording_studio_agents/launcher", "data-turbo-track": "reload")])
+    end
+
+    def recording_studio_agents_chatkit(endpoint: nil, page_recording: nil, chatkit_options: nil, fill: false)
       append_chatkit_views
-      render partial: chatkit_partial, locals: chatkit_locals(endpoint, page_recording, chatkit_options)
+      render partial: chatkit_partial, locals: chatkit_locals(endpoint, page_recording, chatkit_options, fill)
     end
 
     private
@@ -20,13 +45,14 @@ module RecordingStudioAgents
       ChatKit::Readiness.configured? ? "recording_studio_agents/chatkit/frame" : "recording_studio_agents/chatkit/setup"
     end
 
-    def chatkit_locals(endpoint, page_recording, chatkit_options)
+    def chatkit_locals(endpoint, page_recording, chatkit_options, fill)
       {
         endpoint: scoped_endpoint(endpoint, page_recording),
         chatkit_options: resolved_chatkit_options(chatkit_options),
         missing: ChatKit::Readiness.missing,
         credential: ChatKit::Readiness.credential,
-        credential_label: ChatKit::Readiness.credential_label
+        credential_label: ChatKit::Readiness.credential_label,
+        fill: fill
       }
     end
 
@@ -37,12 +63,16 @@ module RecordingStudioAgents
     end
 
     def scoped_endpoint(endpoint, page_recording)
-      path = endpoint.presence || recording_studio_agents.chatkit_path
+      path = endpoint.presence || engine_route(:chatkit_path)
       return path if page_recording.nil?
 
       id = page_recording_id(page_recording)
       joiner = path.include?("?") ? "&" : "?"
       "#{path}#{joiner}#{ScopedParent::QUERY_PARAM}=#{ERB::Util.url_encode(id)}"
+    end
+
+    def engine_route(name)
+      RecordingStudioAgents::Engine.routes.url_helpers.public_send(name)
     end
 
     def page_recording_id(page_recording)

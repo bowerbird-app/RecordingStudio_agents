@@ -34,6 +34,8 @@ config.layout = ->(controller:) { controller.action_name == "show" ? "applicatio
 
 A number, a blank string, or a callable with a positional parameter raises `ArgumentError`.
 
+The ChatKit popup (`PopupsController#show`) always uses `recording_studio_agents/popup`. That shell is the document, the stylesheets, and the chat. It ignores `config.layout`, so a host nav does not wrap the iframe. The utility stylesheet is `config.popup_stylesheet` (default `tailwind`). Set it to `nil` to skip that tag. The document theme is `config.popup_theme` (default `rounded`).
+
 ## Set the heading and the nav
 
 The default layout draws one page title from the view. In the template:
