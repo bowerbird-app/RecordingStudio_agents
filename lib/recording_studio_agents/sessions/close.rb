@@ -71,7 +71,7 @@ module RecordingStudioAgents
 
       def purge!(recording)
         recording.child_recordings.to_a.each { |child| purge!(child) }
-        snapshots = recording.recordables
+        snapshots = recording.recordables(all: true)
         clear_rows(recording)
         recording.destroy!
         delete_snapshots(snapshots)

@@ -8,7 +8,7 @@ gemspec
 # GitHub-only gems. The gemspec pins the versions; these lines give Bundler a source.
 # FlatPack v0.1.356. FloatingFrame shipped in v0.1.354.
 gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.356"
-gem "recording_studio", ">= 6.1.0", github: "bowerbird-app/RecordingStudio", tag: "v6.7.0"
+gem "recording_studio", ">= 6.12.0", github: "bowerbird-app/RecordingStudio", tag: "v6.12.0"
 gem "recording_studio_accessible", github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.32.0"
 gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.21.2"
 gem "recording_studio_api", github: "bowerbird-app/RecordingStudio_api", tag: "v0.23.0"

@@ -319,6 +319,24 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_empty @calls[:delete_session]
   end
 
+  test "close deletes every snapshot when a chat has more than fifty recordables" do
+    recording = create_chat("hello", title: "Draft 0")
+    snapshot_ids = [recording.recordable_id]
+    51.times do |index|
+      recording = RecordingStudioAgents::Sessions::Rename.call(
+        root_recording: @root, recording: recording, actor: @user, title: "Draft #{index + 1}"
+      ).value!
+      snapshot_ids << recording.recordable_id
+    end
+
+    assert_operator snapshot_ids.uniq.size, :>, 50
+    recording_id = recording.id
+
+    assert_equal recording_id, close(recording)
+    assert_nil RecordingStudio::Recording.find_by(id: recording_id)
+    assert_equal 0, RecordingStudioAgents::Session.where(id: snapshot_ids).count
+  end
+
   test "close deletes the provider session and a second close is a no-op" do
     recording = create_chat("hello")
     recording_id = recording.id
