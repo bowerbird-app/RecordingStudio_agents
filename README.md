@@ -8,7 +8,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
-- Recording Studio `~> 6.0, >= 6.1.0` (dummy GitHub tag `v6.7.0`)
+- Recording Studio `~> 6.0, >= 6.12.0` (dummy GitHub tag `v6.12.0`)
 - Recording Studio AI `>= 0.21.2, < 1.0` (dummy GitHub tag `v0.21.2`)
 - Recording Studio Metrics dummy GitHub tag `v0.8.0`
 - Accessible dummy GitHub tag `v0.32.0`
@@ -36,7 +36,7 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 ```ruby
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
 gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.356"
-gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v6.7.0"
+gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v6.12.0"
 gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.21.2"
 gem "recording_studio_api", github: "bowerbird-app/RecordingStudio_api", tag: "v0.23.0"
 gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.7.4"

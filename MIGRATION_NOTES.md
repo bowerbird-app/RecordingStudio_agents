@@ -5,7 +5,7 @@
 - Gem version `0.11.1`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
-- Recording Studio `~> 6.0, >= 6.1.0` (dummy GitHub tag `v6.7.0`)
+- Recording Studio `~> 6.0, >= 6.12.0` (dummy GitHub tag `v6.12.0`)
 - Recording Studio AI `>= 0.21.2, < 1.0` (dummy GitHub tag `v0.21.2`)
 - Metrics dummy tag `v0.8.0`
 - Logs dummy tag `v0.7.4` (GitHub-only; AI 0.21.2 depends on it)
@@ -29,6 +29,8 @@ On a screen, set `content_for :title` and, when you have one, `content_for :subt
 ## Sibling gems
 
 The dummy keeps the pins in the Requirements list. Accessible `v0.32.0`, Trashable `v0.14.0`, Cache `v0.6.3`, Attachable `v0.23.0`, Site Settings `v0.5.6`, and Icons `v0.2.1` accept Recording Studio `>= 6.1.0`. The Gemfiles pin those tags. There is no Bundler gemspec rewrite.
+
+Recording Studio 6.9 requires `recording_studio_events.root_recording_id`. Copy `AddRootRecordingIdToRecordingStudioEvents` from core and run `bin/rails db:migrate`. Closing a chat calls `recording.recordables(all: true)` so every session snapshot is deleted. Core 6.12 returns 50 events unless `all: true`.
 
 Recording Studio 6.5 refuses `record!` unless `config.authorize_write` is set. The dummy allows a write when an actor is present. Trashable `v0.14.0` adds nullable `purge_at` on `recording_studio_recordings`. Copy that migration and run `bin/rails db:migrate`, then `bin/rails recording_studio_trashable:restamp_purge_at` on a database that already has trash. Root Switchable `v0.15.0` requires an Accessible `:view` grant on the current root before the mounted switch page renders. A blank current root still requires an actor.
 
