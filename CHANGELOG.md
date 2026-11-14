@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-14
+
 ### Changed
 - Require Recording Studio `~> 6.0, >= 6.12.0`. The root and dummy Gemfiles pin GitHub tag `v6.12.0`.
 - Closing a chat loads `recording.recordables(all: true)` and deletes every session snapshot. Core 6.12 returns 50 events from `recordables` unless `all: true`.

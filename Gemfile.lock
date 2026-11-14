@@ -115,7 +115,7 @@ GIT
 PATH
   remote: .
   specs:
-    recording_studio_agents (0.11.1)
+    recording_studio_agents (0.12.0)
       flat_pack (>= 0.1.354)
       rails (~> 8.1.0)
       recording_studio (~> 6.0, >= 6.12.0)
@@ -529,7 +529,7 @@ CHECKSUMS
   rdoc (8.1.0) sha256=befc37880a5cfd36dcb176c748b5fd5ee39dd3536a75e81824e4972ce230f60a
   recording_studio (6.12.0)
   recording_studio_accessible (0.32.0)
-  recording_studio_agents (0.11.1)
+  recording_studio_agents (0.12.0)
   recording_studio_ai (0.21.2)
   recording_studio_api (0.23.0)
   recording_studio_icons (0.2.1)
