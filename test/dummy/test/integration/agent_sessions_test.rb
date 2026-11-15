@@ -7,8 +7,8 @@ class AgentSessionsTest < ActiveSupport::TestCase
 
   setup do
     @user = User.create!(email: "agent-#{SecureRandom.hex(4)}@example.com", password: "Password")
-    @root = RecordingStudio.root_recording_for(Workspace.create!(name: "Agent #{SecureRandom.hex(4)}"))
-    @other_root = RecordingStudio.root_recording_for(Workspace.create!(name: "Other #{SecureRandom.hex(4)}"))
+    @root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Agent #{SecureRandom.hex(4)}"), actor: @user)
+    @other_root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Other #{SecureRandom.hex(4)}"), actor: @user)
     grant_edit(@user, @root)
     grant_edit(@user, @other_root)
     @calls = Hash.new { |calls, name| calls[name] = [] }

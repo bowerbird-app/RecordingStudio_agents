@@ -8,7 +8,7 @@ class ChatkitRunsTableTest < ActionDispatch::IntegrationTest
 
   setup do
     @user = User.create!(email: "runs-#{SecureRandom.hex(4)}@example.com", password: "Password")
-    @root = RecordingStudio.root_recording_for(Workspace.create!(name: "Runs #{SecureRandom.hex(4)}"))
+    @root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Runs #{SecureRandom.hex(4)}"), actor: @user)
     grant_edit(@user, @root)
     sign_in @user
     @configuration = RecordingStudioAgents.configuration

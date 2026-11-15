@@ -698,7 +698,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   end
 
   def workspace_root(prefix)
-    RecordingStudio.root_recording_for(Workspace.create!(name: "#{prefix} #{SecureRandom.hex(4)}"))
+    RecordingStudio.create_root_recording!(Workspace.create!(name: "#{prefix} #{SecureRandom.hex(4)}"), actor: @user)
   end
 
   def post_mcp(method, params = nil)
