@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-11-15
+
+### Changed
+- Dummy lockfile updates `omniauth` from `2.1.4` to `2.2.0`, the lowest release that patches CVE-2026-63183. The root bundle does not depend on `omniauth`.
+
 ## [0.12.1] - 2026-11-15
 
 ### Changed
