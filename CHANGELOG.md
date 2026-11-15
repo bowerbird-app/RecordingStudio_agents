@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-15
+
+### Changed
+- Allow recording_studio < 8.0 (core 7 phase 1)
+
 ## [0.12.0] - 2026-11-14
 
 ### Changed

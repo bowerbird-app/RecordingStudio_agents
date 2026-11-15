@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.12.0", ::RecordingStudioAgents::VERSION
+    assert_equal "0.12.1", ::RecordingStudioAgents::VERSION
   end
 
   def test_engine_exists
@@ -15,7 +15,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     gemspec = File.read(File.expand_path("../recording_studio_agents.gemspec", __dir__))
 
     assert_includes gemspec, 'spec.add_dependency "flat_pack", ">= 0.1.354"'
-    assert_includes gemspec, 'spec.add_dependency "recording_studio", "~> 6.0", ">= 6.12.0"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio", ">= 6.12.0", "< 8.0"'
     assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", ">= 0.21.2", "< 1.0"'
     assert_includes gemspec, 'spec.add_dependency "recording_studio_api", ">= 0.23.0", "< 1.0"'
     assert_includes gemspec, 'spec.add_dependency "view_component", ">= 4.14", "< 5"'
