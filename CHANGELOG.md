@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-15
+
 ### Changed
 - Require Recording Studio `>= 7.0, < 8.0`. The root and dummy Gemfiles pin GitHub tag `v7.0.0`.
 - Require Recording Studio AI `>= 0.22.0, < 1.0` and Recording Studio API `>= 0.24.0, < 1.0`.
