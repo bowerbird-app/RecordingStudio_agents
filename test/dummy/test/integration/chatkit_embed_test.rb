@@ -150,7 +150,7 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
   test "a missing press kit page shows a seed notice instead of the workspace chat" do
     @configuration.chatkit_domain_key = "domain_pk_test"
     @ai.openai_api_key = "sk-test"
-    root = RecordingStudio.root_recording_for(Workspace.create!(name: "Empty #{SecureRandom.hex(4)}"))
+    root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Empty #{SecureRandom.hex(4)}"), actor: @user)
     previous_root = @configuration.request_root
     @configuration.request_root = ->(*) { root }
 
@@ -174,7 +174,7 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
         api: { url: "https://evil.example/chatkit" }
       }
     end
-    root = RecordingStudio.root_recording_for(Workspace.create!(name: "Embed #{SecureRandom.hex(4)}"))
+    root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Embed #{SecureRandom.hex(4)}"), actor: @user)
     root.record(Page, actor: @user) { |page| page.title = "Press kit" }
     previous_root = @configuration.request_root
     @configuration.request_root = ->(*) { root }

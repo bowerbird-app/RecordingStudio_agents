@@ -134,7 +134,7 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
   end
 
   test "a denied execute returns forbidden instead of an error page" do
-    root = RecordingStudio.root_recording_for(Workspace.create!(name: "Popup #{SecureRandom.hex(4)}"))
+    root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Popup #{SecureRandom.hex(4)}"), actor: @user)
     grant_edit(@user, root)
     @configuration.request_actor = ->(*) { @user }
     @configuration.request_root = ->(*) { root }
@@ -338,7 +338,7 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
   end
 
   def sign_in_with_workspace
-    root = RecordingStudio.root_recording_for(Workspace.create!(name: "Popup #{SecureRandom.hex(4)}"))
+    root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Popup #{SecureRandom.hex(4)}"), actor: @user)
     grant_edit(@user, root)
     sign_in @user
     root

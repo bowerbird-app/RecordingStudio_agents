@@ -5,8 +5,8 @@ require "test_helper"
 class ChatkitProtocolTest < ActionDispatch::IntegrationTest
   setup do
     @user = User.create!(email: "chatkit-#{SecureRandom.hex(4)}@example.com", password: "Password")
-    @root = RecordingStudio.root_recording_for(Workspace.create!(name: "Chat #{SecureRandom.hex(4)}"))
-    @other_root = RecordingStudio.root_recording_for(Workspace.create!(name: "Other #{SecureRandom.hex(4)}"))
+    @root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Chat #{SecureRandom.hex(4)}"), actor: @user)
+    @other_root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Other #{SecureRandom.hex(4)}"), actor: @user)
     grant_edit(@user, @root)
     @calls = Hash.new { |calls, name| calls[name] = [] }
     @stream = [event("message_completed", text: "Saved reply"), event("turn_completed")]

@@ -28,7 +28,7 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
     sign_in user
 
     workspace = Workspace.create!(name: "Dropdown Workspace")
-    RecordingStudio.root_recording_for(workspace)
+    RecordingStudio.create_root_recording!(workspace, actor: user)
 
     get root_path
 
@@ -46,7 +46,7 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
     sign_in user
 
     workspace = Workspace.create!(name: "Switch Page Workspace")
-    RecordingStudio.root_recording_for(workspace)
+    RecordingStudio.create_root_recording!(workspace, actor: user)
     grant_view_on_all_workspaces(user)
 
     get "/recording_studio_root_switchable/v1/root_switch?scope=all_workspaces"
@@ -66,8 +66,8 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
 
     source_workspace = Workspace.create!(name: "Source Workspace")
     target_workspace = Workspace.create!(name: "Target Workspace")
-    target_root_recording = RecordingStudio.root_recording_for(target_workspace)
-    RecordingStudio.root_recording_for(source_workspace)
+    target_root_recording = RecordingStudio.create_root_recording!(target_workspace, actor: user)
+    RecordingStudio.create_root_recording!(source_workspace, actor: user)
     grant_view_on_all_workspaces(user)
 
     patch "/recording_studio_root_switchable/v1/root_switch", params: {
@@ -91,8 +91,8 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
 
     source_workspace = Workspace.create!(name: "Fallback Source Workspace")
     target_workspace = Workspace.create!(name: "Fallback Target Workspace")
-    target_root_recording = RecordingStudio.root_recording_for(target_workspace)
-    RecordingStudio.root_recording_for(source_workspace)
+    target_root_recording = RecordingStudio.create_root_recording!(target_workspace, actor: user)
+    RecordingStudio.create_root_recording!(source_workspace, actor: user)
     grant_view_on_all_workspaces(user)
 
     patch "/recording_studio_root_switchable/v1/root_switch", params: {
@@ -108,12 +108,14 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
 
   private
 
-  # Root Switchable 0.15 checks `:view` on the resolved current root, which is
+  # Root Switchable checks `:view` on the resolved current root, which is
   # the first workspace when the device has no saved selection. Seeds load
   # other workspaces ahead of the ones this test creates.
   def grant_view_on_all_workspaces(actor)
     Workspace.find_each do |workspace|
-      grant_view(actor, RecordingStudio.root_recording_for(workspace))
+      root = RecordingStudio.root_recording_for(workspace) ||
+        RecordingStudio.create_root_recording!(workspace, actor: actor)
+      grant_view(actor, root)
     end
   end
 

@@ -9,7 +9,7 @@ class ChatToolWriteCapConcurrencyTest < ActiveSupport::TestCase
     skip "SQLite cannot share a connection across threads" if sqlite?
 
     @user = User.create!(email: "race-#{SecureRandom.hex(4)}@example.com", password: "Password")
-    @root = RecordingStudio.root_recording_for(Workspace.create!(name: "Race #{SecureRandom.hex(4)}"))
+    @root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Race #{SecureRandom.hex(4)}"), actor: @user)
     grant_edit(@user, @root)
     @configuration = RecordingStudioAgents.configuration
     @previous_writes = @configuration.mcp_max_writes_per_turn

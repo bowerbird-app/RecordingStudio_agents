@@ -9,7 +9,7 @@ class PressKitsTest < ActionDispatch::IntegrationTest
   setup do
     @user = User.create!(email: "kits-#{SecureRandom.hex(4)}@example.com", password: "Password")
     sign_in @user
-    @root = RecordingStudio.root_recording_for(Workspace.create!(name: "Kits #{SecureRandom.hex(4)}"))
+    @root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Kits #{SecureRandom.hex(4)}"), actor: @user)
     @configuration = RecordingStudioAgents.configuration
     @previous_domain_key = @configuration.chatkit_domain_key
     @previous_provider = @configuration.provider
@@ -156,7 +156,7 @@ class PressKitsTest < ActionDispatch::IntegrationTest
   end
 
   test "a kit outside the current workspace is not shown" do
-    other = RecordingStudio.root_recording_for(Workspace.create!(name: "Elsewhere #{SecureRandom.hex(4)}"))
+    other = RecordingStudio.create_root_recording!(Workspace.create!(name: "Elsewhere #{SecureRandom.hex(4)}"), actor: @user)
     foreign = other.record(PressKit, actor: @user) do |press_kit|
       press_kit.name = "Other kit"
       press_kit.description = "Not here"

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Require Recording Studio `>= 7.0, < 8.0`. The root and dummy Gemfiles pin GitHub tag `v7.0.0`.
+- Require Recording Studio AI `>= 0.22.0, < 1.0` and Recording Studio API `>= 0.24.0, < 1.0`.
+- Dummy pins that cannot install on core 7 move to the known-good tags: AI `v0.22.0`, API `v0.24.0`, Accessible `v0.44.0`, Trashable `v0.17.0`, Root Switchable `v0.16.0`, Moveable `v5.0.0`, Admin `v2.16.0`, Metrics `v0.9.0`, Logs `v0.8.0`, and Users `v0.30.0`. MCP `v0.33.3` and Oauth `v0.21.9` open the core constraint that `v0.33.2` and `v0.21.7` locked to `~> 6.0`.
+- `root_recording_for` is find-only. Seeds and tests create roots with `create_root_recording!(recordable, actor:)`. The dummy keeps a simple `config.authorize_write` callback. Trashable 0.17 seed lookups use `Recording.kept`.
+
 ## [0.12.2] - 2026-11-15
 
 ### Changed
