@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-16
+
 ### Changed
 - Require Recording Studio `>= 7.0.0, < 8.0`, Recording Studio AI `>= 0.22.0, < 2.0`, and Recording Studio API `>= 0.26.0, < 2.0`. The four chat `:id` endpoints register `recordable_type: "RecordingStudioAgents::Session"`. Read, append, and item handlers authorize that chat (`:view` to read, `:edit` to append). HTTP requests use `context.recording`. MCP 0.33 leaves that field empty, so the handler resolves the same scoped recording with `ScopedRecording.find!` when it is absent.
 - Dummy API pin is `v0.26.0`. API `1.1.0` needs Recording Studio `>= 7.1`, and the newest MCP and Attachable releases still require API `< 1.0`, so 1.x does not install on this core 7.0 dummy. Attachable moves to `v0.28.0` and the dummy FlatPack pin moves to `v0.1.376` so Bundler can resolve API 0.26. Users `v0.31.0` still registers `users/:id` without `scope_id: false`, so the dummy initializer opts that user-id path out of recording scope and the dummy can boot.
