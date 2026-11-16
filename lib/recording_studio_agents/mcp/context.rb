@@ -30,6 +30,35 @@ module RecordingStudioAgents
         context.access_grant.authorize!(recording: recording, role: role)
       end
 
+      def scoped_session(context, role)
+        recording = session_recording(context)
+        authorize!(context, recording, role)
+        recording
+      end
+
+      def session_recording(context)
+        requested = value(context, :id).to_s
+        current = context.recording if context.respond_to?(:recording)
+        return current if current && current.id.to_s == requested
+
+        find_scoped_session(context, requested)
+      end
+
+      def find_scoped_session(context, requested)
+        missing = requested.empty? || !scoped_session_lookup?
+        raise ChatKit::ProtocolError.new("chat was not found", status: 404) if missing
+
+        RecordingStudioApi::ScopedRecording.find!(
+          access_grant: context.access_grant,
+          id: requested,
+          recordable_type: RecordingStudioAgents::Mcp::Registration::SESSION_RECORDABLE_TYPE
+        )
+      end
+
+      def scoped_session_lookup?
+        defined?(RecordingStudioApi::ScopedRecording)
+      end
+
       def root(context)
         recording = context.root_recording
         raise Error, "root is required" if recording.nil?

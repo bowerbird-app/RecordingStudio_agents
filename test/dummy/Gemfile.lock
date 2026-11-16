@@ -80,10 +80,10 @@ GIT
 
 GIT
   remote: https://github.com/bowerbird-app/RecordingStudio_api.git
-  revision: 76852de6b5e77943f6604ee74921f62510c63d56
-  tag: v0.24.0
+  revision: 7e7bcdb9bfb6b5e347e4f43756936e3628ad1f14
+  tag: v0.26.0
   specs:
-    recording_studio_api (0.24.0)
+    recording_studio_api (0.26.0)
       flat_pack (>= 0.1.341)
       rails (~> 8.1.0)
       recording_studio (>= 7.0, < 8.0)
@@ -97,15 +97,15 @@ GIT
 
 GIT
   remote: https://github.com/bowerbird-app/RecordingStudio_attachable.git
-  revision: 82edaff1cf6a8ec1a401ece52995af5ae64f6193
-  tag: v0.23.0
+  revision: 082c7cf98ae76aadaeb36f8270351caf23ff521a
+  tag: v0.28.0
   specs:
-    recording_studio_attachable (0.23.0)
-      flat_pack (>= 0.1.315)
+    recording_studio_attachable (0.28.0)
+      flat_pack (>= 0.1.376)
       rails (~> 8.1.0)
-      recording_studio (>= 6.1.0)
-      recording_studio_api (~> 0.23)
-      recording_studio_metrics (>= 0.3.0, < 1.0)
+      recording_studio (>= 7.0, < 8.0)
+      recording_studio_api (>= 0.24.0, < 1.0)
+      recording_studio_metrics (>= 0.9.0, < 1.0)
 
 GIT
   remote: https://github.com/bowerbird-app/RecordingStudio_cache.git
@@ -221,10 +221,10 @@ GIT
 
 GIT
   remote: https://github.com/bowerbird-app/flatpack.git
-  revision: 7f669689ce8aa080bb5de8b0f14ed01b395d6054
-  tag: v0.1.356
+  revision: ac354989b3a48f7001aa28eef04620c02229b4b7
+  tag: v0.1.376
   specs:
-    flat_pack (0.1.356)
+    flat_pack (0.1.376)
       pagy (~> 9.0)
       rails (>= 7.1, < 9)
       tailwind_merge (>= 0.13, < 2)
@@ -238,7 +238,7 @@ PATH
       rails (~> 8.1.0)
       recording_studio (>= 7.0, < 8.0)
       recording_studio_ai (>= 0.22.0, < 1.0)
-      recording_studio_api (>= 0.24.0, < 1.0)
+      recording_studio_api (>= 0.26, < 2.0)
       view_component (>= 4.14, < 5)
 
 GEM
@@ -741,7 +741,7 @@ DEPENDENCIES
   bundler-audit
   debug
   devise
-  flat_pack (>= 0.1.356)!
+  flat_pack (>= 0.1.376)!
   image_processing (~> 2.2)
   importmap-rails
   jbuilder
@@ -836,7 +836,7 @@ CHECKSUMS
   ffi (1.17.4-x86_64-darwin) sha256=aa70390523cf3235096cf64962b709b4cfbd5c082a2cb2ae714eb0fe2ccda496
   ffi (1.17.4-x86_64-linux-gnu) sha256=9d3db14c2eae074b382fa9c083fe95aec6e0a1451da249eab096c34002bc752d
   ffi (1.17.4-x86_64-linux-musl) sha256=3fdf9888483de005f8ef8d1cf2d3b20d86626af206cbf780f6a6a12439a9c49e
-  flat_pack (0.1.356)
+  flat_pack (0.1.376)
   fugit (1.14.0) sha256=e311a9cc85a54bb67649df45060e721282a1e2c8ebad40e41874a3a7d576f37e
   globalid (1.4.0) sha256=037f12fbf1d9d7a014d501c2d5c77356fd4ddd96d7a7991d6700bba96706f427
   hana (1.3.7) sha256=5425db42d651fea08859811c29d20446f16af196308162894db208cac5ce9b0d
@@ -926,8 +926,8 @@ CHECKSUMS
   recording_studio_admin (2.16.0)
   recording_studio_agents (0.14.0)
   recording_studio_ai (0.22.0)
-  recording_studio_api (0.24.0)
-  recording_studio_attachable (0.23.0)
+  recording_studio_api (0.26.0)
+  recording_studio_attachable (0.28.0)
   recording_studio_cache (0.6.3)
   recording_studio_icons (0.2.1)
   recording_studio_logs (0.8.0)

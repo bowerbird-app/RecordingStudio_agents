@@ -8,7 +8,7 @@ class McpToolsTest < Minitest::Test
       [recording, role, include_trashed]
     end
   end
-  ToolContext = Struct.new(:access_grant, :root_recording, :params)
+  ToolContext = Struct.new(:access_grant, :root_recording, :params, :recording)
   Recording = Struct.new(:id, :recordable)
   Recordable = Struct.new(:title)
   ServiceResult = Struct.new(:recording) do
@@ -31,6 +31,7 @@ class McpToolsTest < Minitest::Test
   def test_list_and_read_authorize_view
     catalog = catalog_double(threads: { data: [{ id: "chat-1" }], has_more: false, after: nil })
     @context.params = { "limit" => 5, id: "chat-1" }
+    @context.recording = Recording.new("chat-1", nil)
     roles = []
     watch_grant(roles)
 
@@ -51,9 +52,15 @@ class McpToolsTest < Minitest::Test
   def test_create_and_append_authorize_edit_and_pass_the_grant
     created = Recording.new("chat-9", Recordable.new("Hello"))
     appended = Recording.new("chat-9", nil)
+    @context.recording = created
     @context.params = { input: "Hello", idempotency_key: "key-1", title: "Hello", id: "chat-9" }
     seen = []
     recorded = []
+    authorized = []
+    @context.access_grant.define_singleton_method(:authorize!) do |recording:, role:, include_trashed: false|
+      authorized << [recording, role]
+      [recording, role, include_trashed]
+    end
 
     RecordingStudioAgents::Sessions::Create.stub(:call, lambda { |**kwargs|
       seen << kwargs[:access_grant]
@@ -62,6 +69,7 @@ class McpToolsTest < Minitest::Test
     }) do
       RecordingStudioAgents::Sessions::Append.stub(:call, lambda { |**kwargs|
         seen << kwargs[:access_grant]
+        recorded << kwargs
         ServiceResult.new(appended)
       }) do
         assert_equal({ id: "chat-9", title: "Hello" }, RecordingStudioAgents::Mcp::Chats::Create.call(@context))
@@ -72,6 +80,8 @@ class McpToolsTest < Minitest::Test
     assert_same @actor, recorded.first[:actor]
     assert_same @actor, recorded.first[:event_actor]
     assert_equal({}, recorded.first[:metadata])
+    assert_equal [[@root, :edit], [created, :edit]], authorized
+    assert_same created, recorded.last[:recording]
   end
 
   def test_create_records_the_client_and_keeps_the_permission_actor
@@ -107,6 +117,7 @@ class McpToolsTest < Minitest::Test
     recording = Recording.new("chat-1", nil)
     item = Object.new
     catalog = catalog_double(found: recording)
+    @context.recording = recording
     @context.params = { "id" => "chat-1", "item_id" => "item-1", "order" => "asc" }
     page = { data: [{ id: "item-1" }], has_more: true, after: "item-1" }
 
@@ -125,26 +136,15 @@ class McpToolsTest < Minitest::Test
   end
 
   def test_context_maps_protocol_isolation_and_input_errors
-    forbidden = Object.new
-    def forbidden.find!(_id)
-      raise RecordingStudioAgents::ChatKit::ProtocolError.new("no", status: 403)
-    end
-    missing = Object.new
-    def missing.find!(_id)
-      raise RecordingStudioAgents::ChatKit::ProtocolError.new("gone", status: 404)
-    end
     @context.params = { id: "missing" }
-
-    RecordingStudioAgents::ChatKit::Catalog.stub(:new, forbidden) do
-      assert_raises(RecordingStudioApi::AuthorizationError) do
-        RecordingStudioAgents::Mcp::Chats::Read.call(@context)
-      end
+    @context.recording = nil
+    assert_raises(RecordingStudioApi::NotFoundError) do
+      RecordingStudioAgents::Mcp::Chats::Read.call(@context)
     end
 
-    RecordingStudioAgents::ChatKit::Catalog.stub(:new, missing) do
-      assert_raises(RecordingStudioApi::NotFoundError) do
-        RecordingStudioAgents::Mcp::Chats::Read.call(@context)
-      end
+    @context.recording = Recording.new("other-chat", nil)
+    assert_raises(RecordingStudioApi::NotFoundError) do
+      RecordingStudioAgents::Mcp::Chats::Read.call(@context)
     end
 
     RecordingStudioAgents::Sessions::Create.stub(:call, ->(**) { raise RecordingStudioAgents::IsolationError }) do
@@ -187,13 +187,11 @@ class McpToolsTest < Minitest::Test
     assert_equal "root is required", error.message
 
     @context.root_recording = @root
+    @context.recording = Recording.new("chat-1", nil)
     @context.params = { id: "chat-1", item_id: "missing" }
-    catalog = catalog_double(found: Recording.new("chat-1", nil))
-    RecordingStudioAgents::ChatKit::Catalog.stub(:new, catalog) do
-      RecordingStudioAgents::Item.stub(:find_by, nil) do
-        assert_raises(RecordingStudioApi::NotFoundError) do
-          RecordingStudioAgents::Mcp::Items::Read.call(@context)
-        end
+    RecordingStudioAgents::Item.stub(:find_by, nil) do
+      assert_raises(RecordingStudioApi::NotFoundError) do
+        RecordingStudioAgents::Mcp::Items::Read.call(@context)
       end
     end
   end

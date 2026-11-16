@@ -28,16 +28,9 @@ module RecordingStudioAgents
       class Read
         def self.call(context)
           Context.call do
-            ChatKit::Payload.thread(viewed(context))
+            ChatKit::Payload.thread(Chats.scoped_chat(context, :view))
           end
         end
-
-        def self.viewed(context)
-          recording = Context.catalog(context).find!(Context.value(context, :id))
-          Context.authorize!(context, recording, :view)
-          recording
-        end
-        private_class_method :viewed
       end
 
       class Create
@@ -89,14 +82,18 @@ module RecordingStudioAgents
 
         def self.append_args(context)
           root = Context.root(context)
-          Context.authorize!(context, root, :edit)
+          recording = Chats.scoped_chat(context, :edit)
           {
             root_recording: root, actor: Context.actor(context), access_grant: context.access_grant,
-            recording_id: Context.value(context, :id), input: Context.value(context, :input),
+            recording: recording, input: Context.value(context, :input),
             idempotency_key: Context.value(context, :idempotency_key)
           }
         end
         private_class_method :append_args
+      end
+
+      def self.scoped_chat(context, role)
+        Context.scoped_session(context, role)
       end
     end
   end

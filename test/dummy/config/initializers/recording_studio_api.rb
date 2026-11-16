@@ -1,5 +1,19 @@
 # frozen_string_literal: true
 
+# Users 0.31 registers operations `users/:id` with neither recordable_type nor
+# scope_id: false. That token is a user id. API 0.26 raises ConfigurationError
+# unless the registration opts out of recording scope.
+module RecordingStudioAgentsDummyUsersScope
+  def register_endpoint(name, api: :public, path:, **kwargs)
+    if api.to_sym == :operations && path.to_s == "users/:id" && !kwargs.key?(:scope_id) && kwargs[:recordable_type].blank?
+      kwargs[:scope_id] = false
+    end
+
+    super(name, api: api, path: path, **kwargs)
+  end
+end
+RecordingStudioApi.singleton_class.prepend(RecordingStudioAgentsDummyUsersScope)
+
 RecordingStudioApi.configure do |config|
   config.admin_root_recordable_type_names = ["Workspace"]
   config.openapi_title = "Recording Studio API"

@@ -200,6 +200,62 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_equal [@alpha.id, @zulu.id].sort, roots.sort
   end
 
+  test "session id endpoints register a session recordable type" do
+    %i[agent_chats_read agent_chats_append agent_items_list agent_items_read].each do |name|
+      endpoint = RecordingStudioApi.registered_endpoint(name)
+
+      assert_equal "RecordingStudioAgents::Session", endpoint.recordable_type
+      endpoint.validate!
+      assert endpoint.scopes_recording?
+    end
+  end
+
+  test "a token scoped to one chat can read append and load items" do
+    @token = delegated_token(chat_access(@alpha_chat))
+
+    read = mcp_ok("agent_chats_read", { id: @alpha_chat.id })
+    assert_equal @alpha_chat.id, read.fetch("id")
+
+    appended = mcp_ok("agent_chats_append", {
+      id: @alpha_chat.id, input: "scoped hello", idempotency_key: "scoped-append"
+    })
+    assert_equal @alpha_chat.id, appended.fetch("id")
+
+    listed = mcp_ok("agent_items_list", { id: @alpha_chat.id })
+    assert listed.fetch("items").any?
+
+    item = RecordingStudioAgents::Item.find_by!(recording_id: @alpha_chat.id, idempotency_key: "scoped-append")
+    fetched = mcp_ok("agent_items_read", { id: @alpha_chat.id, item_id: item.id })
+    assert_equal item.id, fetched.fetch("id")
+  end
+
+  test "a token scoped to another chat or recording cannot read append or load items" do
+    other = create_chat(@alpha, "other hello", "other-key")
+    @token = delegated_token(chat_access(other))
+    before = RecordingStudioAgents::Item.where(recording_id: @alpha_chat.id).count
+
+    post_mcp("tools/call", name: "agent_chats_read", arguments: { id: @alpha_chat.id })
+    assert_tool_error("not found")
+
+    post_mcp("tools/call", name: "agent_chats_append", arguments: {
+      id: @alpha_chat.id, input: "nope", idempotency_key: "other-chat-append"
+    })
+    assert_tool_error("not found")
+
+    post_mcp("tools/call", name: "agent_items_list", arguments: { id: @alpha_chat.id })
+    assert_tool_error("not found")
+
+    item = RecordingStudioAgents::Item.find_by!(recording_id: @alpha_chat.id)
+    post_mcp("tools/call", name: "agent_items_read", arguments: { id: @alpha_chat.id, item_id: item.id })
+    assert_tool_error("not found")
+    assert_equal before, RecordingStudioAgents::Item.where(recording_id: @alpha_chat.id).count
+    assert_equal 0, RecordingStudioAgents::Item.where(idempotency_key: "other-chat-append").count
+
+    @token = delegated_token(kit_grant(@alpha))
+    post_mcp("tools/call", name: "agent_chats_read", arguments: { id: @alpha_chat.id })
+    assert_tool_error("not found")
+  end
+
   test "a view-only token cannot create or append" do
     @token = delegated_token(@alpha_access, role: "view")
     before = RecordingStudioAgents::Binding.count
@@ -678,6 +734,15 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def chat_access(recording, role: "edit")
+    granted = RecordingStudioAccessible.grant_access(
+      recording: recording, actor: @user, role: role, manager_actor: @user
+    )
+    raise granted.error.to_s unless granted.success?
+
+    granted.value
+  end
 
   def kit_grant(root)
     kit = record_press_kit(root, "Drawer #{SecureRandom.hex(2)}", "The grant lives on this kit")
