@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html data-theme="<%= RecordingStudioAgents.configuration.popup_theme %>">
+<html data-theme="<%= RecordingStudioAgents.configuration.popup_theme %>" data-recording-studio-agents-popup="true">
   <head>
-    <title><%= t("recording_studio_agents.popups.show.document_title") %></title>
+    <title><%= RecordingStudioAgents.configuration.popup_document_title %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
@@ -13,9 +13,11 @@
     <% if (sheet = RecordingStudioAgents.configuration.popup_stylesheet.presence) %>
       <%= stylesheet_link_tag sheet, "data-turbo-track": "reload" %>
     <% end %>
+    <%= stylesheet_link_tag "recording_studio_agents/popup", "data-turbo-track": "reload" %>
   </head>
 
   <body>
+    <%= javascript_include_tag "recording_studio_agents/page_context" %>
     <%= yield %>
   </body>
 </html>

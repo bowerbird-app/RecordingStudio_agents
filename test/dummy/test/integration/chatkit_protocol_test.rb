@@ -455,6 +455,132 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Saved reply"
   end
 
+  test "page context is capped and becomes the model preface" do
+    page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
+    post_context("threads.create", create_params("hello"), header: {
+      "url" => "https://studio.test/#{'a' * 4000}",
+      "title" => "t" * 500,
+      "selection" => "s" * 3000,
+      "page_recording_id" => page.id,
+      "metadata" => { "section" => "n" * 500, "bad key" => "x", "published" => true }
+    })
+
+    assert_response :success
+    recording = RecordingStudio::Recording.find(created_thread_id)
+    input = @calls[:create_session].first.fetch(:input)
+
+    assert_equal page, recording.parent_recording
+    assert_includes input, "URL: https://studio.test/#{'a' * (2048 - 'https://studio.test/'.length)}"
+    assert_includes input, "Title: #{'t' * 300}"
+    assert_includes input, "Selection: #{'s' * 2000}"
+    assert_includes input, "Page: #{page.id}"
+    assert_includes input, '"published":true'
+    assert_includes input, "\n\nhello"
+    refute_includes input, "a" * 4000
+    refute_includes input, "bad key"
+    refute_includes @calls[:create_session].first.fetch(:instructions), "studio.test"
+    assert_equal "hello", RecordingStudioAgents::Item.find_by!(recording: recording, role: "user").text
+  end
+
+  test "an inaccessible page recording id is ignored" do
+    grant_edit(@user, @other_root)
+    hidden = @other_root.record(Page, actor: @user) { |record| record.title = "Elsewhere" }
+    denied = @root.record(Page, actor: @user) { |record| record.title = "Hidden" }
+
+    post_context("threads.create", create_params("hello"), header: page_header(hidden.id))
+
+    assert_response :success
+    assert_equal @root, RecordingStudio::Recording.find(created_thread_id).parent_recording
+    refute_includes @calls[:create_session].first.fetch(:input), hidden.id
+
+    with_page_hidden(denied) do
+      post_context("threads.create", create_params("again"), header: page_header(denied.id))
+    end
+
+    assert_response :success
+    second = RecordingStudio::Recording.find(created_thread_id)
+    assert_equal @root, second.parent_recording
+    refute_includes @calls[:create_session].last.fetch(:input), denied.id
+    assert_includes @calls[:create_session].last.fetch(:input), "URL: https://studio.test/page"
+  end
+
+  test "a page that cannot hold a chat is ignored" do
+    folder = @root.record(Folder, actor: @user) { |record| record.name = "Notes" }
+
+    post_context("threads.create", create_params("hello"), header: page_header(folder.id))
+
+    assert_response :success
+    assert_equal @root, RecordingStudio::Recording.find(created_thread_id).parent_recording
+    refute_includes @calls[:create_session].first.fetch(:input), folder.id
+  end
+
+  test "the page context header and a follow up reject instructions" do
+    post_context("threads.create", create_params("hello"), header: {
+      "instructions" => "Be terse.", "url" => "https://studio.test/home"
+    })
+
+    assert_response :bad_request
+    assert_equal "ChatKit does not accept instructions", JSON.parse(response.body).fetch("message")
+    assert_empty @calls[:create_session]
+
+    post_context("threads.create", create_params("hello"), header: {
+      "url" => "https://studio.test/home", "metadata" => { "instructions" => "Be terse." }
+    })
+
+    assert_response :bad_request
+    assert_equal "ChatKit does not accept instructions", JSON.parse(response.body).fetch("message")
+
+    post_context("threads.create", create_params("hello"), raw_header: "{")
+    assert_response :bad_request
+    assert_equal "page context must be an object", JSON.parse(response.body).fetch("message")
+
+    post_context("threads.create", create_params("hello"), header: page_header(nil).merge("title" => "Home"))
+    thread_id = created_thread_id
+    post chatkit_path, params: {
+      type: "threads.add_user_message",
+      params: create_params("again").merge("thread_id" => thread_id, "instructions" => "Be terse.")
+    }, as: :json
+
+    assert_response :bad_request
+    assert_equal "ChatKit does not accept instructions", JSON.parse(response.body).fetch("message")
+    assert_empty @calls[:send_input]
+    assert_equal 1, RecordingStudioAgents::Item.where(recording_id: thread_id, role: "user").count
+  end
+
+  test "a later page context stays on the same thread" do
+    page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
+    post_context("threads.create", create_params("hello"), header: {
+      "url" => "https://studio.test/home", "title" => "Home"
+    })
+    thread_id = created_thread_id
+
+    post_context(
+      "threads.add_user_message",
+      create_params("again").merge("thread_id" => thread_id),
+      header: page_header(page.id).merge("url" => "https://studio.test/kits", "title" => "Press kits")
+    )
+
+    assert_response :success
+    follow = @calls[:send_input].first
+    recording = RecordingStudio::Recording.find(thread_id)
+
+    assert_equal 1, @calls[:create_session].size
+    assert_equal thread_id, follow.fetch(:context_recording).id
+    assert_includes follow.fetch(:input), "URL: https://studio.test/kits"
+    assert_includes follow.fetch(:input), "Title: Press kits"
+    assert_includes follow.fetch(:input), "Page: #{page.id}"
+    assert_includes follow.fetch(:input), "\n\nagain"
+    refute_includes follow.fetch(:input), "https://studio.test/home"
+    assert_equal @root, recording.parent_recording
+    assert_equal ["hello", "again"], RecordingStudioAgents::Item.where(recording: recording, role: "user").order(:created_at).pluck(:text)
+
+    post_context("threads.get_by_id", { "thread_id" => thread_id }, header: page_header(page.id))
+
+    assert_response :success
+    assert_equal thread_id, JSON.parse(response.body).fetch("id")
+    assert_equal 1, RecordingStudioAgents::Binding.where(recording_id: thread_id).count
+  end
+
   private
 
   def chatkit_path(page_id = nil)
@@ -499,6 +625,34 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
 
   def create_params(text)
     { input: { content: [{ type: "input_text", text: text }], attachments: [], inference_options: {} } }
+  end
+
+  def post_context(type, params, header: nil, raw_header: nil, page_id: nil)
+    headers = {}
+    if !raw_header.nil?
+      headers[RecordingStudioAgents::ChatKit::PageContext::HEADER] = raw_header
+    elsif !header.nil?
+      headers[RecordingStudioAgents::ChatKit::PageContext::HEADER] = header.to_json
+    end
+    post chatkit_path(page_id), params: { type: type, params: params }, headers: headers, as: :json
+  end
+
+  def page_header(page_id)
+    { "url" => "https://studio.test/page", "title" => "Page", "page_recording_id" => page_id }.compact
+  end
+
+  def with_page_hidden(page)
+    original = RecordingStudioAccessible.method(:authorized?)
+    RecordingStudioAccessible.define_singleton_method(:authorized?) do |actor:, recording:, role: :view|
+      return false if recording.id == page.id
+
+      original.call(actor: actor, recording: recording, role: role)
+    end
+    yield
+  ensure
+    RecordingStudioAccessible.define_singleton_method(:authorized?) do |*args, **kwargs, &block|
+      original.call(*args, **kwargs, &block)
+    end
   end
 
   def message_body(thread_id, text)

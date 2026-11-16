@@ -14,6 +14,7 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     @previous_sign_in_path = @configuration.sign_in_path
     @previous_stylesheet = @configuration.popup_stylesheet
     @previous_theme = @configuration.popup_theme
+    @previous_popup_title = @configuration.instance_variable_get(:@popup_title)
     @previous_actor = @configuration.request_actor
     @previous_root = @configuration.request_root
     @ai = RecordingStudioAI.configuration
@@ -29,6 +30,7 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     @configuration.sign_in_path = @previous_sign_in_path
     @configuration.popup_stylesheet = @previous_stylesheet
     @configuration.popup_theme = @previous_theme
+    @configuration.instance_variable_set(:@popup_title, @previous_popup_title)
     @configuration.request_actor = @previous_actor
     @configuration.request_root = @previous_root
     @ai.authorization_handler = @previous_handler
@@ -43,6 +45,10 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "ChatKit setup"
     assert_includes response.body, 'data-theme="rounded"'
+    assert_select "html[data-recording-studio-agents-popup=?]", "true"
+    assert_select "#recording-studio-agents-page-context", count: 0
+    assert_select "script[src*='recording_studio_agents/page_context']", count: 1
+    assert_select "script[src*='recording_studio_agents/launcher']", count: 0
     refute_includes response.body, "data-recording-studio-default-layout"
     refute_includes response.body, "page_recording_id"
     refute_includes response.body, "Sign in to chat"
@@ -121,6 +127,13 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Connectez-vous pour discuter"
     assert_includes response.body, "Se connecter"
     assert_includes response.body, "<title>Discussion</title>"
+
+    @configuration.popup_title = "Studio chat"
+    I18n.with_locale(:fr) do
+      get recording_studio_agents.popup_path
+    end
+
+    assert_includes response.body, "<title>Studio chat</title>"
   end
 
   test "a signed out chat request is refused" do
@@ -176,8 +189,15 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "openai-chatkit", count: 1
-    assert_includes response.body, "h-dvh"
+    assert_includes response.body, "recording-studio-agents-chat"
+    assert_select "link[rel=stylesheet][href*='recording_studio_agents/popup']", count: 1
+    refute_includes response.body, "h-dvh"
     refute_includes response.body, "h-[min(40rem,calc(100dvh-16rem))]"
+    popup_css = File.read(RecordingStudioAgents::Engine.root.join("app/assets/stylesheets/recording_studio_agents/popup.css"))
+    assert_includes popup_css, "overflow: hidden"
+    assert_includes popup_css, "height: 100%"
+    refute_includes popup_css, "overflow: auto"
+    refute_includes popup_css, "100dvh"
     assert_includes response.body, "/recording_studio_agents/chatkit"
     refute_includes response.body, "page_recording_id"
     refute_includes response.body, "sk-test"

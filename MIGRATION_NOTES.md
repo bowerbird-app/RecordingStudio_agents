@@ -2,7 +2,7 @@
 
 ## Current Requirements
 
-- Gem version `0.13.0`
+- Gem version `0.14.0`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `>= 7.0, < 8.0` (dummy GitHub tag `v7.0.0`)
@@ -25,6 +25,8 @@ Leave `config.layout` as `nil` to use `RecordingStudio.configuration.layout`, th
 On a screen, set `content_for :title` and, when you have one, `content_for :subtitle`. The default layout renders one `FlatPack::PageTitle`. Do not also render that title in the view body. The layout calls `strip` on those slots, which drops HTML safety, so pass the raw text with `html_safe`. `PageTitle` then escapes it once. Back and close go through `flat_pack_page_nav(round: true, style: :default, back_href:, back_tooltip:, anchor_href:, anchor_tooltip:)`. Page actions go through `register_page_nav`. Custom HTML on the right goes through `recording_studio_page_nav_right`.
 
 `FlatPack::Card` takes `background:`, `border:`, and `shadow:`. It rejects `style:`.
+
+The popup chat fills the iframe. `recording_studio_agents/popup.css` stops that document from scrolling. `config.launcher_icon` defaults to `:chat`, `config.launcher_label` to `"Open chat"`, and `config.popup_title` to `"Chat"`.
 
 ## Sibling gems
 

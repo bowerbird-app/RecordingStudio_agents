@@ -48,6 +48,10 @@ class ConfigurationTest < Minitest::Test
     assert_equal "tailwind", configuration.popup_stylesheet
     assert_equal "rounded", configuration.popup_theme
     assert_equal true, configuration.launcher
+    assert_equal :chat, configuration.launcher_icon
+    assert_equal "Open chat", configuration.launcher_label
+    assert_equal "Chat", configuration.popup_title
+    assert_equal "Chat", configuration.popup_document_title
     assert_equal false, configuration.allow_chat_tools_in_transaction
     assert_equal 10.minutes, configuration.chat_tool_stale_after
     assert_equal 2.minutes, configuration.chat_tool_deadline
@@ -303,5 +307,34 @@ class ConfigurationTest < Minitest::Test
     assert_raises(RecordingStudioAgents::Error) { @configuration.sign_in_path = 1 }
 
     assert_equal "/users/sign_in", @configuration.sign_in_path
+  end
+
+  def test_launcher_chrome_defaults_and_overrides
+    assert_equal :chat, @configuration.launcher_icon
+    assert_equal "Open chat", @configuration.launcher_label
+    assert_equal "Chat", @configuration.popup_title
+    assert_equal "Chat", @configuration.to_h.fetch(:popup_title)
+    assert_equal :chat, @configuration.to_h.fetch(:launcher_icon)
+
+    @configuration.merge!(launcher_icon: "Sparkles", launcher_label: "Ask", popup_title: "Studio chat")
+
+    assert_equal :sparkles, @configuration.launcher_icon
+    assert_equal "Ask", @configuration.launcher_label
+    assert_equal "Studio chat", @configuration.popup_title
+    assert_equal "Studio chat", @configuration.popup_document_title
+  end
+
+  def test_launcher_chrome_rejects_blank_text_and_a_bad_icon
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.launcher_label = "  " }
+    assert_match "launcher_label", error.message
+    assert_equal "Open chat", @configuration.launcher_label
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.popup_title = " " }
+    assert_match "popup_title", error.message
+    assert_equal "Chat", @configuration.popup_title
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.launcher_icon = "chat bubble" }
+    assert_match "launcher_icon", error.message
+    assert_equal :chat, @configuration.launcher_icon
   end
 end

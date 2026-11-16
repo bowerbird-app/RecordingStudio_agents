@@ -109,7 +109,7 @@ module RecordingStudioAgents
     attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key,
                   :popup_stylesheet, :popup_theme
     attr_reader :hooks, :default_profile, :retention_period, :provider, :instructions_override,
-                :max_instructions_length, :layout, :mcp_tools, :launcher
+                :max_instructions_length, :layout, :mcp_tools, :launcher, :launcher_icon, :launcher_label
 
     def initialize
       assign_defaults
@@ -118,6 +118,9 @@ module RecordingStudioAgents
       @popup_stylesheet = "tailwind"
       @popup_theme = "rounded"
       @launcher = true
+      @launcher_icon = :chat
+      @launcher_label = "Open chat"
+      @popup_title = nil
       @hooks = RecordingStudio::Hooks.new
     end
 
@@ -160,6 +163,33 @@ module RecordingStudioAgents
       @launcher = value
     end
 
+    def launcher_icon=(value)
+      name = value.to_s.strip.tr("-", "_")
+      raise Error, "launcher_icon must be an icon name" unless name.match?(/\A[a-z0-9]+(?:_[a-z0-9]+)*\z/i)
+
+      @launcher_icon = name.downcase.to_sym
+    end
+
+    def launcher_label=(value)
+      @launcher_label = required_text(value, "launcher_label")
+    end
+
+    # Panel heading and iframe name. The popup document title stays translated
+    # until a host sets this.
+    def popup_title
+      @popup_title || "Chat"
+    end
+
+    def popup_title=(value)
+      @popup_title = required_text(value, "popup_title")
+    end
+
+    def popup_document_title
+      return @popup_title if @popup_title
+
+      I18n.t("recording_studio_agents.popups.show.document_title", default: "Chat")
+    end
+
     def chatkit_options=(value)
       unless value.nil? || value.is_a?(Hash) || value.respond_to?(:call)
         raise Error, "chatkit_options must be a hash or a lambda"
@@ -177,10 +207,10 @@ module RecordingStudioAgents
       {
         instructions: instructions, instructions_override: instructions_override,
         max_instructions_length: max_instructions_length, default_profile: default_profile,
-        purpose: purpose, provider: provider, mcp_tools: mcp_tools, popup_stylesheet: popup_stylesheet,
-        retention_period: retention_period, popup_theme: popup_theme,
+        purpose: purpose, provider: provider, mcp_tools: mcp_tools,
+        retention_period: retention_period,
         hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size)
-      }.merge(mcp_limits)
+      }.merge(popup_settings, mcp_limits)
     end
 
     def merge!(hash)
@@ -222,6 +252,20 @@ module RecordingStudioAgents
       return symbol if allowed.include?(symbol)
 
       raise Error, "#{name} must be one of: #{allowed.join(', ')}"
+    end
+
+    def popup_settings
+      {
+        popup_stylesheet: popup_stylesheet, popup_theme: popup_theme, popup_title: popup_title,
+        launcher_label: launcher_label, launcher_icon: launcher_icon
+      }
+    end
+
+    def required_text(value, name)
+      text = value.is_a?(String) ? value.strip : nil
+      raise Error, "#{name} must be text" if text.blank?
+
+      text
     end
 
     def normalize_retention(value)

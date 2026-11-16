@@ -41,7 +41,14 @@ RecordingStudioAgents.configure do |config|
   # Flatpack theme on the popup document. The default is "rounded".
   # config.popup_theme = "rounded"
   # Set false and recording_studio_agents_launcher renders nothing. The default is on.
+  # The launcher posts the host page into the popup. It does not read the session cookie.
   # config.launcher = false
+  # Launcher button. Defaults keep the chat icon and "Open chat".
+  # config.launcher_icon = :chat
+  # config.launcher_label = "Open chat"
+  # Panel heading and iframe name. The default is "Chat".
+  # The popup document title stays translated until this is set.
+  # config.popup_title = "Chat"
 
   # Signed-in person for ChatKit and the popup. current_user when the controller
   # has it. A mounted engine controller usually does not, so the host session

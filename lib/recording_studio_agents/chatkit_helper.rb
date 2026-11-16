@@ -16,15 +16,11 @@ module RecordingStudioAgents
     # the open state. This id stays the same on every page that renders the launcher.
     LAUNCHER_ELEMENT_ID = "recording_studio_agents_launcher"
 
-    def recording_studio_agents_launcher(label: "Open chat", title: "Chat", position: :bottom_left)
+    def recording_studio_agents_launcher(label: nil, title: nil, icon: nil, position: :bottom_left)
       return unless RecordingStudioAgents.configuration.launcher
 
-      frame = render FlatPack::FloatingFrame::Component.new(
-        src: engine_route(:popup_path), title: title, label: label, icon: :chat,
-        position: position, padding: :none, sandbox: POPUP_IFRAME_SANDBOX, allow: "clipboard-write",
-        id: LAUNCHER_ELEMENT_ID, data: { turbo_permanent: true }
-      )
-      safe_join([frame, javascript_include_tag("recording_studio_agents/launcher", "data-turbo-track": "reload")])
+      frame = render FlatPack::FloatingFrame::Component.new(**launcher_frame(label, title, icon, position))
+      safe_join([frame, launcher_scripts])
     end
 
     def recording_studio_agents_chatkit(endpoint: nil, page_recording: nil, chatkit_options: nil, fill: false)
@@ -33,6 +29,21 @@ module RecordingStudioAgents
     end
 
     private
+
+    def launcher_frame(label, title, icon, position)
+      configuration = RecordingStudioAgents.configuration
+      {
+        src: engine_route(:popup_path), title: title || configuration.popup_title,
+        label: label || configuration.launcher_label, icon: icon || configuration.launcher_icon,
+        position: position, padding: :none, sandbox: POPUP_IFRAME_SANDBOX, allow: "clipboard-write",
+        id: LAUNCHER_ELEMENT_ID, data: { turbo_permanent: true }
+      }
+    end
+
+    def launcher_scripts
+      names = %w[recording_studio_agents/page_context recording_studio_agents/launcher]
+      safe_join(names.map { |name| javascript_include_tag(name, "data-turbo-track": "reload") })
+    end
 
     def append_chatkit_views
       root = Engine.root.join("app/views").to_s
