@@ -183,7 +183,15 @@ The launcher root has a stable id, `recording_studio_agents_launcher`, and `data
 <%= recording_studio_agents_launcher(label: "Ask", title: "Studio chat", position: :bottom_right) %>
 ```
 
-`label` names the launcher. `title` is the panel heading and the iframe name. `position` is `:bottom_left` (the default), `:bottom_right`, `:top_left`, or `:top_right`.
+`label` names the launcher. `title` is the panel heading and the iframe name. `icon` is the launcher icon. `position` is `:bottom_left` (the default), `:bottom_right`, `:top_left`, or `:top_right`. A keyword on that call wins over the config below.
+
+`config.launcher_label` defaults to `"Open chat"`. `config.launcher_icon` defaults to `:chat` (the chat bubble). `config.popup_title` defaults to `"Chat"` and is the panel heading and the iframe name. Set `popup_title` and the popup document `<title>` uses that text too. Leave it unset and the document title stays the locale string (`Chat` in English, `Discussion` in French).
+
+```ruby
+config.launcher_icon = :sparkles
+config.launcher_label = "Ask the studio"
+config.popup_title = "Studio chat"
+```
 
 `config.launcher` defaults to on and must be `true` or `false`. Set it to `false` and the helper renders nothing.
 
@@ -224,7 +232,7 @@ Set metadata as JSON on one element. Keys are short words, numbers, and undersco
 
 The launcher does not read or set the session cookie. `postMessage` does not send it. The popup and `POST /chatkit` still use the host session because the frame is same-site, which is unchanged. Cross-site framing stays unsupported. `frame-ancestors` is unchanged.
 
-The bare layout loads `config.popup_stylesheet`, which defaults to the host `tailwind` stylesheet. Set it to another asset name, or to `nil` to skip the tag. FlatPack's empty state and the chat height are utility classes, and this document does not inherit the host page's CSS.
+The bare layout loads `config.popup_stylesheet`, which defaults to the host `tailwind` stylesheet. Set it to another asset name, or to `nil` to skip the tag. FlatPack's empty state uses utility classes, and this document does not inherit the host page's CSS. The chat itself is sized by `recording_studio_agents/popup.css`. That sheet gives the chat the height of the iframe and stops the popup document from scrolling. ChatKit keeps the composer at the bottom of that box and scrolls the messages inside it. A host page that embeds the chat outside the popup still uses the card height `h-[min(40rem,calc(100dvh-16rem))]`.
 
 `config.popup_theme` is the Flatpack theme on that document. It defaults to `rounded`, which is `data-theme="rounded"` on the popup `<html>`. Set it to the host theme name when the popup should match a named theme such as `featured-in`.
 

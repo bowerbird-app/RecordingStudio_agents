@@ -75,6 +75,7 @@ module RecordingStudioAgents
         recording_studio_agents/chatkit.js
         recording_studio_agents/launcher.js
         recording_studio_agents/page_context.js
+        recording_studio_agents/popup.css
       ]
     end
 

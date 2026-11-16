@@ -26,6 +26,8 @@ On a screen, set `content_for :title` and, when you have one, `content_for :subt
 
 `FlatPack::Card` takes `background:`, `border:`, and `shadow:`. It rejects `style:`.
 
+The popup chat fills the iframe. `recording_studio_agents/popup.css` stops that document from scrolling. `config.launcher_icon` defaults to `:chat`, `config.launcher_label` to `"Open chat"`, and `config.popup_title` to `"Chat"`.
+
 ## Sibling gems
 
 The dummy keeps the pins in the Requirements list. Cache `v0.6.3`, Attachable `v0.23.0`, Site Settings `v0.5.6`, and Icons `v0.2.1` still accept Recording Studio 7. The Gemfiles pin those tags. There is no Bundler gemspec rewrite.

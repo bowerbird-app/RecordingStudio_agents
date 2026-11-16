@@ -11,9 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - The chat popup takes the host page it was opened on. When the panel opens, and on every Turbo visit, `recording_studio_agents/launcher.js` posts the page to the popup iframe with `postMessage` and `window.location.origin` as the target. The message is the current URL, `document.title`, the selected text (capped), an optional page id, and optional host metadata. The popup keeps the latest message from its own origin and its parent frame, and sends that data on the next `POST /chatkit` in the `X-Recording-Studio-Agents-Page` header. The server checks and caps every field. A page id is used only when the signed-in person can view it through Accessible. A visible page parents a new chat. The same data is a server-built preface on the model input for that turn. The stored message stays the person's words. An open thread is left in place when the page changes. The next turn of that thread gets the new preface.
+- `config.launcher_icon` (default `:chat`), `config.launcher_label` (default `"Open chat"`), and `config.popup_title` (default `"Chat"`). A call to `recording_studio_agents_launcher` can still pass `icon:`, `label:`, and `title:`.
+
+### Changed
+- The popup chat is the height of its iframe. The popup document does not scroll, on desktop or on a phone. ChatKit keeps the composer at the bottom of that box and scrolls the messages.
 
 ### Upgrade notes
 - No migration. Hosts that render `recording_studio_agents_launcher` start sending page context. Set the page id with `data-recording-studio-agents-page-recording-id` or `<meta name="recording-studio-agents-page-recording-id">`. Set metadata with `data-recording-studio-agents-page-metadata` as a small JSON object. Do not send an `instructions` field. The client posts data, and the server writes the preface. Framing and the session cookie are unchanged.
+- Launcher defaults match the previous button and the previous "Chat" heading, so an existing host sees the same chrome. Set `config.launcher_icon`, `config.launcher_label`, or `config.popup_title` to change them. Setting `popup_title` also replaces the translated popup document title.
 
 ## [0.13.0] - 2026-11-15
 

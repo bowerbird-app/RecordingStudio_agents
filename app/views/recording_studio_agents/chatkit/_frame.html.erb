@@ -1,5 +1,5 @@
 <% full_bleed = local_assigns[:fill] %>
-<% chat_classes = full_bleed ? "block h-dvh w-full" : "block w-full h-[min(40rem,calc(100dvh-16rem))]" %>
+<% chat_classes = full_bleed ? "recording-studio-agents-chat" : "block w-full h-[min(40rem,calc(100dvh-16rem))]" %>
 <% chat = capture do %>
   <%= content_tag(
     "openai-chatkit",
