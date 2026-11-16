@@ -118,9 +118,9 @@ PATH
     recording_studio_agents (0.14.0)
       flat_pack (>= 0.1.354)
       rails (~> 8.1.0)
-      recording_studio (>= 7.0, < 8.0)
-      recording_studio_ai (>= 0.22.0, < 1.0)
-      recording_studio_api (>= 0.26, < 2.0)
+      recording_studio (>= 7.0.0, < 8.0)
+      recording_studio_ai (>= 0.22.0, < 2.0)
+      recording_studio_api (>= 0.26.0, < 2.0)
       view_component (>= 4.14, < 5)
 
 GEM

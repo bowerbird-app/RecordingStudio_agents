@@ -8,8 +8,8 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
-- Recording Studio `>= 7.0, < 8.0` (dummy GitHub tag `v7.0.0`)
-- Recording Studio AI `>= 0.22.0, < 1.0` (dummy GitHub tag `v0.22.0`)
+- Recording Studio `>= 7.0.0, < 8.0` (dummy GitHub tag `v7.0.0`)
+- Recording Studio AI `>= 0.22.0, < 2.0` (dummy GitHub tag `v0.22.0`)
 - Recording Studio Metrics dummy GitHub tag `v0.9.0`
 - Accessible dummy GitHub tag `v0.44.0`
 - Trashable dummy GitHub tag `v0.17.0`
@@ -27,7 +27,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Site Settings dummy GitHub tag `v0.5.6`
 - Attachable dummy GitHub tag `v0.28.0`
 
-This gem depends on Recording Studio API `>= 0.26, < 2.0`. It does not depend on MCP or Oauth. The dummy pins API `v0.26.0`, MCP `v0.33.3`, and Oauth `v0.21.9`. Those MCP and Oauth tags allow API `0.26` and still cap it below `1.0`. API `1.1.0` needs Recording Studio `>= 7.1`, so it does not install on the core `7.0` dummy. Chat `:id` endpoints register `recordable_type: "RecordingStudioAgents::Session"`. API 0.20 records the access-grant actor on a resource update. An in-process chat write uses the signed-in person as that actor. `agent_chats_create` still records the OAuth client, because this gem chooses that actor. An older API leaves the in-process event actor empty. API 0.21.2 keys a create with no API client as `actor:<Type>:<id>`. A grant with neither a client nor an actor raises `AuthorizationError`. Recording Studio refuses `record!` unless the host sets `config.authorize_write`. The dummy authorizer allows a write when an actor is present. `root_recording_for` only finds a root. Create one with `create_root_recording!(recordable, actor:)`. Trashable 0.17 removed `kept_sql`. Use `Recording.kept`. Root Switchable still requires an Accessible `:view` grant on the current root before the mounted switch page renders.
+This gem depends on Recording Studio API `>= 0.26.0, < 2.0`. It does not depend on MCP or Oauth. The dummy pins API `v0.26.0`, MCP `v0.33.3`, and Oauth `v0.21.9`. Those MCP and Oauth tags allow API `0.26` and still cap it below `1.0`. API `1.1.0` needs Recording Studio `>= 7.1`, so it does not install on the core `7.0` dummy. Chat `:id` endpoints register `recordable_type: "RecordingStudioAgents::Session"`. API 0.20 records the access-grant actor on a resource update. An in-process chat write uses the signed-in person as that actor. `agent_chats_create` still records the OAuth client, because this gem chooses that actor. An older API leaves the in-process event actor empty. API 0.21.2 keys a create with no API client as `actor:<Type>:<id>`. A grant with neither a client nor an actor raises `AuthorizationError`. Recording Studio refuses `record!` unless the host sets `config.authorize_write`. The dummy authorizer allows a write when an actor is present. `root_recording_for` only finds a root. Create one with `create_root_recording!(recordable, actor:)`. Trashable 0.17 removed `kept_sql`. Use `Recording.kept`. Root Switchable still requires an Accessible `:view` grant on the current root before the mounted switch page renders.
 
 The provider API key stays in Recording Studio AI. This gem does not read one.
 

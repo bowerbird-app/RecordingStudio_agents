@@ -15,9 +15,9 @@ class RecordingStudioAgentsTest < Minitest::Test
     gemspec = File.read(File.expand_path("../recording_studio_agents.gemspec", __dir__))
 
     assert_includes gemspec, 'spec.add_dependency "flat_pack", ">= 0.1.354"'
-    assert_includes gemspec, 'spec.add_dependency "recording_studio", ">= 7.0", "< 8.0"'
-    assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", ">= 0.22.0", "< 1.0"'
-    assert_includes gemspec, 'spec.add_dependency "recording_studio_api", ">= 0.26", "< 2.0"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio", ">= 7.0.0", "< 8.0"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", ">= 0.22.0", "< 2.0"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio_api", ">= 0.26.0", "< 2.0"'
     assert_includes gemspec, 'spec.add_dependency "view_component", ">= 4.14", "< 5"'
     assert_includes gemspec, "https://github.com/bowerbird-app/RecordingStudio_agents"
     refute_includes gemspec, "recording_studio_mcp"
