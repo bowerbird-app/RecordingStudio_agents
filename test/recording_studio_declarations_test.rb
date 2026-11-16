@@ -11,6 +11,11 @@ class RecordingStudioDeclarationsTest < ActiveSupport::TestCase
     @writer = User.find_or_create_by!(email: "declarations-writer@example.com") do |user|
       user.password = "DeclarationsPassword!2026"
       user.password_confirmation = "DeclarationsPassword!2026"
+      user.skip_confirmation!
+    end
+    unless @writer.confirmed?
+      @writer.skip_confirmation!
+      @writer.save!
     end
     Current.actor = @writer
   end

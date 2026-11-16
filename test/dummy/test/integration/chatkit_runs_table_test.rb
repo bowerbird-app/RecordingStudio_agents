@@ -7,7 +7,7 @@ class ChatkitRunsTableTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
 
   setup do
-    @user = User.create!(email: "runs-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    @user = User.create!(email: "runs-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     @root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Runs #{SecureRandom.hex(4)}"), actor: @user)
     grant_edit(@user, @root)
     sign_in @user

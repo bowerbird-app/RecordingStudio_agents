@@ -7,7 +7,7 @@ class PressKitsTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
 
   setup do
-    @user = User.create!(email: "kits-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    @user = User.create!(email: "kits-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     sign_in @user
     @root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Kits #{SecureRandom.hex(4)}"), actor: @user)
     @configuration = RecordingStudioAgents.configuration
@@ -135,7 +135,7 @@ class PressKitsTest < ActionDispatch::IntegrationTest
   test "a kit in this workspace that the actor cannot view is forbidden" do
     shown = record_kit("HELLO HOUSE", "Shown to you.")
     hidden = record_kit("SECRET HOUSE", "Not for you.")
-    viewer = User.create!(email: "viewer-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    viewer = User.create!(email: "viewer-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     grant = RecordingStudioAccessible.grant_access(
       recording: shown, actor: viewer, role: :view, manager_actor: @user
     )

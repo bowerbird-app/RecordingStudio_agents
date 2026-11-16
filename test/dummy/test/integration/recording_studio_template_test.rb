@@ -69,6 +69,15 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     assert facade.recordable.file.attached?
 
     admin = User.find_by!(email: "admin@admin.com")
+    unless RecordingStudioAccessible.authorized?(actor: admin, recording: root_recording, role: :admin)
+      Current.actor = admin
+      RecordingStudioAccessible::AccessCreationContext.allow do
+        root_recording.record(RecordingStudio::Access, actor: admin, parent_recording: root_recording) do |access|
+          access.actor = admin
+          access.role = "admin"
+        end
+      end
+    end
     Current.actor = admin
     root_recording.revise(hello, actor: admin) { |press_kit| press_kit.name = "HELLO HOUSE renamed" }
     Current.actor = nil

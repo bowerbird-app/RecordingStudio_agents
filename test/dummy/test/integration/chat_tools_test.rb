@@ -4,7 +4,7 @@ require "test_helper"
 
 class ChatToolsTest < ActiveSupport::TestCase
   setup do
-    @user = User.create!(email: "tools-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    @user = User.create!(email: "tools-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     @root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Tools #{SecureRandom.hex(4)}"), actor: @user)
     @other = RecordingStudio.create_root_recording!(Workspace.create!(name: "Other #{SecureRandom.hex(4)}"), actor: @user)
     grant_edit(@user, @root)
@@ -69,7 +69,7 @@ class ChatToolsTest < ActiveSupport::TestCase
     assert_equal "update", log.subject_name
     assert_equal "tools/call", log.method_name
     refute log.failed
-    viewer = User.create!(email: "viewer-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    viewer = User.create!(email: "viewer-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     grant_role(viewer, @root, "view")
     refused = RecordingStudioAgents::Mcp::ChatTools.invoke(
       "update", { "type" => "PressKit", "id" => kit.id, "name" => "BLOCKED" },

@@ -7,14 +7,14 @@ class WorkspaceChatIsolationTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
 
   setup do
-    @user = User.create!(email: "workspace-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    @user = User.create!(email: "workspace-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     @alpha = workspace_root("Alpha")
     @zulu = workspace_root("Zulu")
     grant_edit(@user, @alpha)
     @calls = []
     stub_create
     @alpha_chat = create_chat(@alpha, "alpha hello", "alpha-key")
-    @owner = User.create!(email: "owner-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    @owner = User.create!(email: "owner-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     grant_edit(@owner, @zulu)
     @zulu_chat = create_chat(@zulu, "zulu hello", "zulu-key", actor: @owner)
     restore_create
