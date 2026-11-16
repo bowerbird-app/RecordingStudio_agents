@@ -5,15 +5,15 @@
 - Gem version `0.15.0`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
-- Recording Studio `>= 7.0.0, < 8.0` (dummy GitHub tag `v7.0.0`)
+- Recording Studio `>= 7.0.0, < 8.0` (dummy GitHub tag `v7.3.0`)
 - Recording Studio AI `>= 0.22.0, < 2.0` (dummy GitHub tag `v0.22.0`)
 - Metrics dummy tag `v0.9.0`
 - Logs dummy tag `v0.8.0` (GitHub-only; AI 0.22.0 depends on it)
-- Accessible dummy tag `v0.44.0`, Trashable dummy tag `v0.17.0` (`require: false`), and Root Switchable dummy tag `v0.16.0`
-- Cache dummy tag `v0.6.3`
-- FlatPack `>= 0.1.354`. The root Gemfile pins tag `v0.1.356`. The dummy pins tag `v0.1.376` because Attachable `v0.28.0` requires FlatPack `>= 0.1.376`. `FloatingFrame` shipped in `v0.1.354`.
+- Accessible dummy tag `v0.45.1`, Trashable dummy tag `v1.0.1` (`require: false`), and Root Switchable dummy tag `v0.16.0`
+- Cache dummy tag `v0.7.0`
+- FlatPack `>= 0.1.354`. The root Gemfile pins tag `v0.1.377`. The dummy pins tag `v0.1.377`. Attachable `v0.31.0` requires FlatPack `>= 0.1.376`. `FloatingFrame` shipped in `v0.1.354`.
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
-- Users dummy tag `v0.30.0`, Oauth dummy tag `v0.21.9`, MCP dummy tag `v0.33.3`, API dummy tag `v0.26.0`, Moveable dummy tag `v5.0.0`, Icons dummy tag `v0.2.1`, Admin dummy tag `v2.16.0`, Site Settings dummy tag `v0.5.6`, Attachable dummy tag `v0.28.0` (`require: false`)
+- Users dummy tag `v0.32.0`, Oauth dummy tag `v0.25.0`, MCP dummy tag `v0.35.0`, API dummy tag `v1.2.1`, Moveable dummy tag `v6.0.0`, Icons dummy tag `v0.4.0`, Admin dummy tag `v2.18.0`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.31.0` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
 
 ## Layout
@@ -30,11 +30,11 @@ The popup chat fills the iframe. `recording_studio_agents/popup.css` stops that 
 
 ## Sibling gems
 
-The dummy keeps the pins in the Requirements list. Cache `v0.6.3`, Attachable `v0.28.0`, Site Settings `v0.5.6`, and Icons `v0.2.1` still accept Recording Studio 7. The Gemfiles pin those tags. There is no Bundler gemspec rewrite.
+The dummy keeps the pins in the Requirements list. Cache `v0.7.0`, Attachable `v0.31.0`, Site Settings `v0.6.0`, and Icons `v0.4.0` still accept Recording Studio 7. The dummy Gemfile pins those tags. There is no Bundler gemspec rewrite.
 
 Recording Studio 6.9 requires `recording_studio_events.root_recording_id`. Copy `AddRootRecordingIdToRecordingStudioEvents` from core and run `bin/rails db:migrate`. Closing a chat calls `recording.recordables(all: true)` so every session snapshot is deleted. Core 6.12 returns 50 events unless `all: true`.
 
-Recording Studio refuses `record!` unless `config.authorize_write` is set. The dummy allows a write when an actor is present. `root_recording_for` only finds a root. Create one with `create_root_recording!(recordable, actor:)`. Trashable `v0.17.0` removes `kept_sql`. Use `Recording.kept`. The events `root_recording_id` migration is already in the dummy. Root Switchable requires an Accessible `:view` grant on the current root before the mounted switch page renders. A blank current root still requires an actor.
+Recording Studio refuses `record!` unless `config.authorize_write` is set. The dummy allows a write when an actor is present. `root_recording_for` only finds a root. Create one with `create_root_recording!(recordable, actor:)`. Trashable `v1.0.1` keeps the `v0.17.0` removal of `kept_sql`. Use `Recording.kept`. The events `root_recording_id` migration is already in the dummy. Root Switchable requires an Accessible `:view` grant on the current root before the mounted switch page renders. A blank current root still requires an actor.
 
 ## Host migration
 

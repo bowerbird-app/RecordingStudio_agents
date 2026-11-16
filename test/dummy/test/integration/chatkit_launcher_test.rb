@@ -9,7 +9,7 @@ class ChatkitLauncherTest < ActionDispatch::IntegrationTest
   SANDBOX = RecordingStudioAgents::ChatKitHelper::POPUP_IFRAME_SANDBOX
 
   setup do
-    @user = User.create!(email: "launcher-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    @user = User.create!(email: "launcher-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     sign_in @user
     @configuration = RecordingStudioAgents.configuration
     @previous_launcher = @configuration.launcher

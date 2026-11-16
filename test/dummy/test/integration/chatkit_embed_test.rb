@@ -7,7 +7,7 @@ class ChatkitEmbedTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
 
   setup do
-    @user = User.create!(email: "embed-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    @user = User.create!(email: "embed-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     sign_in @user
     @configuration = RecordingStudioAgents.configuration
     @previous_domain_key = @configuration.chatkit_domain_key

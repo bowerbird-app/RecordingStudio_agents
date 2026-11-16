@@ -6,7 +6,7 @@ require "devise/test/integration_helpers"
 class McpChatsTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
   setup do
-    @user = User.create!(email: "mcp-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    @user = User.create!(email: "mcp-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     @alpha = workspace_root("Alpha")
     @zulu = workspace_root("Zulu")
     @alpha_access = grant_admin(@user, @alpha)
@@ -268,7 +268,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     post_mcp("tools/call", name: "agent_chats_append", arguments: {
       id: @alpha_chat.id, input: "nope", idempotency_key: "view-only-append"
     })
-    assert_authorization_error
+    assert_tool_error("not found in this API scope")
     assert_equal before, RecordingStudioAgents::Binding.count
     assert_equal 0, RecordingStudioAgents::Item.where(idempotency_key: "view-only-append").count
   end

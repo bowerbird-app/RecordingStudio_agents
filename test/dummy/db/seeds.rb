@@ -19,6 +19,11 @@ end
 user = User.find_or_create_by!(email: "admin@admin.com") do |u|
   u.password = "Password"
   u.password_confirmation = "Password"
+  u.skip_confirmation!
+end
+unless user.confirmed?
+  user.skip_confirmation!
+  user.save!
 end
 
 # Create the workspace recordables
@@ -165,6 +170,15 @@ end
 
 Current.actor = user
 begin
+  unless RecordingStudioAccessible.authorized?(actor: user, recording: root_recording, role: :admin)
+    RecordingStudioAccessible::AccessCreationContext.allow do
+      root_recording.record(RecordingStudio::Access, actor: user, parent_recording: root_recording) do |access|
+        access.actor = user
+        access.role = "admin"
+      end
+    end
+  end
+
   [root_recording, accessible_root_recording].each do |demo_root|
     seed_demo_chats.call(demo_root)
     press_kit = record_page.call(demo_root, "Press kit")

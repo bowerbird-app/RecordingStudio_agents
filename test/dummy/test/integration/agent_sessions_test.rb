@@ -6,7 +6,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
   include ActiveSupport::Testing::TimeHelpers
 
   setup do
-    @user = User.create!(email: "agent-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    @user = User.create!(email: "agent-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     @root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Agent #{SecureRandom.hex(4)}"), actor: @user)
     @other_root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Other #{SecureRandom.hex(4)}"), actor: @user)
     grant_edit(@user, @root)
@@ -106,7 +106,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
   end
 
   test "an actor without access is refused and the chat inherits the parent grant" do
-    stranger = User.create!(email: "stranger-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    stranger = User.create!(email: "stranger-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
 
     assert_raises(RecordingStudioAgents::Sessions::AccessDeniedError) { create_chat("hello", actor: stranger) }
     assert_empty @calls[:create_session]
@@ -458,7 +458,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
   end
 
   test "an admin override is appended after the host default" do
-    admin = User.create!(email: "admin-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    admin = User.create!(email: "admin-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     revoke_edit(admin, @root)
     revoke_edit(@user, @root)
     grant_admin(admin, @root)
@@ -471,7 +471,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
   end
 
   test "a viewer cannot store an instructions override" do
-    viewer = User.create!(email: "viewer-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    viewer = User.create!(email: "viewer-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
 
     with_instruction_settings(override: :edit) do
       before = @calls[:create_session].size
@@ -576,7 +576,7 @@ class AgentSessionsTest < ActiveSupport::TestCase
   end
 
   test "expire closes a chat after its creator loses access" do
-    creator = User.create!(email: "creator-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    creator = User.create!(email: "creator-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     grant_edit(creator, @root)
     recording = create_chat("old", key: "lost-access", actor: creator)
     revoke_edit(creator, @root)

@@ -14,6 +14,11 @@ class ConfigurableLayoutTest < ActionDispatch::IntegrationTest
     @user = User.find_or_create_by!(email: "layout-test@example.com") do |record|
       record.password = "Password123!"
       record.password_confirmation = "Password123!"
+      record.skip_confirmation!
+    end
+    unless @user.confirmed?
+      @user.skip_confirmation!
+      @user.save!
     end
   end
 

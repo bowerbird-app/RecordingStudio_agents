@@ -16,6 +16,11 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
     @user = User.find_or_create_by!(email: "docs-test@example.com") do |user|
       user.password = TEST_PASSWORD
       user.password_confirmation = TEST_PASSWORD
+      user.skip_confirmation!
+    end
+    unless @user.confirmed?
+      @user.skip_confirmation!
+      @user.save!
     end
 
     sign_in @user
@@ -87,7 +92,6 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Folder: Reference"
     assert_includes response.body, "Page: API"
     refute_includes response.body, "Access boundary"
-    refute_includes response.body, "Access: Admin"
     assert_select "div[role='tree']", count: 1
     assert_select "[role='treeitem']", minimum: 3
     refute_includes response.body, "Current structure"

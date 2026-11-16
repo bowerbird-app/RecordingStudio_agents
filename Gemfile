@@ -6,8 +6,8 @@ source "https://rubygems.org"
 gemspec
 
 # GitHub-only gems. The gemspec pins the versions; these lines give Bundler a source.
-# FlatPack v0.1.356. FloatingFrame shipped in v0.1.354.
-gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.356"
+# FlatPack v0.1.377. FloatingFrame shipped in v0.1.354.
+gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.377"
 gem "recording_studio", ">= 7.0", github: "bowerbird-app/RecordingStudio", tag: "v7.0.0"
 gem "recording_studio_accessible", github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.44.0"
 gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.22.0"

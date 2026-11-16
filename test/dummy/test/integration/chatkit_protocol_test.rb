@@ -4,7 +4,7 @@ require "test_helper"
 
 class ChatkitProtocolTest < ActionDispatch::IntegrationTest
   setup do
-    @user = User.create!(email: "chatkit-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    @user = User.create!(email: "chatkit-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     @root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Chat #{SecureRandom.hex(4)}"), actor: @user)
     @other_root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Other #{SecureRandom.hex(4)}"), actor: @user)
     grant_edit(@user, @root)
@@ -265,7 +265,7 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
   end
 
   test "an actor without access is refused before a provider call" do
-    stranger = User.create!(email: "stranger-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    stranger = User.create!(email: "stranger-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
 
     result = RecordingStudioAgents::ChatKit::Server.call(
       create_body("hello"), actor: stranger, root_recording: @root
@@ -345,7 +345,7 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
 
   test "a page inside the workspace that the actor cannot view is rejected" do
     page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
-    stranger = User.create!(email: "page-stranger-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    stranger = User.create!(email: "page-stranger-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     @configuration.request_actor = ->(*) { stranger }
 
     listed = chatkit_json("threads.list", { "limit" => 20 }, page.id)
@@ -393,7 +393,7 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
 
   test "a view-only actor cannot create a page chat" do
     page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
-    viewer = User.create!(email: "viewer-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    viewer = User.create!(email: "viewer-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     grant_role(viewer, @root, "view")
     @configuration.request_actor = ->(*) { viewer }
 
@@ -422,7 +422,7 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
 
   test "a page chat is refused after page access is revoked" do
     page = @root.record(Page, actor: @user) { |record| record.title = "Press kit" }
-    reader = User.create!(email: "reader-#{SecureRandom.hex(4)}@example.com", password: "Password")
+    reader = User.create!(email: "reader-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
     access = grant_role(reader, @root, "view")
     thread_id = RecordingStudioAgents::ChatKit::Server.call(
       create_body("page hello"), actor: @user, root_recording: @root, page_recording: page

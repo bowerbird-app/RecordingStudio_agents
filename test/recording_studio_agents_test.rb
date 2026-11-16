@@ -33,7 +33,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     refute_includes gemfile, "until 0.20.0 is tagged"
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_logs", tag: "v0.8.0"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.9.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.356"'
+    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.377"'
     refute_includes gemfile, "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
     refute_includes gemfile, "widen_recording_studio_requirement"
     refute_includes gemfile, 'branch: "main"'
@@ -70,8 +70,8 @@ class RecordingStudioAgentsTest < Minitest::Test
   def test_dummy_gemfile_pins_verified_4x_github_tags
     gemfile = File.read(File.expand_path("dummy/Gemfile", __dir__))
 
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v7.0.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.376"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v7.3.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.377"'
     assert_includes gemfile, 'gem "view_component", "4.19.0"'
     refute_includes gemfile, "widen_recording_studio_requirement"
     refute_includes gemfile, 'branch: "main"'
@@ -82,25 +82,25 @@ class RecordingStudioAgentsTest < Minitest::Test
     refute_includes gemfile, "until 0.20.0 is tagged"
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.9.0"'
     refute_includes gemfile, 'tag: "v4.5.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.44.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_trashable", tag: "v0.17.0", require: false'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.45.1"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_trashable", tag: "v1.0.1", require: false'
     refute_includes gemfile, 'tag: "v4.6.0"'
     refute_includes gemfile, 'tag: "v0.10.0", require: false'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_root_switchable", tag: "v0.16.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_cache", tag: "v0.6.3"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_cache", tag: "v0.7.0"'
     refute_includes gemfile, 'github: "bowerbird-app/RecordingStudio_cache", tag: "v0.5.0"'
-    refute_includes gemfile, 'tag: "v0.6.0"'
+    refute_includes gemfile, 'github: "bowerbird-app/RecordingStudio_site_settings", tag: "v0.5.6"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_logs", tag: "v0.8.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.376"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_Oauth", tag: "v0.21.9"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.33.3"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_moveable", tag: "v5.0.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_icons", tag: "v0.2.1"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_users", tag: "v0.30.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_attachable", tag: "v0.28.0", require: false'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_api", tag: "v0.26.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_admin", tag: "v2.16.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_site_settings", tag: "v0.5.6"'
+    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.377"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_Oauth", tag: "v0.25.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.35.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_moveable", tag: "v6.0.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_icons", tag: "v0.4.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_users", tag: "v0.32.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_attachable", tag: "v0.31.0", require: false'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_api", tag: "v1.2.1"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_admin", tag: "v2.18.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_site_settings", tag: "v0.6.0"'
     refute_includes gemfile, 'tag: "v6.1.0"'
     refute_includes gemfile, "recording_studio/v3.0.0"
     refute_includes gemfile, 'tag: "v4.4.0"'
@@ -109,7 +109,7 @@ class RecordingStudioAgentsTest < Minitest::Test
     refute_includes gemfile, 'tag: "v4.2.1"'
     refute_includes gemfile, 'tag: "v4.2.0"'
     refute_includes gemfile, 'tag: "v0.9.1"'
-    refute_includes gemfile, 'tag: "v0.7.0"'
+    refute_includes gemfile, 'github: "bowerbird-app/RecordingStudio_cache", tag: "v0.6.3"'
     refute_includes gemfile, 'tag: "v0.1.177"'
     refute_includes gemfile, 'tag: "v0.1.133"'
     refute_includes gemfile, 'tag: "0.3.1"'
@@ -272,40 +272,40 @@ class RecordingStudioAgentsTest < Minitest::Test
     readme = File.read(File.expand_path("../README.md", __dir__))
 
     assert_includes readme, "RecordingStudio"
-    assert_includes readme, "dummy GitHub tag `v7.0.0`"
-    assert_includes readme, 'github: "bowerbird-app/flatpack", tag: "v0.1.356"'
+    assert_includes readme, "dummy GitHub tag `v7.3.0`"
+    assert_includes readme, 'github: "bowerbird-app/flatpack", tag: "v0.1.377"'
     refute_includes readme, "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
     refute_includes readme, "dummy GitHub tag `v4.7.0`"
     assert_includes readme, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.22.0"'
-    assert_includes readme, "Accessible dummy GitHub tag `v0.44.0`"
+    assert_includes readme, "Accessible dummy GitHub tag `v0.45.1`"
     refute_includes readme, "79723ed015318b790069b7c6cccae7d11d52dcf1"
     refute_includes readme, "until 0.20.0 is tagged"
     assert_includes readme, "Metrics dummy GitHub tag `v0.9.0`"
     refute_includes readme, "dummy GitHub tag `v4.5.0`"
     refute_includes readme, "dummy GitHub tag `v0.1.254`"
-    assert_includes readme, "Oauth dummy GitHub tag `v0.21.9`"
-    assert_includes readme, "dummy GitHub tag `v0.33.3`"
-    assert_includes readme, "Recording Studio API dummy GitHub tag `v0.26.0`"
+    assert_includes readme, "Oauth dummy GitHub tag `v0.25.0`"
+    assert_includes readme, "dummy GitHub tag `v0.35.0`"
+    assert_includes readme, "Recording Studio API dummy GitHub tag `v1.2.1`"
     assert_includes readme, "RecordingStudioApi::RateLimit.check"
     assert_includes readme, "fail_closed: true"
     refute_includes readme, "increment script"
     assert_includes readme, "`pending`, `ok`, `error`, `refused`, `limited`, or `unknown`"
-    assert_includes readme, "Moveable dummy GitHub tag `v5.0.0`"
-    assert_includes readme, "Icons dummy GitHub tag `v0.2.1`"
-    assert_includes readme, "root GitHub tag `v0.1.356`"
-    assert_includes readme, "dummy GitHub tag `v0.1.376`"
+    assert_includes readme, "Moveable dummy GitHub tag `v6.0.0`"
+    assert_includes readme, "Icons dummy GitHub tag `v0.4.0`"
+    assert_includes readme, "root GitHub tag `v0.1.377`"
+    assert_includes readme, "dummy GitHub tag `v0.1.377`"
     assert_includes readme, "Logs dummy GitHub tag `v0.8.0`"
-    assert_includes readme, "Users dummy GitHub tag `v0.30.0`"
-    assert_includes readme, "Trashable dummy GitHub tag `v0.17.0`"
-    assert_includes readme, "Attachable dummy GitHub tag `v0.28.0`"
-    assert_includes readme, "Cache dummy GitHub tag `v0.6.3`"
-    assert_includes readme, "Site Settings dummy GitHub tag `v0.5.6`"
-    assert_includes readme, "Admin dummy GitHub tag `v2.16.0`"
+    assert_includes readme, "Users dummy GitHub tag `v0.32.0`"
+    assert_includes readme, "Trashable dummy GitHub tag `v1.0.1`"
+    assert_includes readme, "Attachable dummy GitHub tag `v0.31.0`"
+    assert_includes readme, "Cache dummy GitHub tag `v0.7.0`"
+    assert_includes readme, "Site Settings dummy GitHub tag `v0.6.0`"
+    assert_includes readme, "Admin dummy GitHub tag `v2.18.0`"
     refute_includes readme, "Cache dummy GitHub tag `v0.5.0`"
     refute_includes readme, "dummy GitHub tag `v0.10.0`"
     assert_includes readme, "Root Switchable dummy GitHub tag `v0.16.0`"
     refute_includes readme, "widen_recording_studio_requirement"
-    refute_includes readme, "dummy GitHub tag `v0.6.0`"
+    refute_includes readme, "Site Settings dummy GitHub tag `v0.5.6`"
     refute_includes readme, "dummy GitHub tag `v4.4.0`"
     refute_includes readme, "dummy GitHub tag `v4.3.0`"
     refute_includes readme, "dummy GitHub tag `v4.2.2`"
