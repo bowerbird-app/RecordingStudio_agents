@@ -17,9 +17,7 @@ module RecordingStudioAgents
         private_class_method :item_params
 
         def self.viewed_chat(context)
-          recording = Context.catalog(context).find!(Context.value(context, :id))
-          Context.authorize!(context, recording, :view)
-          recording
+          Items.scoped_chat(context)
         end
         private_class_method :viewed_chat
       end
@@ -36,11 +34,13 @@ module RecordingStudioAgents
         end
 
         def self.viewed_chat(context)
-          recording = Context.catalog(context).find!(Context.value(context, :id))
-          Context.authorize!(context, recording, :view)
-          recording
+          Items.scoped_chat(context)
         end
         private_class_method :viewed_chat
+      end
+
+      def self.scoped_chat(context)
+        Context.scoped_session(context, :view)
       end
     end
   end

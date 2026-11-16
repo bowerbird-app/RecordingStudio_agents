@@ -13,10 +13,12 @@ class McpRegistrationTest < Minitest::Test
       assert_equal "agent_chats", list[:path]
       assert_equal RecordingStudioAgents::Mcp::Chats::List, list[:handler]
       assert RecordingStudioApi.registered_endpoint(:agent_chats_create)
-      assert RecordingStudioApi.registered_endpoint(:agent_chats_read)
-      assert RecordingStudioApi.registered_endpoint(:agent_chats_append)
-      assert RecordingStudioApi.registered_endpoint(:agent_items_list)
-      assert RecordingStudioApi.registered_endpoint(:agent_items_read)
+      assert_nil RecordingStudioApi.registered_endpoint(:agent_chats_list)[:recordable_type]
+      assert_nil RecordingStudioApi.registered_endpoint(:agent_chats_create)[:recordable_type]
+      %i[agent_chats_read agent_chats_append agent_items_list agent_items_read].each do |name|
+        endpoint = RecordingStudioApi.registered_endpoint(name)
+        assert_equal "RecordingStudioAgents::Session", endpoint[:recordable_type]
+      end
       assert_equal 6, RecordingStudioApi.endpoints.size
       list_docs = list[:openapi]
       assert_equal ["Agent chats"], list_docs[:tags]

@@ -9,7 +9,7 @@ class McpResponseSchemasTest < Minitest::Test
       [recording, role, include_trashed]
     end
   end
-  ToolContext = Struct.new(:access_grant, :root_recording, :params)
+  ToolContext = Struct.new(:access_grant, :root_recording, :params, :recording)
   Recording = Struct.new(:id, :recordable, :created_at)
   Recordable = Struct.new(:title, :status)
   ItemRow = Struct.new(:id, :role, :text, :created_at)
@@ -23,7 +23,7 @@ class McpResponseSchemasTest < Minitest::Test
     install_fakes
     @stamp = Time.utc(2026, 11, 11, 4, 0, 0)
     @recording = Recording.new("chat_1", Recordable.new("Hello", "active"), @stamp)
-    @context = ToolContext.new(Grant.new(Object.new), Recording.new("root-1", nil, nil), { id: "chat_1" })
+    @context = ToolContext.new(Grant.new(Object.new), Recording.new("root-1", nil, nil), { id: "chat_1" }, @recording)
   end
 
   def teardown
