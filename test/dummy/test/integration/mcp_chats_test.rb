@@ -48,7 +48,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     post_mcp("resources/list")
     assert_response :success
     uris = JSON.parse(response.body).dig("result", "resources").map { |resource| resource["uri"] }
-    assert_includes uris, "skill://agent-chats/SKILL.md"
+    refute_includes uris, "skill://agent-chats/SKILL.md"
 
     post_mcp("tools/call", name: "agent_chats_list", arguments: {})
     assert_response :success

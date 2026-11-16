@@ -42,7 +42,8 @@ module RecordingStudioAgents
       def create_key_field
         {
           type: :string, required: true, allow_blank: false,
-          description: "Create key. Unique inside this workspace."
+          description: "Create key. Unique inside this workspace. Sending the same key again returns the existing " \
+                       "chat. Replay ignores parent and a new instructions override."
         }
       end
 
@@ -71,7 +72,7 @@ module RecordingStudioAgents
             input: { type: :string, required: true, allow_blank: false, description: "User message." },
             idempotency_key: {
               type: :string, required: true, allow_blank: false,
-              description: "Message key. Unique inside this workspace."
+              description: "Message key. Unique inside this workspace. A repeated key returns the existing message."
             }
           }
         }

@@ -11,13 +11,11 @@ module RecordingStudioAgents
       ITEM_READ = :agent_items_read
       OWN_TOOLS = [CHAT_LIST, CHAT_CREATE, CHAT_READ, CHAT_APPEND, ITEM_LIST, ITEM_READ].map(&:to_s).freeze
       SESSION_RECORDABLE_TYPE = "RecordingStudioAgents::Session"
-      SKILL_NAME = "agent-chats"
 
       module_function
 
       def register!
         register_endpoints!
-        register_skill!
       end
 
       def own_tool?(name)
@@ -29,12 +27,6 @@ module RecordingStudioAgents
 
         register_chat_endpoints!
         register_item_endpoints!
-      end
-
-      def register_skill!
-        return unless defined?(RecordingStudioMcp)
-
-        RecordingStudioMcp.register_skill(SKILL_NAME, path: skill_path)
       end
 
       def register_chat_endpoints!
@@ -81,10 +73,6 @@ module RecordingStudioAgents
         return false unless RecordingStudioApi.respond_to?(:registered_endpoint)
 
         RecordingStudioApi.registered_endpoint(name).present?
-      end
-
-      def skill_path
-        File.expand_path("SKILL.md", __dir__)
       end
     end
   end
