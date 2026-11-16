@@ -90,6 +90,8 @@ class PageContextTest < Minitest::Test
     assert_includes launcher, "api.deliver(iframe.contentWindow, window.location.origin, api.readHostPage())"
     refute_includes launcher, "document.cookie"
     refute_includes launcher, '"*"'
+    refute_includes source, "textContent"
+    refute_includes source, "recording-studio-agents-page-context"
   end
 
   PAGE_ID = "00000000-0000-4000-8000-000000000001"

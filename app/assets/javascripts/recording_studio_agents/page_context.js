@@ -94,20 +94,10 @@
     frameWindow.postMessage(context, origin)
   }
 
-  function showPage(context) {
-    if (typeof document === "undefined") return
-    var node = document.getElementById("recording-studio-agents-page-context")
-    if (!node) return
-    var label = context.title || context.url || ""
-    node.hidden = label.length === 0
-    node.textContent = label
-  }
-
   function remember(event) {
     var accepted = acceptMessage(event, window.location.origin, window.parent)
     if (!accepted) return
     latest = accepted
-    showPage(accepted)
   }
 
   root.RecordingStudioAgentsPageContext = {
