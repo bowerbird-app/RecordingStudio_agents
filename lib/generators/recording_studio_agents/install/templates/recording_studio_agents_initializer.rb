@@ -11,6 +11,11 @@ RecordingStudioAgents.configure do |config|
   # Passed on a new chat only when Recording Studio AI allowed_provider_overrides includes it.
   # config.retention_period = 30.days
   # config.chatkit_domain_key = ENV["CHATKIT_DOMAIN_KEY"].presence
+  # Shown when a send is declined for credits. Nil leaves the notice without a link.
+  # A string or a lambda { |request:, root_recording:| } must be http(s) or a path.
+  # config.out_of_credits_url = "/billing"
+  # Link text. Nil uses the locale string ("Add credits" in English).
+  # config.out_of_credits_label = "Add credits"
   # Popup framing. Development and test default to localhost:3000 and 127.0.0.1:3000.
   # Anywhere else the list is empty until you set it, so frame-ancestors stays 'self'.
   # config.chatkit_allowed_origins = ENV["CHATKIT_ALLOWED_ORIGINS"] if ENV["CHATKIT_ALLOWED_ORIGINS"].present?

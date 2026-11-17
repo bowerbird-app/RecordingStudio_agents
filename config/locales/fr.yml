@@ -1,5 +1,9 @@
 fr:
   recording_studio_agents:
+    chat:
+      out_of_credits:
+        message: "Vous n'avez plus de crédits d'IA, ce message n'a donc pas été envoyé."
+        action: "Ajouter des crédits"
     popups:
       show:
         document_title: "Discussion"

@@ -14,13 +14,31 @@ module RecordingStudioAgents
       root = recording_studio_agents_resolve(:request_root)
       return signed_out if root.blank?
 
-      ChatKit::ErrorLog.with_type(chatkit_request_type) { render_result chat_result(actor, root) }
-    rescue ChatKit::ProtocolError, RecordingStudioAI::Errors::ContractValidationError => e
-      ChatKit::ErrorLog.call(e, site: "chatkit_controller.create", type: chatkit_request_type)
-      render_error(e.message, response_status(e))
+      serve(actor, root)
     end
 
     private
+
+    def serve(actor, root)
+      ChatKit::UsageNotice.context(request: request, root_recording: root) do
+        ChatKit::ErrorLog.with_type(chatkit_request_type) { render_result chat_result(actor, root) }
+      rescue RecordingStudioAI::Errors::UsageDeclined => e
+        render_declined(e)
+      end
+    rescue ChatKit::ProtocolError, RecordingStudioAI::Errors::ContractValidationError => e
+      render_rejected(e)
+    end
+
+    def render_declined(error)
+      ChatKit::ErrorLog.call(error, site: "chatkit_controller.create", type: chatkit_request_type)
+      declined = ChatKit::UsageNotice.result(request.raw_post)
+      declined ? render_result(declined) : render_error(error.message, 400)
+    end
+
+    def render_rejected(error)
+      ChatKit::ErrorLog.call(error, site: "chatkit_controller.create", type: chatkit_request_type)
+      render_error(error.message, response_status(error))
+    end
 
     def chat_result(actor, root)
       ChatKit::Server.call(

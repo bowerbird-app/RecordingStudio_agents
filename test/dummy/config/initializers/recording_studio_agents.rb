@@ -3,6 +3,8 @@
 RecordingStudioAgents.configure do |config|
   config.instructions = "Answer in one sentence."
   config.chatkit_domain_key = ENV["CHATKIT_DOMAIN_KEY"].presence
+  # Off unless RECORDING_STUDIO_AGENTS_DECLINE_CREDITS=1. Used to view the notice locally.
+  config.out_of_credits_url = "/billing" if ENV["RECORDING_STUDIO_AGENTS_DECLINE_CREDITS"] == "1"
   if ENV["CHATKIT_ALLOWED_ORIGINS"].present?
     config.chatkit_allowed_origins = ENV["CHATKIT_ALLOWED_ORIGINS"]
   end
