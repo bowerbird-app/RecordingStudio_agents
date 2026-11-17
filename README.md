@@ -193,10 +193,13 @@ config.launcher_label = "Ask the studio"
 config.popup_title = "Studio chat"
 ```
 
-`config.launcher` defaults to on and must be `true` or `false`. Set it to `false` and the helper renders nothing.
+`config.launcher` defaults to on. It accepts `true`, `false`, or a lambda that takes the controller. `false` renders nothing. The lambda runs on each render, after the actor and workspace checks, and renders the launcher when it returns a truthy value.
+
+The helper also renders nothing when `config.request_actor` or `config.request_root` returns nothing. ChatKit and the popup use those same resolvers. A signed-out page has no launcher. A signed-in person with no workspace has no launcher.
 
 ```ruby
 config.launcher = false
+config.launcher = ->(controller) { controller.controller_path.start_with?("workspaces") }
 ```
 
 The popup and the host page have to be on the same site. The helper does not read or change the session cookie. The page renders `recording_studio_agents_chatkit` in a bare layout that fills the frame. The workspace still comes from `config.request_root` (Root Switchable's current root). A signed-in person with no workspace sees an empty state instead of the chat.

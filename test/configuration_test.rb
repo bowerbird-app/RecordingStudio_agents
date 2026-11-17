@@ -226,9 +226,13 @@ class ConfigurationTest < Minitest::Test
     assert_equal :off, @configuration.to_h.fetch(:mcp_tools)
   end
 
-  def test_launcher_accepts_only_a_boolean
+  def test_launcher_accepts_true_false_or_a_lambda
     @configuration.launcher = false
     assert_equal false, @configuration.launcher
+
+    callable = ->(controller) { controller }
+    @configuration.launcher = callable
+    assert_equal callable, @configuration.launcher
 
     @configuration.merge!(launcher: true)
     assert_equal true, @configuration.launcher
@@ -237,6 +241,9 @@ class ConfigurationTest < Minitest::Test
 
     assert_equal true, @configuration.launcher
     assert_match "launcher", error.message
+    assert_raises(RecordingStudioAgents::Error) { @configuration.launcher = nil }
+    assert_raises(RecordingStudioAgents::Error) { @configuration.launcher = 1 }
+    assert_equal true, @configuration.launcher
   end
 
   def test_mcp_max_writes_per_turn_accepts_a_positive_integer

@@ -17,7 +17,7 @@ module RecordingStudioAgents
     LAUNCHER_ELEMENT_ID = "recording_studio_agents_launcher"
 
     def recording_studio_agents_launcher(label: nil, title: nil, icon: nil, position: :bottom_left)
-      return unless RecordingStudioAgents.configuration.launcher
+      return unless show_launcher?
 
       frame = render FlatPack::FloatingFrame::Component.new(**launcher_frame(label, title, icon, position))
       safe_join([frame, launcher_scripts])
@@ -29,6 +29,19 @@ module RecordingStudioAgents
     end
 
     private
+
+    # Actor and workspace first, then config.launcher. A missing person or
+    # workspace omits the launcher. A lambda runs only after both are present.
+    def show_launcher?
+      actor = RequestContext.recording_studio_agents_resolve(:request_actor, controller)
+      return false if actor.blank?
+
+      root = RequestContext.recording_studio_agents_resolve(:request_root, controller)
+      return false if root.blank?
+
+      enabled = RecordingStudioAgents.configuration.launcher
+      enabled.respond_to?(:call) ? enabled.call(controller) : enabled
+    end
 
     def launcher_frame(label, title, icon, position)
       configuration = RecordingStudioAgents.configuration

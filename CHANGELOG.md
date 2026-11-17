@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- `recording_studio_agents_launcher` renders nothing when `config.request_actor` or `config.request_root` returns nothing. ChatKit and the popup use those same resolvers.
+- `config.launcher` accepts `true`, `false`, or a lambda that takes the controller. The lambda runs on each render, after the actor and workspace checks. Any other value raises.
+
+### Upgrade notes
+- A page with no signed-in person, or a signed-in person with no workspace, no longer shows the launcher. Set `config.launcher` to a lambda when it should also stay off on some pages that have both.
+
 ## [0.16.1] - 2026-11-17
 
 ### Changed

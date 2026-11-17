@@ -158,7 +158,9 @@ module RecordingStudioAgents
     end
 
     def launcher=(value)
-      raise Error, "launcher must be true or false" unless [true, false].include?(value)
+      unless [true, false].include?(value) || value.respond_to?(:call)
+        raise Error, "launcher must be true, false, or a lambda"
+      end
 
       @launcher = value
     end

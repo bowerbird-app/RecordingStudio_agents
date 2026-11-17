@@ -2,13 +2,13 @@
 
 module RecordingStudioAgents
   # One resolver for the signed-in person and the current workspace.
-  # PopupsController and ChatkitController both use it.
+  # PopupsController, ChatkitController, and the launcher helper use it.
   module RequestContext
-    private
+    module_function
 
-    def recording_studio_agents_resolve(name)
+    def recording_studio_agents_resolve(name, controller = self)
       resolver = RecordingStudioAgents.configuration.public_send(name)
-      resolver.respond_to?(:call) ? resolver.call(self) : nil
+      resolver.respond_to?(:call) ? resolver.call(controller) : nil
     end
   end
 end
