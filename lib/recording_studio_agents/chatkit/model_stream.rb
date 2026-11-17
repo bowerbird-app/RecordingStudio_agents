@@ -14,14 +14,17 @@ module RecordingStudioAgents
         @saw_text = false
         finish_stream(read_stream(&block), &block)
       rescue RecordingStudioAI::Agents::Failure => e
+        ErrorLog.call(e, site: "model_stream.play")
         block.call(failure(e.message))
       rescue RecordingStudioAI::Errors::ContractValidationError => e
-        RecordingStudioAgents::ChatKit::PostedResults.end_if_settled(e)
+        ErrorLog.call(e, site: "model_stream.play")
+        PostedResults.end_if_settled(e)
       end
 
       def cancel!
         RecordingStudioAI::Agents.cancel(**agent_args)
-      rescue StandardError
+      rescue StandardError => e
+        ErrorLog.call(e, site: "model_stream.cancel")
         nil
       end
 
@@ -59,7 +62,8 @@ module RecordingStudioAgents
 
       def recovered_session
         RecordingStudioAI::Agents.recover(**agent_args)
-      rescue RecordingStudioAI::Agents::Failure
+      rescue RecordingStudioAI::Agents::Failure => e
+        ErrorLog.call(e, site: "model_stream.recovered_session")
         nil
       end
 
