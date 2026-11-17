@@ -40,9 +40,12 @@ RecordingStudioAgents.configure do |config|
   # config.popup_stylesheet = "tailwind"
   # Flatpack theme on the popup document. The default is "rounded".
   # config.popup_theme = "rounded"
-  # Set false and recording_studio_agents_launcher renders nothing. The default is on.
+  # True, false, or a lambda that takes the controller. The default is on.
+  # A lambda can hide the launcher outside workspace pages.
+  # The launcher is also omitted when the request has no signed-in person or no workspace.
   # The launcher posts the host page into the popup. It does not read the session cookie.
   # config.launcher = false
+  # config.launcher = ->(controller) { controller.controller_path.start_with?("workspaces") }
   # Launcher button. Defaults keep the chat icon and "Open chat".
   # config.launcher_icon = :chat
   # config.launcher_label = "Open chat"
@@ -50,7 +53,7 @@ RecordingStudioAgents.configure do |config|
   # The popup document title stays translated until this is set.
   # config.popup_title = "Chat"
 
-  # Signed-in person for ChatKit and the popup. current_user when the controller
+  # Signed-in person for ChatKit, the popup, and the launcher. current_user when the controller
   # has it. A mounted engine controller usually does not, so the host session
   # (Warden) is the fallback. Sets Current.actor only when that writer exists.
   config.request_actor = lambda do |controller|

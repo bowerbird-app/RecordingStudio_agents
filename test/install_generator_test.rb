@@ -149,6 +149,8 @@ class InstallGeneratorTest < Minitest::Test
     refute_includes template, "Current.actor = user if defined?(Current)\n"
     assert_includes template, "config.request_root = lambda do |controller|"
     assert_includes template, "RecordingStudio::RootSwitchable.resolve_current_root"
+    assert_includes template,
+                    'config.launcher = ->(controller) { controller.controller_path.start_with?("workspaces") }'
     refute_includes template, "# config.request_actor"
     refute_includes template, "# config.request_root"
   end
