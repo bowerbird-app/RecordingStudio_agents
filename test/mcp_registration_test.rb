@@ -3,7 +3,7 @@
 require "test_helper"
 
 class McpRegistrationTest < Minitest::Test
-  def test_register_publishes_chat_endpoints_and_the_skill
+  def test_register_publishes_chat_endpoints
     with_fake_host do
       RecordingStudioAgents::Mcp.register!
       RecordingStudioAgents::Mcp.register!
@@ -26,7 +26,7 @@ class McpRegistrationTest < Minitest::Test
       schema = list_docs.dig(:responses, "200", :content, "application/json", :schema)
       assert_equal "object", schema[:type]
       assert_includes schema[:required], "chats"
-      assert_includes RecordingStudioMcp.skills.fetch("agent-chats"), "SKILL.md"
+      assert_empty RecordingStudioMcp.skills
     end
   end
 
@@ -38,15 +38,6 @@ class McpRegistrationTest < Minitest::Test
 
     refute defined?(RecordingStudioApi)
     refute defined?(RecordingStudioMcp)
-  end
-
-  def test_skill_document_names_the_chat_tools
-    text = File.read(File.expand_path("../lib/recording_studio_agents/mcp/SKILL.md", __dir__))
-
-    assert_includes text, "name: agent-chats"
-    assert_includes text, "agent_chats_list"
-    assert_includes text, "agent_chats_create"
-    assert_includes text, "agent_items_read"
   end
 
   private

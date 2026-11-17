@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.16.0] - 2026-11-17
+
+### Removed
+- Removed the agent-chats MCP skill; tool and field descriptions now carry the idempotency rule.
 
 ### Changed
 - Dummy GitHub pins move to the latest release tags: Recording Studio `v7.3.0`, FlatPack `v0.1.377`, Accessible `v0.45.1`, Trashable `v1.0.1`, Users `v0.32.0`, API `v1.2.1`, Oauth `v0.25.0`, MCP `v0.35.0`, Moveable `v6.0.0`, Icons `v0.4.0`, Admin `v2.18.0`, Site Settings `v0.6.0`, Attachable `v0.31.0`, and Cache `v0.7.0`. The root FlatPack pin is `v0.1.377`. AI, Metrics, Logs, and Root Switchable stay on their current tags.

@@ -2,7 +2,7 @@
 
 ## Current Requirements
 
-- Gem version `0.15.0`
+- Gem version `0.16.0`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `>= 7.0.0, < 8.0` (dummy GitHub tag `v7.3.0`)

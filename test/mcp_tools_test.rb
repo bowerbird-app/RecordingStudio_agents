@@ -215,16 +215,13 @@ class McpToolsTest < Minitest::Test
 
   def install_fakes
     @remove_api = !defined?(::RecordingStudioApi)
-    @remove_mcp = !defined?(::RecordingStudioMcp)
     @remove_item = !RecordingStudioAgents.const_defined?(:Item, false)
     Object.const_set(:RecordingStudioApi, fake_api) if @remove_api
-    Object.const_set(:RecordingStudioMcp, fake_mcp) if @remove_mcp
     RecordingStudioAgents.const_set(:Item, fake_item) if @remove_item
   end
 
   def remove_fakes
     Object.send(:remove_const, :RecordingStudioApi) if @remove_api
-    Object.send(:remove_const, :RecordingStudioMcp) if @remove_mcp
     RecordingStudioAgents.send(:remove_const, :Item) if @remove_item
   end
 
@@ -260,17 +257,5 @@ class McpToolsTest < Minitest::Test
         nil
       end
     end
-  end
-
-  def fake_mcp
-    mod = Module.new
-    def mod.skills
-      @skills ||= {}
-    end
-
-    def mod.register_skill(name, path:)
-      skills[name] = path
-    end
-    mod
   end
 end
