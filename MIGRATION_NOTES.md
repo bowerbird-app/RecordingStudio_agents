@@ -2,11 +2,11 @@
 
 ## Current Requirements
 
-- Gem version `0.17.0`
+- Gem version `0.18.0`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `>= 7.0.0, < 8.0` (dummy GitHub tag `v7.3.0`)
-- Recording Studio AI `>= 0.22.0, < 2.0` (dummy GitHub tag `v0.22.0`)
+- Recording Studio AI `~> 0.24` (dummy GitHub tag `v0.24.0`)
 - Metrics dummy tag `v0.9.0`
 - Logs dummy tag `v0.8.0` (GitHub-only; AI 0.22.0 depends on it)
 - Accessible dummy tag `v0.45.1`, Trashable dummy tag `v1.0.1` (`require: false`), and Root Switchable dummy tag `v0.16.0`

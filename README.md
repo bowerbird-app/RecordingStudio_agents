@@ -6,10 +6,11 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 
 ## Requirements
 
+- Recording Studio Agents `0.18.0`
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
 - Recording Studio `>= 7.0.0, < 8.0` (dummy GitHub tag `v7.3.0`)
-- Recording Studio AI `>= 0.22.0, < 2.0` (dummy GitHub tag `v0.22.0`)
+- Recording Studio AI `~> 0.24` (dummy GitHub tag `v0.24.0`)
 - Recording Studio Metrics dummy GitHub tag `v0.9.0`
 - Accessible dummy GitHub tag `v0.45.1`
 - Trashable dummy GitHub tag `v1.0.1`
@@ -37,7 +38,7 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
 gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.377"
 gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v7.0.0"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.22.0"
+gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.24.0"
 gem "recording_studio_api", github: "bowerbird-app/RecordingStudio_api", tag: "v0.26.0"
 gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.8.0"
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.9.0"
@@ -154,6 +155,23 @@ Register the page's origin, including scheme and port, in the [OpenAI domain all
 
 ```ruby
 config.chatkit_domain_key = ENV.fetch("CHATKIT_DOMAIN_KEY", nil)
+```
+
+### Out of credits
+
+When Recording Studio AI raises `RecordingStudioAI::Errors::UsageDeclined` (`usage_declined`) on `threads.create` or `threads.add_user_message`, the response is `200` with a server-sent stream. The person's words stay on screen, then an assistant line says the message was not sent. Nothing from that turn is stored. A refresh shows the threads and items that were already saved, and the declined line is gone.
+
+A new chat has no thread. The stream uses a random id that is not a recording id. `threads.get_by_id` answers 404.
+
+The same notice is sent when the decline arrives after the turn has started.
+
+`config.out_of_credits_url` is a string or `->(request:, root_recording:) { }`. `nil` leaves the notice without a link. A string, or the lambda's result, must be `http` or `https`, or a path that starts with `/`. Any other scheme, including `javascript:`, raises. A path is joined to the request origin. ChatKit opens the `http(s)` link in a new tab.
+
+`config.out_of_credits_label` is the link text. `nil` uses the locale (`Add credits` in English, `Ajouter des crédits` in French).
+
+```ruby
+config.out_of_credits_url = "/billing"
+config.out_of_credits_label = "Add credits"
 ```
 
 The dummy page at `/agent-chat` uses the same helper. With neither key set, it shows the setup notice and does not call OpenAI.

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-11-17
+
+### Added
+- `config.out_of_credits_url` (a string or a lambda that receives `request:` and `root_recording:`) and `config.out_of_credits_label`. `nil` for the URL leaves the notice without a link. `nil` for the label uses the locale string.
+
+### Changed
+- Require Recording Studio AI `~> 0.24`. The root and dummy Gemfiles pin tag `v0.24.0`.
+- `RecordingStudioAI::Errors::UsageDeclined` (`usage_declined`) during `threads.create` or `threads.add_user_message` is a `200` server-sent stream. The person's message stays on screen, then an assistant line says it was not sent. Neither line is stored. A refresh does not show them. A new chat uses a transient thread id that is not a recording id, so `threads.get_by_id` cannot load it. The same notice is sent when the decline arrives after the stream has started. Other contract errors stay JSON errors. The Rails log line for the decline is unchanged.
+
+### Upgrade notes
+- Install Recording Studio AI `~> 0.24` (`v0.24.0` or newer, below `1.0`). This gem has no migration.
+- Set `config.out_of_credits_url` to an `http` or `https` URL, or to a path such as `"/billing"`. A path is joined to the request origin because the ChatKit frame is not the host. ChatKit opens that link in a new tab. An unsafe URL, including `javascript:`, raises. Leave the setting `nil` for a notice without a link.
+- Set `config.out_of_credits_label` to replace the link text. `nil` keeps the translation (`Add credits` in English, `Ajouter des crédits` in French).
+
 ## [0.17.0] - 2026-11-17
 
 ### Changed

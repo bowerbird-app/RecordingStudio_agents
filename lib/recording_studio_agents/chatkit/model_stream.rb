@@ -9,16 +9,14 @@ module RecordingStudioAgents
         @recording = recording
       end
 
-      def play(&block)
+      def play(&)
         @assistant = AssistantTurn.new(@recording.id)
         @saw_text = false
-        finish_stream(read_stream(&block), &block)
-      rescue RecordingStudioAI::Agents::Failure => e
-        ErrorLog.call(e, site: "model_stream.play")
-        block.call(failure(e.message))
-      rescue RecordingStudioAI::Errors::ContractValidationError => e
-        ErrorLog.call(e, site: "model_stream.play")
-        PostedResults.end_if_settled(e)
+        finish_stream(read_stream(&), &)
+      rescue RecordingStudioAI::Agents::Failure,
+             RecordingStudioAI::Errors::UsageDeclined,
+             RecordingStudioAI::Errors::ContractValidationError => e
+        stopped(e, &)
       end
 
       def cancel!
@@ -29,6 +27,16 @@ module RecordingStudioAgents
       end
 
       private
+
+      def stopped(error, &)
+        ErrorLog.call(error, site: "model_stream.play")
+        return yield(UsageNotice.event(thread_id: @recording.id)) if declined?(error)
+        return PostedResults.end_if_settled(error) if error.is_a?(RecordingStudioAI::Errors::ContractValidationError)
+
+        yield failure(error.message)
+      end
+
+      def declined?(error) = error.is_a?(RecordingStudioAI::Errors::UsageDeclined)
 
       def finish_stream(result, &)
         calls = pending_calls(result)
@@ -110,9 +118,7 @@ module RecordingStudioAgents
         %w[text_delta message_completed].include?(event.type.to_s)
       end
 
-      def failure(message)
-        { type: "error", code: "custom", message: message, allow_retry: true }
-      end
+      def failure(message) = { type: "error", code: "custom", message: message, allow_retry: true }
 
       def agent_args
         recordable = @recording.recordable

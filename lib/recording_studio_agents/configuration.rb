@@ -109,7 +109,8 @@ module RecordingStudioAgents
     attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key,
                   :popup_stylesheet, :popup_theme
     attr_reader :hooks, :default_profile, :retention_period, :provider, :instructions_override,
-                :max_instructions_length, :layout, :mcp_tools, :launcher, :launcher_icon, :launcher_label
+                :max_instructions_length, :layout, :mcp_tools, :launcher, :launcher_icon, :launcher_label,
+                :out_of_credits_url, :out_of_credits_label
 
     def initialize
       assign_defaults
@@ -192,6 +193,21 @@ module RecordingStudioAgents
       I18n.t("recording_studio_agents.popups.show.document_title", default: "Chat")
     end
 
+    def out_of_credits_url=(value)
+      @out_of_credits_url = accepted_credit_url(value)
+    end
+
+    def out_of_credits_label=(value)
+      @out_of_credits_label = value.nil? ? nil : required_text(value, "out_of_credits_label")
+    end
+
+    def out_of_credits_href(request:, root_recording:)
+      value = credit_url_value(request: request, root_recording: root_recording)
+      return if value.nil?
+
+      ChatKit::CreditUrl.on_host(ChatKit::CreditUrl.parse!(value), request)
+    end
+
     def chatkit_options=(value)
       unless value.nil? || value.is_a?(Hash) || value.respond_to?(:call)
         raise Error, "chatkit_options must be a hash or a lambda"
@@ -246,7 +262,7 @@ module RecordingStudioAgents
       @retention_period = 30.days
       @request_actor = ->(*) {}
       @request_root = ->(*) {}
-      @chatkit_domain_key = @layout = nil
+      @chatkit_domain_key = @layout = @out_of_credits_url = @out_of_credits_label = nil
     end
 
     def allowed_symbol(value, allowed, name)
@@ -261,6 +277,22 @@ module RecordingStudioAgents
         popup_stylesheet: popup_stylesheet, popup_theme: popup_theme, popup_title: popup_title,
         launcher_label: launcher_label, launcher_icon: launcher_icon
       }
+    end
+
+    def accepted_credit_url(value)
+      return if value.nil?
+      return value if value.respond_to?(:call) && !value.is_a?(String)
+      raise Error, "out_of_credits_url must be a string or a lambda" unless value.is_a?(String)
+
+      ChatKit::CreditUrl.parse!(value)
+    end
+
+    def credit_url_value(request:, root_recording:)
+      raw = @out_of_credits_url
+      return if raw.nil?
+      return raw unless raw.respond_to?(:call)
+
+      raw.call(request: request, root_recording: root_recording)
     end
 
     def required_text(value, name)

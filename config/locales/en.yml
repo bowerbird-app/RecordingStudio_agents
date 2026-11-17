@@ -1,5 +1,9 @@
 en:
   recording_studio_agents:
+    chat:
+      out_of_credits:
+        message: "You're out of AI credits, so this message wasn't sent."
+        action: "Add credits"
     popups:
       show:
         document_title: "Chat"
