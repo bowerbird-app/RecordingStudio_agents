@@ -14,7 +14,10 @@ module RecordingStudioAgents
       root = recording_studio_agents_resolve(:request_root)
       return signed_out if root.blank?
 
+      ChatKit::Timing.open(type: chatkit_request_type)
       serve(actor, root)
+    ensure
+      ChatKit::Timing.finish
     end
 
     private
@@ -60,12 +63,17 @@ module RecordingStudioAgents
 
     def stream_result(result)
       sse_headers
-      result.each { |json| response.stream.write("data: #{json}\n\n") }
+      result.each { |json| write_event(json) }
     rescue IOError, ActionController::Live::ClientDisconnected => e
       ChatKit::ErrorLog.call(e, site: "chatkit_controller.stream_result", level: :info)
       result.cancel!
     ensure
       response.stream.close
+    end
+
+    def write_event(json)
+      response.stream.write("data: #{json}\n\n")
+      ChatKit::Timing.wrote(json)
     end
 
     def sse_headers

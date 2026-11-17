@@ -88,6 +88,7 @@ module RecordingStudioAgents
     initializer "recording_studio_agents.recordables" do
       config.to_prepare do
         RecordingStudio.register_recordable_type("RecordingStudioAgents::Session")
+        RecordingStudioAgents::Sessions::AssignedChatId.install!
       end
     end
 

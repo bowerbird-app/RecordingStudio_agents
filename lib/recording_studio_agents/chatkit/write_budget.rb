@@ -194,6 +194,10 @@ module RecordingStudioAgents
       end
 
       def run_call(item)
+        Timing.measure("tool", name: item.call.name) { invoke_tool(item) }
+      end
+
+      def invoke_tool(item)
         Timeout.timeout(RecordingStudioAgents.configuration.chat_tool_deadline) do
           audit.with_turn(item.call.provider_turn_id) do
             audit.with_reserved(item.row) { Mcp::ChatTools.answer(item.call, actor: @actor, root: @root) }

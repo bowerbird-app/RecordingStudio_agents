@@ -146,7 +146,7 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
     assert_nil response.headers["Content-Security-Policy"]
   end
 
-  test "a denied execute returns forbidden instead of an error page" do
+  test "a denied execute is an error event instead of an error page" do
     root = RecordingStudio.create_root_recording!(Workspace.create!(name: "Popup #{SecureRandom.hex(4)}"), actor: @user)
     grant_edit(@user, root)
     @configuration.request_actor = ->(*) { @user }
@@ -157,8 +157,15 @@ class ChatkitPopupTest < ActionDispatch::IntegrationTest
          params: { type: "threads.create", params: { input: { content: [{ type: "input_text", text: "hello" }] } } },
          as: :json
 
-    assert_response :forbidden
-    assert_includes JSON.parse(response.body).fetch("message"), "recording_studio_ai.execute"
+    assert_response :success
+    assert_equal "text/event-stream", response.media_type
+    error = response.body.each_line.filter_map { |line|
+      next unless line.start_with?("data: ")
+
+      JSON.parse(line.delete_prefix("data: ").strip)
+    }.last
+    assert_equal "error", error.fetch("type")
+    assert_includes error.fetch("message"), "recording_studio_ai.execute"
   end
 
   test "a workspace chat keeps the application content security policy" do

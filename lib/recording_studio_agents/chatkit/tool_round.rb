@@ -38,11 +38,26 @@ module RecordingStudioAgents
       def step(calls, delivered)
         return [delivered, calls, true] if calls.empty? || !@budget.round_open?(calls)
 
+        timed_step(calls, delivered)
+      end
+
+      def timed_step(calls, delivered)
+        started = Timing.mark
+        advance(calls, delivered)
+      ensure
+        Timing.round(next_round, started) if started
+      end
+
+      def advance(calls, delivered)
         results = answers(calls)
         return [delivered, calls, true] if results == :closed
 
         delivered = deliver(results)
         [delivered, PostedResults.pending(delivered), false]
+      end
+
+      def next_round
+        @round = @round.to_i + 1
       end
 
       def finish_over_cap(calls)
@@ -73,6 +88,26 @@ module RecordingStudioAgents
       end
 
       def deliver(results)
+        poster.deliver(results)
+      end
+
+      def retry_post(results, error)
+        poster.retry_post(results, error)
+      end
+
+      def poster
+        ToolPost.new(@agent_args, @emit)
+      end
+    end
+
+    # Posts tool results. A timeout reads the pending calls again before a retry.
+    class ToolPost
+      def initialize(agent_args, emit)
+        @agent_args = agent_args
+        @emit = emit
+      end
+
+      def deliver(results)
         postable = PostedResults.list(results)
         return PostedResults.quiet_turn if postable == :quiet
 
@@ -87,8 +122,6 @@ module RecordingStudioAgents
         PostedResults.end_if_settled(e)
       end
 
-      # A timeout can mean the result post is still in flight. Read the pending
-      # calls again and resend only the ones the provider still lists.
       def retry_post(results, error)
         pending = reread_pending
         raise error if pending.nil?
@@ -104,6 +137,8 @@ module RecordingStudioAgents
 
         continue
       end
+
+      private
 
       def post(results)
         return if results.empty?

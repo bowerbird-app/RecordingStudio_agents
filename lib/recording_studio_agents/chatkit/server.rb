@@ -48,7 +48,8 @@ module RecordingStudioAgents
         request = JSON.parse(raw)
         type = request["type"].to_s
         @request_type = type
-        dispatch(type, request.fetch("params", {}))
+        Timing.note_type(type)
+        ErrorLog.with_type(type) { dispatch(type, request.fetch("params", {})) }
       rescue JSON::ParserError, Error => e
         fail_request(e)
       end
@@ -79,8 +80,14 @@ module RecordingStudioAgents
       end
 
       def stream_new(params)
-        text = Payload.user_text(params["input"])
-        Result.stream(Turn.open(actor: @actor, root: @root, text: text, parent: turn_parent, preface: preface))
+        Result.stream(open_turn(Payload.user_text(params["input"])))
+      end
+
+      def open_turn(text)
+        Turn.open(
+          actor: @actor, root: @root, text: text, page_context: @page_context,
+          page_recording: @page_recording, request_type: @request_type
+        )
       end
 
       def reject_client_instructions!(params)
@@ -97,22 +104,8 @@ module RecordingStudioAgents
       def continue(recording, params)
         Turn.follow(
           actor: @actor, root: @root, text: Payload.user_text(params["input"]),
-          recording: recording, preface: preface
+          recording: recording, page_context: @page_context, request_type: @request_type
         )
-      end
-
-      def turn_parent
-        @page_recording || resolved_page
-      end
-
-      def preface
-        @page_context.preface(@page_recording || resolved_page)
-      end
-
-      def resolved_page
-        return @resolved_page if defined?(@resolved_page)
-
-        @resolved_page = @page_context.page_for(@root, @actor)
       end
 
       def catalog

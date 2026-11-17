@@ -24,10 +24,17 @@ module RecordingStudioAgents
       end
 
       def item_attributes
-        {
-          id: SecureRandom.uuid, recording_id: nil, role: "user", text: @input, status: "done",
+        attrs = {
+          id: item_id, recording_id: nil, role: "user", text: @input, status: "done",
           idempotency_key: @idempotency_key
         }
+        attrs[:created_at] = @item_created_at if @item_created_at
+        attrs
+      end
+
+      def item_id
+        text = @item_id.to_s
+        text.empty? ? SecureRandom.uuid : text
       end
 
       def required_model(hosted)

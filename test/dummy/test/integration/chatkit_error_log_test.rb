@@ -38,7 +38,7 @@ class ChatkitErrorLogTest < ActionDispatch::IntegrationTest
     @configuration.mcp_tools = @previous_tools
   end
 
-  test "out of credits stays a 400 and the log names the contract error" do
+  test "a provider contract error is an error event after the echo" do
     with_singleton(RecordingStudioAI::Agents, :create_session, lambda { |**|
       raise RecordingStudioAI::Errors::ContractValidationError.new(
         "Not enough credits for this call.", code: "invalid_request"
@@ -47,14 +47,13 @@ class ChatkitErrorLogTest < ActionDispatch::IntegrationTest
       post "/recording_studio_agents/chatkit", params: create_payload("hello"), as: :json
     end
 
-    assert_response :bad_request
-    assert_equal(
-      {
-        "type" => "error", "code" => "custom",
-        "message" => "Not enough credits for this call.", "allow_retry" => false
-      },
-      JSON.parse(response.body)
-    )
+    assert_response :success
+    assert_equal "text/event-stream", response.media_type
+    error = sse_events.last
+    assert_equal "error", error.fetch("type")
+    assert_equal "custom", error.fetch("code")
+    assert_equal false, error.fetch("allow_retry")
+    assert_equal "Not enough credits for this call.", error.fetch("message")
     assert_chatkit_line(
       "chatkit_controller.create",
       "RecordingStudioAI::Errors::ContractValidationError",
@@ -65,7 +64,7 @@ class ChatkitErrorLogTest < ActionDispatch::IntegrationTest
     refute_chatkit_secret
   end
 
-  test "an authorization contract error stays forbidden" do
+  test "an authorization contract error is an error event on the stream" do
     with_singleton(RecordingStudioAI::Agents, :create_session, lambda { |**|
       raise RecordingStudioAI::Errors::ContractValidationError.new(
         "Not authorized for action recording_studio_ai.execute", code: "authorization"
@@ -74,8 +73,9 @@ class ChatkitErrorLogTest < ActionDispatch::IntegrationTest
       post "/recording_studio_agents/chatkit", params: create_payload("hello"), as: :json
     end
 
-    assert_response :forbidden
-    assert_equal "Not authorized for action recording_studio_ai.execute", JSON.parse(response.body).fetch("message")
+    assert_response :success
+    assert_equal "text/event-stream", response.media_type
+    assert_equal "Not authorized for action recording_studio_ai.execute", sse_events.last.fetch("message")
     assert_chatkit_line("chatkit_controller.create", "code=authorization", "type=threads.create")
   end
 
@@ -149,12 +149,11 @@ class ChatkitErrorLogTest < ActionDispatch::IntegrationTest
   test "a recording outside the root stays chat was not found" do
     page = @other_root.record(Page, actor: @user) { |record| record.title = "Elsewhere" }
 
-    result = RecordingStudioAgents::ChatKit::Server.call(
-      create_payload("hello").to_json, actor: @user, root_recording: @root, page_recording: page
-    )
+    events = stream_events(create_payload("hello"), page_recording: page)
 
-    assert_equal 404, result.status
-    assert_equal "chat was not found", result.body[:message]
+    assert_equal "error", events.last.fetch("type")
+    assert_equal "chat was not found", events.last.fetch("message")
+    assert_nil RecordingStudio::Recording.find_by(id: events.first.dig("thread", "id"))
     assert_chatkit_line(
       "server.call", "RecordingStudioAgents::IsolationError",
       "recording is outside this root", "type=threads.create"
@@ -162,17 +161,16 @@ class ChatkitErrorLogTest < ActionDispatch::IntegrationTest
     refute_includes chatkit_text, "chat was not found"
   end
 
-  test "an actor without access stays forbidden" do
+  test "an actor without access stays an error event" do
     stranger = User.create!(email: "stranger-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user|
       user.skip_confirmation!
     }
 
-    result = RecordingStudioAgents::ChatKit::Server.call(
-      create_payload("hello").to_json, actor: stranger, root_recording: @root
-    )
+    events = stream_events(create_payload("hello"), actor: stranger)
 
-    assert_equal 403, result.status
-    assert_equal "actor cannot access this recording", result.body[:message]
+    assert_equal "error", events.last.fetch("type")
+    assert_equal "actor cannot access this recording", events.last.fetch("message")
+    assert_nil RecordingStudio::Recording.find_by(id: events.first.dig("thread", "id"))
     assert_chatkit_line(
       "server.call", "RecordingStudioAgents::Sessions::AccessDeniedError",
       "actor cannot access this recording", "type=threads.create"
@@ -356,6 +354,22 @@ class ChatkitErrorLogTest < ActionDispatch::IntegrationTest
         note: SECRET
       }
     }
+  end
+
+  def sse_events
+    response.body.each_line.filter_map do |line|
+      next unless line.start_with?("data: ")
+
+      JSON.parse(line.delete_prefix("data: ").strip)
+    end
+  end
+
+  def stream_events(payload, actor: @user, page_recording: nil)
+    result = RecordingStudioAgents::ChatKit::Server.call(
+      payload.to_json, actor: actor, root_recording: @root, page_recording: page_recording
+    )
+    assert result.streaming?
+    result.each.map { |json| JSON.parse(json) }
   end
 
   def memory_logger(inner, lines)
