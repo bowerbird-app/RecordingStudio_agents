@@ -46,15 +46,11 @@ module RecordingStudioAgents
 
       def call(raw)
         request = JSON.parse(raw)
-        dispatch(request["type"].to_s, request.fetch("params", {}))
-      rescue JSON::ParserError
-        error("invalid request")
-      rescue ProtocolError => e
-        error(e.message, e.status)
-      rescue IsolationError
-        error("chat was not found", 404)
-      rescue Error => e
-        error(e.message, 403)
+        type = request["type"].to_s
+        @request_type = type
+        dispatch(type, request.fetch("params", {}))
+      rescue JSON::ParserError, Error => e
+        fail_request(e)
       end
 
       private
@@ -125,6 +121,16 @@ module RecordingStudioAgents
 
       def json(body)
         Result.json(body)
+      end
+
+      def fail_request(caught)
+        ErrorLog.call(caught, site: "server.call", type: @request_type)
+        case caught
+        when JSON::ParserError then error("invalid request")
+        when ProtocolError then error(caught.message, caught.status)
+        when IsolationError then error("chat was not found", 404)
+        else error(caught.message, 403)
+        end
       end
 
       def error(message, status = 400)

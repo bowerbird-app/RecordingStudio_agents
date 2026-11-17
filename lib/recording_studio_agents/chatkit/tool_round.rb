@@ -60,8 +60,8 @@ module RecordingStudioAgents
 
       def cancel_run
         RecordingStudioAI::Agents.cancel(**@agent_args)
-      rescue RecordingStudioAI::Agents::Failure
-        nil
+      rescue RecordingStudioAI::Agents::Failure => e
+        ErrorLog.call(e, site: "tool_round.cancel_run") || nil
       end
 
       def answers(calls)
@@ -78,10 +78,12 @@ module RecordingStudioAgents
 
         post(postable)
       rescue RecordingStudioAI::Agents::Failure => e
-        raise unless timeout?(e)
+        ErrorLog.call(e, site: "tool_round.deliver")
+        raise unless e.error.respond_to?(:category) && e.error.category.to_s == "timeout"
 
         retry_post(postable, e)
       rescue RecordingStudioAI::Errors::ContractValidationError => e
+        ErrorLog.call(e, site: "tool_round.deliver")
         PostedResults.end_if_settled(e)
       end
 
@@ -95,7 +97,8 @@ module RecordingStudioAgents
         return continue if narrowed.empty?
 
         post(narrowed)
-      rescue RecordingStudioAI::Errors::ContractValidationError
+      rescue RecordingStudioAI::Errors::ContractValidationError => e
+        ErrorLog.call(e, site: "tool_round.retry_post")
         pending = reread_pending
         raise error if pending.nil? || pending.any?
 
@@ -117,8 +120,8 @@ module RecordingStudioAgents
       def reread_pending
         recovery = RecordingStudioAI::Agents.recover(**@agent_args)
         Array(recovery&.tool_calls)
-      rescue RecordingStudioAI::Agents::Failure
-        nil
+      rescue RecordingStudioAI::Agents::Failure => e
+        ErrorLog.call(e, site: "tool_round.reread_pending") || nil
       end
 
       def align(results, calls)
@@ -129,10 +132,6 @@ module RecordingStudioAgents
 
           result.merge(turn_id: call.provider_turn_id)
         end
-      end
-
-      def timeout?(error)
-        error.error.respond_to?(:category) && error.error.category.to_s == "timeout"
       end
     end
   end

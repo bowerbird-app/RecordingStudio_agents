@@ -14,11 +14,10 @@ module RecordingStudioAgents
       root = recording_studio_agents_resolve(:request_root)
       return signed_out if root.blank?
 
-      render_result chat_result(actor, root)
-    rescue ChatKit::ProtocolError => e
-      render_error(e.message, e.status)
-    rescue RecordingStudioAI::Errors::ContractValidationError => e
-      render_error(e.message, e.code.to_s == "authorization" ? 403 : 400)
+      ChatKit::ErrorLog.with_type(chatkit_request_type) { render_result chat_result(actor, root) }
+    rescue ChatKit::ProtocolError, RecordingStudioAI::Errors::ContractValidationError => e
+      ChatKit::ErrorLog.call(e, site: "chatkit_controller.create", type: chatkit_request_type)
+      render_error(e.message, response_status(e))
     end
 
     private
@@ -44,7 +43,8 @@ module RecordingStudioAgents
     def stream_result(result)
       sse_headers
       result.each { |json| response.stream.write("data: #{json}\n\n") }
-    rescue IOError, ActionController::Live::ClientDisconnected
+    rescue IOError, ActionController::Live::ClientDisconnected => e
+      ChatKit::ErrorLog.call(e, site: "chatkit_controller.stream_result", level: :info)
       result.cancel!
     ensure
       response.stream.close
@@ -62,6 +62,23 @@ module RecordingStudioAgents
 
     def render_error(message, status)
       render json: { type: "error", code: "custom", message: message, allow_retry: false }, status: status
+    end
+
+    def response_status(error)
+      return error.status if error.is_a?(ChatKit::ProtocolError)
+
+      error.code.to_s == "authorization" ? 403 : 400
+    end
+
+    # The ChatKit operation name only. A missing or odd type is left off the log line.
+    def chatkit_request_type
+      data = JSON.parse(request.raw_post.to_s)
+      return unless data.is_a?(Hash)
+
+      type = data["type"]
+      type if type.is_a?(String)
+    rescue StandardError
+      nil
     end
   end
 end

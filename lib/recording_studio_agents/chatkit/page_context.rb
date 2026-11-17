@@ -24,7 +24,8 @@ module RecordingStudioAgents
         raise ProtocolError, "ChatKit does not accept instructions" if instructions?(data)
 
         new(data)
-      rescue JSON::ParserError
+      rescue JSON::ParserError => e
+        ErrorLog.call(e, site: "page_context.parse")
         raise ProtocolError, "page context must be an object"
       end
 
@@ -53,8 +54,8 @@ module RecordingStudioAgents
         return if @page_recording_id.nil?
 
         ScopedParent.resolve!(@page_recording_id, root: root, actor: actor)
-      rescue ProtocolError
-        nil
+      rescue ProtocolError => e
+        ErrorLog.call(e, site: "page_context.page_for") || nil
       end
 
       def preface(page_recording = nil)

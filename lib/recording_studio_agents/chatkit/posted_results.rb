@@ -28,14 +28,7 @@ module RecordingStudioAgents
       def end_if_settled(error)
         raise error unless settled_rejection?(error)
 
-        log_settled(error)
         quiet_turn
-      end
-
-      def log_settled(error)
-        return unless defined?(Rails) && Rails.respond_to?(:logger) && Rails.logger
-
-        Rails.logger.info("Recording Studio Agents: #{error.message}")
       end
 
       def pending(source)
