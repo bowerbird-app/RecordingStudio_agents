@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.2] - 2026-11-17
+
+### Changed
+- `threads.create` and `threads.add_user_message` write the opening server-sent events before the chat is saved and before the provider runs. A new thread sends `thread.created`, then the user message, then `stream_options`. A reply sends the user message, then `stream_options`. The thread id and the user item id are chosen first and stored on the rows that follow, so a refresh shows the same thread and the same message.
+- A `usage_declined` error still sends the out-of-credits notice and stores nothing. The log line is unchanged. An unsafe out-of-credits URL still raises, and that failure is an error event on the same stream. The event and the log leave the URL out.
+- A provider contract error, or another chat error, raised while saving that turn is an error event on the same stream. The object is still `type`, `code` `custom`, `message`, and `allow_retry` `false`. The stream has already started, so the HTTP status is `200`. Invalid JSON, a rejected page, a missing thread, and a signed-out request stay JSON responses.
+- ChatKit requests log one timing line per phase under `[recording_studio_agents.chatkit]`. The phases are `page_context`, `create` or `append`, `ttft` (request start until the first assistant text delta is written), `tool` (with `name=`), `round` (with `n=`), and `total`. Each line includes `ms=` and `type=` when the request type is a short token. The lines use a monotonic clock. They do not include message text, tool arguments, tool results, page context, tokens, headers, or secrets.
+
+### Upgrade notes
+- No migration and no host setting. The happy-path event order is unchanged, and those events now leave the server before the provider call.
+- Code that treated a contract error from `threads.create` or `threads.add_user_message` as an HTTP `400` or `403` JSON body should read the error event on the `200` stream instead. The message is the same. Nothing from that failed turn is stored.
+- Log collectors will see the new `timing` lines.
+
 ## [0.18.1] - 2026-11-17
 
 ### Changed

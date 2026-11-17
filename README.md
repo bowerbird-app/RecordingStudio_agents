@@ -6,7 +6,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 
 ## Requirements
 
-- Recording Studio Agents `0.18.1`
+- Recording Studio Agents `0.18.2`
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
 - Recording Studio `>= 7.0.0, < 8.0` (dummy GitHub tag `v7.3.0`)
@@ -122,9 +122,11 @@ Create and append are idempotent on their keys inside one root. The same create 
 
 ## ChatKit
 
-`POST /recording_studio_agents/chatkit` accepts the ChatKit protocol and answers with JSON or server-sent events. The host session resolves the actor. The root is the workspace selected in Root Switchable (`RecordingStudio::RootSwitchable.resolve_current_root`), not the oldest workspace. Client metadata ids are ignored. Create, append, rename, and delete go through the Sessions services. Streaming, cancel, and reading a finished first turn go through `RecordingStudioAI::Agents`. A chat the actor cannot view is a 404, the same as a missing chat. A rescued error on that request is one Rails log line starting with `[recording_studio_agents.chatkit]`. A client disconnect is info. Any other rescued error is a warning. The status, JSON body, and server-sent events stay the same. The line leaves out the request body, headers, cookies, and credentials.
+`POST /recording_studio_agents/chatkit` accepts the ChatKit protocol and answers with JSON or server-sent events. The host session resolves the actor. The root is the workspace selected in Root Switchable (`RecordingStudio::RootSwitchable.resolve_current_root`), not the oldest workspace. Client metadata ids are ignored. Create, append, rename, and delete go through the Sessions services. Streaming, cancel, and reading a finished first turn go through `RecordingStudioAI::Agents`. A chat the actor cannot view is a 404, the same as a missing chat. A rescued error on that request is one Rails log line starting with `[recording_studio_agents.chatkit]`. A client disconnect is info. Any other rescued error is a warning. Invalid JSON, a rejected page, a missing thread, and a signed-out request keep their HTTP status and JSON body. The line leaves out the request body, headers, cookies, and credentials.
 
-`threads.create` is not streamed by Recording Studio AI. After the session is saved, the endpoint reads the provider stream, and reads saved items when that stream has no text. `text_delta` events become ChatKit text deltas. An unsupported operation returns a protocol error.
+The same log prefix records phase timings: `page_context`, `create` or `append`, `ttft`, `tool`, `round`, and `total`. A line looks like `[recording_studio_agents.chatkit] timing phase=create ms=40 type=threads.create`. `ttft` is the time from the start of the request until the first assistant text delta is written to the client. A tool line adds `name=`. A round line adds `n=`. The clock is monotonic. The line does not include message text, tool arguments, tool results, page context, tokens, headers, or secrets.
+
+`threads.create` and `threads.add_user_message` write the opening events before the chat is saved and before the provider runs. A new thread sends `thread.created`, the user message, and `stream_options`. A reply sends the user message and `stream_options`. The thread id and the user item id in those events are the ids stored afterwards. The provider call is not streamed by Recording Studio AI. After the session is saved, the endpoint reads the provider stream, and reads saved items when that stream has no text. `text_delta` events become ChatKit text deltas. An unsupported operation returns a protocol error.
 
 `recording_studio_agents_chatkit` renders the official `<openai-chatkit>` web component from `https://cdn.platform.openai.com/deployments/chatkit/chatkit.js`. Its custom backend is this endpoint. The component's `fetch` sends the session cookie and the CSRF token. `domainKey` comes from `config.chatkit_domain_key`. The setup script is the asset `recording_studio_agents/chatkit.js`, served from the host. Per-render values (`endpoint`, `domainKey`, and `hostOptions`) are HTML data attributes. The script reads those attributes, so a quote in any of them stays a quote. The browser does not receive an OpenAI API key, a client secret, or an Agent Builder workflow. The panel sits in a FlatPack card. Its height is the Tailwind class `h-[min(40rem,calc(100dvh-16rem))]`, so the host Tailwind build has to scan this gem's views. An inner wrapper uses the card radius and `overflow-hidden` so the ChatKit iframe follows the rounded corners.
 
@@ -159,7 +161,7 @@ config.chatkit_domain_key = ENV.fetch("CHATKIT_DOMAIN_KEY", nil)
 
 ### Out of credits
 
-When Recording Studio AI raises `RecordingStudioAI::Errors::UsageDeclined` (`usage_declined`) on `threads.create` or `threads.add_user_message`, the response is `200` with a server-sent stream. The person's words stay on screen, then an assistant line says the message was not sent. Nothing from that turn is stored. A refresh shows the threads and items that were already saved, and the declined line is gone.
+When Recording Studio AI raises `RecordingStudioAI::Errors::UsageDeclined` (`usage_declined`) on `threads.create` or `threads.add_user_message`, the response is `200` with a server-sent stream. The person's words stay on screen, then an assistant line says the message was not sent. Nothing from that turn is stored. A refresh shows the threads and items that were already saved, and the declined line is gone. A provider contract error during that save is also an error event on the `200` stream, after the same opening events, and it stores nothing. The error object is `type` `error`, `code` `custom`, the message, and `allow_retry` `false`.
 
 A new chat has no thread. The stream uses a random id that is not a recording id. `threads.get_by_id` answers 404.
 
@@ -297,7 +299,7 @@ config.sign_in_path = "/login"
 config.sign_in_path = ->(controller) { controller.main_app.new_user_session_path }
 ```
 
-`POST /recording_studio_agents/chatkit` with no actor returns 401. A signed-in actor who is not allowed to execute returns 403.
+`POST /recording_studio_agents/chatkit` with no actor returns 401. A signed-in actor who is not allowed to execute gets an error event on the `200` stream. The message names `recording_studio_ai.execute`. The opening events are already written, so that refusal is not an HTTP `403`.
 
 The sign-in copy is in `config/locales/en.yml` and `config/locales/fr.yml`.
 

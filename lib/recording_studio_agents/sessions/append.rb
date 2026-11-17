@@ -13,14 +13,20 @@ module RecordingStudioAgents
         @actor = actor
         @input = input
         @idempotency_key = idempotency_key
+        assign_options(options)
+      end
+
+      private
+
+      def assign_options(options)
         @recording = options[:recording]
         @recording_id = options[:recording_id]
         @execution_source = options.fetch(:execution_source, :web)
         @access_grant = options[:access_grant]
         @provider_input = options[:provider_input]
+        @item_id = options[:item_id]
+        @item_created_at = options[:item_created_at]
       end
-
-      private
 
       def perform
         validate!
@@ -88,10 +94,12 @@ module RecordingStudioAgents
       end
 
       def item_attributes(recording)
-        {
-          id: SecureRandom.uuid, recording: recording, root_recording: @root_recording, role: "user",
-          text: @input, status: "done", idempotency_key: @idempotency_key
+        attrs = {
+          id: @item_id.presence || SecureRandom.uuid, recording: recording, root_recording: @root_recording,
+          role: "user", text: @input, status: "done", idempotency_key: @idempotency_key
         }
+        attrs[:created_at] = @item_created_at if @item_created_at
+        attrs
       end
 
       def touch_binding(recording)

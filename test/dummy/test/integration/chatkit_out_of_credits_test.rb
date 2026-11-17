@@ -49,7 +49,7 @@ class ChatkitOutOfCreditsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "text/event-stream", response.media_type
     events = sse_events
-    assert_equal %w[thread.created thread.item.done thread.item.done], events.map { |event| event["type"] }
+    assert_equal %w[thread.created thread.item.done stream_options thread.item.done], events.map { |event| event["type"] }
     thread_id = events.first.dig("thread", "id")
     assert_match(/\A[0-9a-f-]{36}\z/, thread_id)
     assert_nil RecordingStudio::Recording.find_by(id: thread_id)
@@ -81,7 +81,7 @@ class ChatkitOutOfCreditsTest < ActionDispatch::IntegrationTest
 
     events = sse_from("threads.add_user_message", "not sent", thread_id: thread_id)
 
-    assert_equal %w[thread.item.done thread.item.done], events.map { |event| event["type"] }
+    assert_equal %w[thread.item.done stream_options thread.item.done], events.map { |event| event["type"] }
     assert_equal "not sent", events.first.dig("item", "content", 0, "text")
     assert_equal thread_id, events.first.dig("item", "thread_id")
     assert_includes events.last.dig("item", "content", 0, "text"), "(http://www.example.com/plans/#{@root.id})"
@@ -118,17 +118,22 @@ class ChatkitOutOfCreditsTest < ActionDispatch::IntegrationTest
     assert_includes notice, "[Ajouter des crédits](http://www.example.com/billing)"
   end
 
-  test "an unsafe url is rejected before the stream" do
+  test "an unsafe url is an error event and stays out of the log" do
     @decline = :create
     @configuration.out_of_credits_url = ->(request:, root_recording:) { "javascript:#{request}#{root_recording}" }
+    before = counts
 
-    error = assert_raises(RecordingStudioAgents::Error) do
-      post chatkit_path, params: payload("threads.create", "hello"), as: :json
-    end
+    post chatkit_path, params: payload("threads.create", "hello"), as: :json
 
-    assert_match "http(s)", error.message
-    refute_includes error.message, "javascript:"
+    assert_response :success
+    error = sse_events.last
+    assert_equal "error", error.fetch("type")
+    assert_match "http(s)", error.fetch("message")
+    refute_includes error.fetch("message"), "javascript:"
+    refute_includes response.body, "javascript:"
+    assert_equal before, counts
     assert_chatkit_line("chatkit_controller.create", "code=usage_declined")
+    refute_includes @lines.map(&:last).join, "javascript:"
   end
 
   test "a mid-stream decline streams the same notice" do
@@ -149,17 +154,24 @@ class ChatkitOutOfCreditsTest < ActionDispatch::IntegrationTest
     assert_chatkit_line("model_stream.play", "RecordingStudioAI::Errors::UsageDeclined", "code=usage_declined")
   end
 
-  test "another contract error stays a 400" do
+  test "another contract error is an error event and stores nothing" do
     @decline = :contract
+    before = counts
 
     post chatkit_path, params: payload("threads.create", "hello"), as: :json
 
-    assert_response :bad_request
-    assert_equal "application/json", response.media_type
-    body = JSON.parse(response.body)
-    assert_equal "custom", body.fetch("code")
-    assert_equal false, body.fetch("allow_retry")
-    assert_equal "Not enough credits for this call.", body.fetch("message")
+    assert_response :success
+    assert_equal "text/event-stream", response.media_type
+    events = sse_events
+    assert_equal "thread.created", events.first.fetch("type")
+    assert_equal "hello", events.find { |event| event.dig("item", "type") == "user_message" }.dig("item", "content", 0, "text")
+    error = events.last
+    assert_equal "error", error.fetch("type")
+    assert_equal "custom", error.fetch("code")
+    assert_equal false, error.fetch("allow_retry")
+    assert_equal "Not enough credits for this call.", error.fetch("message")
+    assert_nil RecordingStudio::Recording.find_by(id: events.first.dig("thread", "id"))
+    assert_equal before, counts
     assert_chatkit_line("chatkit_controller.create", "code=invalid_request", "type=threads.create")
     refute_includes @lines.map(&:last).join, "code=usage_declined"
   end

@@ -23,11 +23,22 @@ module RecordingStudioAgents
       private
 
       def assign_options(options)
+        assign_chat_options(options)
+        assign_request_options(options)
+      end
+
+      def assign_chat_options(options)
         @title = options[:title]
         @instructions = options[:instructions]
         @profile = options[:profile]
         @purpose = options[:purpose]
         @execution_source = options.fetch(:execution_source, :web)
+        @recording_id = options[:recording_id]
+        @item_id = options[:item_id]
+        @item_created_at = options[:item_created_at]
+      end
+
+      def assign_request_options(options)
         @access_grant = options[:access_grant]
         @event_actor = options[:event_actor]
         @metadata = options[:metadata]

@@ -63,6 +63,8 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_equal %w[thread.created thread.item.done stream_options thread.item.done], events.map { |event| event["type"] }
     assert_equal "Saved reply", events.last.dig("item", "content", 0, "text")
     recording = RecordingStudio::Recording.find(events.first.dig("thread", "id"))
+    user_item = events.find { |event| event.dig("item", "type") == "user_message" }
+    assert_equal user_item.dig("item", "id"), RecordingStudioAgents::Item.find_by!(recording: recording, role: "user").id
     assert_equal @root, recording.root_recording
     assert_equal 1, RecordingStudioAgents::Item.where(recording: recording, role: "assistant").count
     assert_equal 1, @calls[:create_session].size
@@ -80,6 +82,125 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_equal "thread.item.added", events.find { |event| event["type"] == "thread.item.added" }["type"]
   end
 
+  test "opening events are yielded before a slow create and the provider" do
+    order = []
+    pause_agents(order)
+
+    events = []
+    stream_result(create_body("hello from the slow turn")) { |json|
+      order << JSON.parse(json).fetch("type")
+      events << JSON.parse(json)
+    }
+
+    assert_operator order.index("thread.item.done"), :<, order.index(:create_session)
+    assert_operator order.index(:create_session), :<, order.index(:stream)
+    assert_equal "thread.created", order.first
+    recording = RecordingStudio::Recording.find(events.first.dig("thread", "id"))
+    assert_equal events.find { |event| event.dig("item", "type") == "user_message" }.dig("item", "id"),
+      RecordingStudioAgents::Item.find_by!(recording: recording, role: "user").id
+  end
+
+  test "a declined create yields the echo before the provider and stores nothing" do
+    order = []
+    before = RecordingStudioAgents::Item.count
+    RecordingStudioAI::Agents.define_singleton_method(:create_session) do |**|
+      order << :create_session
+      sleep 0.05
+      raise RecordingStudioAI::Errors::UsageDeclined
+    end
+
+    events = []
+    stream_result(create_body("this decline is not stored")) { |json|
+      order << JSON.parse(json).fetch("type")
+      events << JSON.parse(json)
+    }
+
+    assert_operator order.index("thread.item.done"), :<, order.index(:create_session)
+    refute_includes order, :stream
+    assert_equal "thread.item.done", events.last.fetch("type")
+    assert_equal "assistant_message", events.last.dig("item", "type")
+    assert_nil RecordingStudio::Recording.find_by(id: events.first.dig("thread", "id"))
+    assert_equal before, RecordingStudioAgents::Item.count
+  end
+
+  test "a follow up echo is yielded before append and the provider" do
+    created = stream_events(create_body("hello"))
+    thread_id = created.first.dig("thread", "id")
+    order = []
+    helper = self
+    RecordingStudioAI::Agents.define_singleton_method(:send_input) do |**kwargs|
+      order << :send_input
+      sleep 0.05
+      helper.send(:record_send, kwargs)
+    end
+    RecordingStudioAI::Agents.define_singleton_method(:stream) do |**kwargs, &block|
+      order << :stream
+      helper.send(:record_stream, kwargs, block)
+    end
+
+    stream_result(message_body(thread_id, "again later")) { |json| order << JSON.parse(json).fetch("type") }
+
+    assert_operator order.index("thread.item.done"), :<, order.index(:send_input)
+    assert_operator order.index(:send_input), :<, order.index(:stream)
+    stored = RecordingStudioAgents::Item.find_by!(recording_id: thread_id, text: "again later")
+    assert_equal 1, RecordingStudioAgents::Item.where(id: stored.id).count
+  end
+
+  test "timing lines name phases and leave out message text" do
+    lines = []
+    previous = Rails.logger
+    Rails.logger = timing_logger(lines)
+    @stream = [
+      event("text_delta", text_delta: "Hi there"),
+      event("message_completed", text: "Hi there"),
+      event("turn_completed")
+    ]
+    page_title = "timing-secret-title"
+
+    post_context("threads.create", create_params("hello timing phrase"), header: {
+      "url" => "https://studio.test/timing", "title" => page_title, "selection" => "selected timing words"
+    })
+    thread_id = created_thread_id
+    post_context(
+      "threads.add_user_message",
+      create_params("again timing phrase").merge("thread_id" => thread_id)
+    )
+
+    timing = lines.map { |line| line.to_s }.grep(/timing phase=/)
+    text = timing.join("\n")
+    %w[phase=page_context phase=create phase=append phase=ttft phase=total type=threads.create].each do |part|
+      assert_includes text, part
+    end
+    assert_includes text, "type=threads.add_user_message"
+    %w[hello\ timing\ phrase again\ timing\ phrase Hi\ there timing-secret-title selected\ timing\ words studio.test].each do |secret|
+      refute_includes text, secret
+    end
+  ensure
+    Rails.logger = previous if previous
+  end
+
+  test "tool timings name the tool and leave out its arguments" do
+    lines = []
+    previous = Rails.logger
+    Rails.logger = timing_logger(lines)
+    call = tool_call
+    @stream = []
+    @stream_result = tool_turn([call])
+    @continuation = [event("text_delta", text_delta: "Used"), event("message_completed", text: "Used"), event("turn_completed")]
+
+    post chatkit_path, params: { type: "threads.create", params: create_params("hello tool phrase") }, as: :json
+
+    timing = lines.grep(/timing phase=/)
+    assert timing.any? { |line| line.include?("phase=tool") && line.include?("name=show") }
+    assert timing.any? { |line| line.include?("phase=round") && line.include?("n=1") }
+    text = timing.join("\n")
+    refute_includes text, "PressKit"
+    refute_includes text, "missing"
+    refute_includes text, "hello tool phrase"
+  ensure
+    Rails.logger = previous if previous
+  end
+
   test "a follow up stays on the same session" do
     created = stream_events(create_body("hello"))
     thread_id = created.first.dig("thread", "id")
@@ -87,6 +208,9 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     follow = stream_events(message_body(thread_id, "again"))
 
     assert_equal "thread.item.done", follow.first["type"]
+    assert_equal "user_message", follow.first.dig("item", "type")
+    stored = RecordingStudioAgents::Item.find_by!(recording_id: thread_id, text: "again")
+    assert_equal follow.first.dig("item", "id"), stored.id
     assert_equal 1, @calls[:create_session].size
     assert_equal 1, @calls[:send_input].size
     assert_equal thread_id, @calls[:send_input].first[:context_recording].id
@@ -270,8 +394,11 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     result = RecordingStudioAgents::ChatKit::Server.call(
       create_body("hello"), actor: stranger, root_recording: @root
     )
+    events = result.each.map { |json| JSON.parse(json) }
 
-    assert_equal 403, result.status
+    assert result.streaming?
+    assert_equal "error", events.last.fetch("type")
+    assert_equal "actor cannot access this recording", events.last.fetch("message")
     assert_empty @calls[:create_session]
   end
 
@@ -292,6 +419,7 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
   test "cancel calls the agent api and leaves the chat" do
     before = RecordingStudioAgents::Binding.count
     result = call_server("threads.create", create_params("hello"))
+    result.each { |_| }
 
     result.cancel!
 
@@ -397,9 +525,11 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     grant_role(viewer, @root, "view")
     @configuration.request_actor = ->(*) { viewer }
 
-    listed = chatkit_json("threads.create", create_params("hello"), page.id)
+    post chatkit_path(page.id), params: { type: "threads.create", params: create_params("hello") }, as: :json
 
-    assert_equal 403, listed.fetch("http_status")
+    assert_response :success
+    assert_equal "text/event-stream", response.media_type
+    assert_equal "actor cannot access this recording", sse_events.last.fetch("message")
     assert_empty @calls[:create_session]
   end
 
@@ -605,10 +735,45 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     flunk "thread.created was missing"
   end
 
+  def sse_events
+    response.body.each_line.filter_map do |line|
+      next unless line.start_with?("data: ")
+
+      JSON.parse(line.delete_prefix("data: ").strip)
+    end
+  end
+
   def stream_events(raw)
+    events = []
+    stream_result(raw) { |json| events << JSON.parse(json) }
+    events
+  end
+
+  def stream_result(raw)
     result = RecordingStudioAgents::ChatKit::Server.call(raw, actor: @user, root_recording: @root)
     assert result.streaming?
-    result.each.map { |json| JSON.parse(json) }
+    result.each { |json| yield json }
+  end
+
+  def pause_agents(order)
+    helper = self
+    RecordingStudioAI::Agents.define_singleton_method(:create_session) do |**kwargs|
+      order << :create_session
+      sleep 0.05
+      helper.send(:record_create, kwargs)
+    end
+    RecordingStudioAI::Agents.define_singleton_method(:stream) do |**kwargs, &block|
+      order << :stream
+      sleep 0.05
+      helper.send(:record_stream, kwargs, block)
+    end
+  end
+
+  def timing_logger(lines)
+    logger = Object.new
+    logger.define_singleton_method(:info) { |message = nil, &block| lines << (message || block&.call).to_s }
+    logger.define_singleton_method(:warn) { |message = nil, &block| lines << (message || block&.call).to_s }
+    logger
   end
 
   def call_server(type, params)

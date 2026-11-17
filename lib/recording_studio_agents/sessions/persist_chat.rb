@@ -19,6 +19,10 @@ module RecordingStudioAgents
       end
 
       def record_chat(hosted)
+        AssignedChatId.with(@recording_id) { insert_recording(hosted) }
+      end
+
+      def insert_recording(hosted)
         @root_recording.record(
           Session,
           actor: @event_actor || @actor,
