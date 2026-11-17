@@ -60,6 +60,38 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     refute_includes ids, @zulu_chat.id
   end
 
+  test "published tool text names every input and skips the path filler" do
+    post_mcp("initialize", {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "agents-test", version: "0.3.0" }
+    })
+    post_mcp("tools/list")
+    tools = JSON.parse(response.body).dig("result", "tools")
+    expected = {
+      "agent_chats_list" => %w[limit parent],
+      "agent_chats_create" => %w[input idempotency_key title instructions parent],
+      "agent_chats_read" => %w[id],
+      "agent_chats_append" => %w[id input idempotency_key],
+      "agent_items_list" => %w[id limit order],
+      "agent_items_read" => %w[id item_id]
+    }
+
+    expected.each do |name, fields|
+      tool = tools.find { |entry| entry["name"] == name }
+      assert tool, name
+      assert tool["description"].present?, name
+      refute_equal tool["title"], tool["description"], name
+      properties = tool.dig("inputSchema", "properties")
+      assert_equal fields.sort, properties.keys.sort, name
+      properties.each do |field, schema|
+        text = schema["description"].to_s
+        assert text.present?, "#{name}.#{field}"
+        refute_match(/\APath parameter/, text, "#{name}.#{field}")
+      end
+    end
+  end
+
   test "a bearer for one workspace cannot read or append another workspace chat" do
     post_mcp("tools/call", name: "agent_chats_read", arguments: { id: @zulu_chat.id })
     assert_equal true, JSON.parse(response.body).dig("result", "isError")

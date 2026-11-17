@@ -1,12 +1,19 @@
 # frozen_string_literal: true
 
+require_relative "tool_copy"
+
 module RecordingStudioAgents
   module Mcp
     module Contracts
       module_function
 
       def list
-        { fields: { limit: { type: :integer, required: false, description: "Page size." }, parent: parent_field } }
+        {
+          fields: {
+            limit: { type: :integer, required: false, description: ToolCopy::LIST_LIMIT },
+            parent: parent_field(ToolCopy::LIST_PARENT)
+          }
+        }
       end
 
       def create
@@ -27,53 +34,48 @@ module RecordingStudioAgents
         }
       end
 
-      def parent_field
+      def parent_field(description = ToolCopy::PARENT)
         {
           type: :string, required: false,
-          description: "Optional parent id. Chats are created under it and listed only there. " \
-                       "Omit it for the whole workspace. The parent must be inside this workspace and viewable."
+          description: description
         }
       end
 
       def input_field
-        { type: :string, required: true, allow_blank: false, description: "First user message." }
+        { type: :string, required: true, allow_blank: false, description: ToolCopy::CREATE_INPUT }
       end
 
       def create_key_field
         {
           type: :string, required: true, allow_blank: false,
-          description: "Create key. Unique inside this workspace. Sending the same key again returns the existing " \
-                       "chat. Replay ignores parent and a new instructions override."
+          description: ToolCopy::CREATE_KEY
         }
       end
 
       def title_field
-        { type: :string, required: false, description: "Optional chat title." }
+        { type: :string, required: false, description: ToolCopy::TITLE }
       end
 
       def instructions_field
         limit = RecordingStudioAgents.configuration.max_instructions_length
         {
           type: :string, required: false, maxLength: limit,
-          description: "Optional extra instructions, at most #{limit} characters; blank uses the host default, " \
-                       "and an override is rejected unless config.instructions_override is :admin or :edit " \
-                       "(when allowed, it is appended after that default). A gem-owned safety preamble always " \
-                       "comes first and is not counted in the cap, and ChatKit does not accept this field."
+          description: ToolCopy.instructions(limit)
         }
       end
 
       def id
-        { fields: { id: { type: :string, required: true, allow_blank: false, description: "Chat id." } } }
+        { fields: { id: { type: :string, required: true, allow_blank: false, description: ToolCopy::CHAT_ID } } }
       end
 
       def append
         {
           fields: {
-            id: { type: :string, required: true, allow_blank: false, description: "Chat id." },
-            input: { type: :string, required: true, allow_blank: false, description: "User message." },
+            id: { type: :string, required: true, allow_blank: false, description: ToolCopy::CHAT_ID },
+            input: { type: :string, required: true, allow_blank: false, description: ToolCopy::APPEND_INPUT },
             idempotency_key: {
               type: :string, required: true, allow_blank: false,
-              description: "Message key. Unique inside this workspace. A repeated key returns the existing message."
+              description: ToolCopy::APPEND_KEY
             }
           }
         }
@@ -82,9 +84,9 @@ module RecordingStudioAgents
       def items
         {
           fields: {
-            id: { type: :string, required: true, allow_blank: false, description: "Chat id." },
-            limit: { type: :integer, required: false },
-            order: { type: :string, required: false, description: "asc or desc." }
+            id: { type: :string, required: true, allow_blank: false, description: ToolCopy::CHAT_ID },
+            limit: { type: :integer, required: false, description: ToolCopy::ITEM_LIMIT },
+            order: { type: :string, required: false, description: ToolCopy::ORDER }
           }
         }
       end
@@ -92,8 +94,8 @@ module RecordingStudioAgents
       def item
         {
           fields: {
-            id: { type: :string, required: true, allow_blank: false, description: "Chat id." },
-            item_id: { type: :string, required: true, allow_blank: false, description: "Item id." }
+            id: { type: :string, required: true, allow_blank: false, description: ToolCopy::CHAT_ID },
+            item_id: { type: :string, required: true, allow_blank: false, description: ToolCopy::ITEM_ID }
           }
         }
       end

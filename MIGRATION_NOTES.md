@@ -2,7 +2,7 @@
 
 ## Current Requirements
 
-- Gem version `0.18.0`
+- Gem version `0.18.1`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `>= 7.0.0, < 8.0` (dummy GitHub tag `v7.3.0`)
@@ -15,6 +15,10 @@
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
 - Users dummy tag `v0.32.0`, Oauth dummy tag `v0.25.0`, MCP dummy tag `v0.35.0`, API dummy tag `v1.2.1`, Moveable dummy tag `v6.0.0`, Icons dummy tag `v0.4.0`, Admin dummy tag `v2.18.0`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.31.0` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
+
+## MCP tool text
+
+0.18.1 replaces the short MCP descriptions on the six agent chat tools. Names, arguments, access checks, and results are the same. No host change.
 
 ## Layout
 
