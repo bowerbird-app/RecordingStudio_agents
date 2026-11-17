@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "tool_copy"
+
 module RecordingStudioAgents
   module Mcp
     module Registration
@@ -63,10 +65,21 @@ module RecordingStudioAgents
         verb, path, recordable_type = route
         options = {
           http_verb: verb, path: path, handler: handler, input_contract: contract,
-          openapi: { tags: ["Agent chats"], summary: summary, description: summary }.merge(ResponseSchemas.for(name))
+          openapi: openapi_for(name, path, summary)
         }
         options[:recordable_type] = recordable_type if recordable_type
         options
+      end
+
+      def openapi_for(name, path, summary)
+        document = {
+          tags: ["Agent chats"],
+          summary: summary,
+          description: ToolCopy.description(name)
+        }.merge(ResponseSchemas.for(name))
+        parameters = ToolCopy.path_parameters(path)
+        document[:parameters] = parameters if parameters.any?
+        document
       end
 
       def registered?(name)

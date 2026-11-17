@@ -30,6 +30,23 @@ class McpRegistrationTest < Minitest::Test
     end
   end
 
+  def test_each_tool_description_and_input_description_is_present
+    with_fake_host do
+      RecordingStudioAgents::Mcp.register!
+
+      RecordingStudioAgents::Mcp::ToolCopy::DESCRIPTIONS.each_key do |name|
+        endpoint = RecordingStudioApi.registered_endpoint(name)
+        document = endpoint.fetch(:openapi)
+        description = document.fetch(:description)
+
+        assert description.present?, name
+        refute_equal document.fetch(:summary), description
+        assert_input_descriptions(name, endpoint.fetch(:input_contract))
+        assert_path_descriptions(name, endpoint.fetch(:path), document[:parameters])
+      end
+    end
+  end
+
   def test_register_does_nothing_until_api_and_mcp_exist
     refute defined?(RecordingStudioApi)
     refute defined?(RecordingStudioMcp)
@@ -41,6 +58,31 @@ class McpRegistrationTest < Minitest::Test
   end
 
   private
+
+  def assert_input_descriptions(name, contract)
+    fields(contract).each do |field, rules|
+      text = rules.fetch(:description).to_s
+
+      assert text.present?, "#{name}.#{field}"
+      refute_match(/\APath parameter/, text, "#{name}.#{field}")
+    end
+  end
+
+  def assert_path_descriptions(name, path, parameters)
+    tokens = path.to_s.scan(/:([a-z][a-z0-9_]*)/).flatten
+    listed = Array(parameters).to_h { |parameter| [parameter.fetch(:name), parameter.fetch(:description).to_s] }
+
+    assert_equal tokens, listed.keys
+    listed.each_value do |text|
+      assert text.present?, name
+      refute_match(/\APath parameter/, text, name)
+    end
+  end
+
+  def fields(contract)
+    body = contract.is_a?(Hash) ? contract : contract.as_json
+    body.deep_symbolize_keys.fetch(:fields)
+  end
 
   def with_fake_host
     Object.const_set(:RecordingStudioApi, fake_api)

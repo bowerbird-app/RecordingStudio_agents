@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-11-17
+
+### Changed
+- MCP descriptions for `agent_chats_list`, `agent_chats_create`, `agent_chats_read`, `agent_chats_append`, `agent_items_list`, and `agent_items_read` say what the call does, which other tool to use, where each id comes from, and the fields that come back. Path arguments no longer use the filler "Path parameter".
+
+### Upgrade notes
+- No host change. Tool names, arguments, access checks, and results are unchanged.
+
 ## [0.18.0] - 2026-11-17
 
 ### Added

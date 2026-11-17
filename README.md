@@ -6,7 +6,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 
 ## Requirements
 
-- Recording Studio Agents `0.18.0`
+- Recording Studio Agents `0.18.1`
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
 - Recording Studio `>= 7.0.0, < 8.0` (dummy GitHub tag `v7.3.0`)
@@ -333,9 +333,9 @@ The gem registers the chat tools when the host has loaded Recording Studio API. 
 
 | Tool | What it does |
 | --- | --- |
-| `agent_chats_list` | Chats in the granted workspace. Optional `parent` limits the list to that parent |
-| `agent_chats_create` | Opens a chat. Requires `input` and `idempotency_key`. Optional `parent` chooses the parent. A repeated key returns the existing chat and ignores `parent` |
-| `agent_chats_read` | One chat |
-| `agent_chats_append` | Adds a user message |
-| `agent_items_list` | Items on one chat |
-| `agent_items_read` | One item |
+| `agent_chats_list` | Chats in the granted workspace, newest first. Optional `parent` limits the list. Optional `limit` defaults to 20 and stops at 50. There is no page cursor |
+| `agent_chats_create` | Opens a chat. Requires `input` and `idempotency_key`. Returns `id` and `title`. A repeated key returns the existing chat and does not change its parent, title, message, or instructions. The call still requires a non-empty input, and a parent you pass must still be a record you can edit |
+| `agent_chats_read` | One chat. Returns `id`, `title`, `created_at`, and `status`. The messages are on `agent_items_list` |
+| `agent_chats_append` | Adds a user message. Returns the chat `id`, not a new item id |
+| `agent_items_list` | Stored messages on one chat. `order` `asc` is oldest first. Omitting it is newest first |
+| `agent_items_read` | One stored message. `item_id` comes from `agent_items_list` |
