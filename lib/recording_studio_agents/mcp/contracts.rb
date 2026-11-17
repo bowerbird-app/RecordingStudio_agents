@@ -55,9 +55,10 @@ module RecordingStudioAgents
         limit = RecordingStudioAgents.configuration.max_instructions_length
         {
           type: :string, required: false, maxLength: limit,
-          description: "Optional extra instructions, at most #{limit} characters. " \
-                       "Blank uses the host default. A real override is appended after that default " \
-                       "when config.instructions_override allows it."
+          description: "Optional extra instructions, at most #{limit} characters; blank uses the host default, " \
+                       "and an override is rejected unless config.instructions_override is :admin or :edit " \
+                       "(when allowed, it is appended after that default). A gem-owned safety preamble always " \
+                       "comes first and is not counted in the cap, and ChatKit does not accept this field."
         }
       end
 
