@@ -532,6 +532,63 @@ class ChatToolsTest < ActiveSupport::TestCase
     restore_singleton(RecordingStudioMcp::Dispatcher, :call, original)
   end
 
+  test "a multi tool turn builds the tool grant and surface once" do
+    grants = 0
+    surfaces = 0
+    original_grant = RecordingStudioAgents::Mcp::ChatTools.method(:grant_for)
+    original_surface = RecordingStudioMcp::ToolSurface.method(:for)
+    RecordingStudioAgents::Mcp::ChatTools.define_singleton_method(:grant_for) do |actor, root|
+      grants += 1
+      original_grant.call(actor, root)
+    end
+    RecordingStudioMcp::ToolSurface.define_singleton_method(:for) do |**kwargs|
+      surfaces += 1
+      original_surface.call(**kwargs)
+    end
+
+    scripted_round([
+      tool_call("call-show", "show", { "type" => "PressKit", "id" => "1" }, turn_id: "turn-once"),
+      tool_call("call-list", "list", { "type" => "PressKit" }, turn_id: "turn-once")
+    ])
+
+    assert_equal 1, grants
+    assert_equal 1, surfaces
+  ensure
+    restore_singleton(RecordingStudioAgents::Mcp::ChatTools, :grant_for, original_grant)
+    restore_singleton(RecordingStudioMcp::ToolSurface, :for, original_surface)
+  end
+
+  test "one tool round reads rounds_used once" do
+    reads = 0
+    original = RecordingStudioAgents::ChatToolAudit.method(:rounds_used)
+    RecordingStudioAgents::ChatToolAudit.define_singleton_method(:rounds_used) do |turn_id|
+      reads += 1
+      original.call(turn_id)
+    end
+
+    scripted_round([tool_call("call-round", "show", { "type" => "PressKit", "id" => "1" }, turn_id: "turn-rounds")])
+
+    assert_equal 1, reads
+  ensure
+    restore_singleton(RecordingStudioAgents::ChatToolAudit, :rounds_used, original)
+  end
+
+  test "a write is denied when access is revoked after the turn context is built" do
+    kit = record_kit("HELLO HOUSE")
+    tools = RecordingStudioAgents::Mcp::TurnTools.build(actor: @user, root: @root)
+    access = RecordingStudioAccessible.access_recordings_for_actor(recording: @root, actor: @user).first
+    access.update_columns(trashed_at: Time.current)
+
+    result = RecordingStudioAgents::Mcp::ChatTools.invoke(
+      "update", { "type" => "PressKit", "id" => kit.id, "name" => "BLOCKED" },
+      actor: @user, root: @root, call_id: "call-revoked", turn_tools: tools
+    )
+
+    assert result[:isError]
+    assert_equal "HELLO HOUSE", kit.reload.recordable.name
+    refute_includes result.dig(:content, 0, :text).to_s, "HELLO HOUSE"
+  end
+
   test "read only mode refuses a write without changing the record" do
     kit = record_kit("HELLO HOUSE")
     @configuration.mcp_tools = :read

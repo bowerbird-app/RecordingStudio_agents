@@ -3,17 +3,18 @@
 module RecordingStudioAgents
   module ChatKit
     class ModelStream
-      def initialize(actor, root, recording)
+      def initialize(actor, root, recording, turn_tools: nil)
         @actor = actor
         @root = root
         @recording = recording
+        @turn_tools = turn_tools || Mcp::TurnTools.build(actor: actor, root: root)
       end
 
       def play(&)
         @assistant = AssistantTurn.new(@recording.id)
         @saw_text = false
         @shown = ShownLines.new
-        finish_stream(read_stream(&), &)
+        finish_stream(Timing.measure("model_stream") { read_stream(&) }, &)
       rescue RecordingStudioAI::Agents::Failure,
              RecordingStudioAI::Errors::UsageDeclined,
              RecordingStudioAI::Errors::ContractValidationError => e
@@ -31,13 +32,13 @@ module RecordingStudioAgents
 
       def stopped(error, &)
         ErrorLog.call(error, site: "model_stream.play")
-        return yield(UsageNotice.event(thread_id: @recording.id)) if declined?(error)
+        return yield(UsageNotice.event(thread_id: @recording.id)) if usage_declined?(error)
         return PostedResults.end_if_settled(error) if error.is_a?(RecordingStudioAI::Errors::ContractValidationError)
 
         yield failure(error.message)
       end
 
-      def declined?(error) = error.is_a?(RecordingStudioAI::Errors::UsageDeclined)
+      def usage_declined?(error) = error.is_a?(RecordingStudioAI::Errors::UsageDeclined)
 
       def finish_stream(result, &)
         calls = pending_calls(result)
@@ -46,12 +47,13 @@ module RecordingStudioAgents
         remember(@assistant)
       end
 
-      def read_stream(&block) = RecordingStudioAI::Agents.stream(**agent_args) { |event| emit(event, &block) }
+      def read_stream(&) = RecordingStudioAI::Agents.stream(**agent_args) { |event| emit(event, &) }
 
       def answer_tools(calls, &)
         return if calls.empty?
 
-        tool_round.run(calls) { |event| emit(event, &) }
+        ToolRound.new(actor: @actor, root: @root, chat_recording: @recording, agent_args: agent_args,
+                      turn_tools: @turn_tools).run(calls) { |event| emit(event, &) }
       end
 
       def recover_saved(&)
@@ -85,7 +87,7 @@ module RecordingStudioAgents
 
       def emit(event, &)
         fresh = fresh_text?(event)
-        return if @shown.drop?(event, fresh: fresh)
+        return if @shown.discard?(event, fresh: fresh)
 
         open_next if fresh
         @shown.see(event)
@@ -111,10 +113,6 @@ module RecordingStudioAgents
         )
       end
 
-      def tool_round
-        ToolRound.new(actor: @actor, root: @root, chat_recording: @recording, agent_args: agent_args)
-      end
-
       def pending_calls(source) = source.respond_to?(:tool_calls) ? Array(source.tool_calls) : []
 
       def text_event?(event) = %w[text_delta message_completed].include?(event.type.to_s)
@@ -135,6 +133,8 @@ module RecordingStudioAgents
 
     # Text already shown in one ModelStream#play. The next play uses a new instance.
     class ShownLines
+      ITEM_ID = /\A[A-Za-z0-9_.:-]{1,80}\z/
+
       def initialize
         @rows = []
         restart
@@ -157,6 +157,14 @@ module RecordingStudioAgents
 
         @rows << [@item_id, text]
         @kept = true
+      end
+
+      def discard?(event, fresh:)
+        return false unless drop?(event, fresh: fresh)
+
+        Timing.note_drop
+        log_discard(event)
+        true
       end
 
       def drop?(event, fresh:)
@@ -183,6 +191,22 @@ module RecordingStudioAgents
         return if metadata.blank?
 
         metadata["item_id"].presence
+      end
+
+      def safe_id(value)
+        text = value.to_s
+        text.match?(ITEM_ID) ? text : "none"
+      end
+
+      def log_discard(event)
+        found = item_id(event)
+        item_id = safe_id(found)
+        by = found ? "id" : "text"
+        return unless defined?(Rails) && Rails.respond_to?(:logger) && Rails.logger.respond_to?(:info)
+
+        Rails.logger.info("#{ErrorLog::PREFIX} dedupe dropped item_id=#{item_id} by=#{by}")
+      rescue StandardError
+        nil
       end
     end
   end

@@ -10,7 +10,9 @@ module RecordingStudioAgents
       end
 
       def list_threads(params)
-        page(visible_chats, params) { |recording| Payload.thread(recording) }
+        limit = Payload.page_limit(params["limit"])
+        chosen, more = collect_threads(limit, visible_cursor(params["after"]))
+        thread_page(chosen, more)
       end
 
       def show_thread(params)
@@ -45,38 +47,70 @@ module RecordingStudioAgents
 
       private
 
-      def page(rows, params, &)
-        limit = Payload.page_limit(params["limit"])
-        window = rows.drop(cursor_index(rows, params["after"])).first(limit + 1)
-        visible = window.first(limit)
-        { data: visible.map(&), has_more: more?(window, limit), after: cursor_for(window, visible, limit) }
+      def thread_page(chosen, more)
+        {
+          data: chosen.map { |recording| Payload.thread(recording) },
+          has_more: more,
+          after: (chosen.last.id if more)
+        }
       end
 
-      def more?(window, limit)
-        window.size > limit
+      def collect_threads(limit, cursor)
+        chosen = []
+        more = false
+        loop do
+          need = limit - chosen.size + 1
+          rows = thread_batch(cursor, need)
+          break if rows.empty?
+
+          cursor, more = take_visible(rows, chosen, limit)
+          break if more || rows.size < need
+        end
+        [chosen, more]
       end
 
-      def cursor_for(window, visible, limit)
-        return unless more?(window, limit)
-
-        visible.last.id
+      def take_visible(rows, chosen, limit)
+        cursor = nil
+        more = false
+        rows.each { |recording| cursor, more = keep_row(recording, chosen, limit, cursor, more) }
+        [cursor, more]
       end
 
-      def cursor_index(rows, after)
-        return 0 if after.blank?
+      def keep_row(recording, chosen, limit, cursor, more)
+        return [cursor, more] if more
 
-        index = rows.index { |recording| recording.id == after }
-        index.nil? ? 0 : index + 1
+        cursor = recording
+        return [cursor, false] unless viewable?(recording)
+        return [cursor, true] if chosen.size >= limit
+
+        chosen << recording
+        [cursor, false]
       end
 
-      def visible_chats
-        chats.to_a.select { |recording| viewable?(recording) }
+      def visible_cursor(after)
+        return if after.blank?
+
+        recording = chats.find_by(id: after)
+        recording if recording && viewable?(recording)
+      end
+
+      def thread_batch(cursor, count)
+        scope = chats.includes(:recordable).order(created_at: :desc, id: :desc)
+        scope = older_than(scope, cursor) if cursor
+        scope.limit(count).to_a
+      end
+
+      def older_than(scope, cursor)
+        table = RecordingStudio::Recording.arel_table
+        created = table[:created_at]
+        same_time = created.eq(cursor.created_at).and(table[:id].lt(cursor.id))
+        scope.where(created.lt(cursor.created_at).or(same_time))
       end
 
       def chats
         scope = RecordingStudio::Recording.for_root(@root.id).where(recordable_type: Session.name)
         scope = scope.where(parent_recording_id: @page_recording.id) if @page_recording
-        scope.order(created_at: :desc)
+        scope
       end
 
       def viewable?(recording)

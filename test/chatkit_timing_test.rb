@@ -34,13 +34,15 @@ class ChatkitTimingTest < Minitest::Test
     text = @lines.join("\n")
     assert_includes text, "[recording_studio_agents.chatkit] timing phase=page_context"
     assert_includes text, "phase=create"
+    assert_match(/phase=page_context q=\d+ db=\d+ ms=\d+/, text)
+    assert_match(/phase=round q=\d+ db=\d+ n=2 ms=\d+/, text)
     assert_includes text, "phase=ttft"
-    assert_includes text, "phase=tool name=show"
-    assert_includes text, "phase=tool name=unknown"
-    assert_includes text, "phase=round n=2"
+    assert_includes text, "phase=tool q=0 db=0 name=show"
+    assert_includes text, "phase=tool q=0 db=0 name=unknown"
+    assert_includes text, "phase=round q=0 db=0 n=2"
     assert_includes text, "phase=total"
     assert_includes text, "type=threads.create"
-    assert_match(/phase=ttft ms=\d+ type=threads.create/, text)
+    assert_match(/phase=ttft q=\d+ db=\d+ ms=\d+ type=threads.create/, text)
     refute_includes text, message
   end
 
@@ -69,5 +71,24 @@ class ChatkitTimingTest < Minitest::Test
     assert_in_delta Process.clock_gettime(Process::CLOCK_MONOTONIC), Timing.clock, 1
   ensure
     Timing.finish
+  end
+
+  def test_phase_lines_count_queries_and_skip_schema_and_cached
+    require "active_support/notifications"
+    Timing.open(type: "threads.list")
+    Timing.measure("page_context") do
+      ActiveSupport::Notifications.instrument("sql.active_record", name: "SCHEMA", sql: "SELECT 1") { nil }
+      ActiveSupport::Notifications.instrument("sql.active_record", name: "Session Load", cached: true, sql: "SELECT 1") { nil }
+      ActiveSupport::Notifications.instrument("sql.active_record", name: "Session Load", sql: "SELECT 1") { sleep 0.002 }
+    end
+    Timing.note_drop
+    Timing.finish
+
+    line = @lines.find { |entry| entry.include?("phase=page_context") }
+    assert_match(/q=1 db=\d+/, line)
+    refute_match(/q=3/, line)
+    total = @lines.find { |entry| entry.include?("phase=total") }
+    assert_includes total, "dropped=1"
+    refute_includes total, "SELECT"
   end
 end

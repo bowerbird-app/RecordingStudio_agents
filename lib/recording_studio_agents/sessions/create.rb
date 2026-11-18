@@ -43,6 +43,7 @@ module RecordingStudioAgents
         @event_actor = options[:event_actor]
         @metadata = options[:metadata]
         @provider_input = options[:provider_input]
+        @turn_tools = options[:turn_tools]
       end
 
       def perform
@@ -51,7 +52,7 @@ module RecordingStudioAgents
         return success(found) if found
 
         reject_global_binding_straggler!
-        success(persist(open_session))
+        success(ChatKit::Timing.measure("create_persist") { persist(open_hosted) })
       end
 
       def existing_recording
@@ -85,18 +86,18 @@ module RecordingStudioAgents
         raise Error, "parent cannot own a chat"
       end
 
-      def open_session
-        RecordingStudioAI::Agents.create_session(**provider_args)
+      def open_hosted
+        args = provider_args
+        count = Array(args[:tools]).size
+        ChatKit::Timing.measure("create_provider", tools: count) { RecordingStudioAI::Agents.create_session(**args) }
       end
 
       def provider_args
-        args = {
+        tools = (@turn_tools ||= Mcp::TurnTools.build(actor: @actor, root: @root_recording)).definitions
+        {
           instructions: instructions, profile: profile, input: model_input, idempotency_key: @idempotency_key,
           purpose: purpose, **provider_override, **attribution
-        }
-        tools = Mcp::ChatTools.definitions(actor: @actor, root: @root_recording)
-        args[:tools] = tools if tools
-        args
+        }.tap { |args| args[:tools] = tools if tools }
       end
 
       # Recording Studio AI treats a provider argument as an override. The default

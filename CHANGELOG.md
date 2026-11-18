@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.4] - 2026-11-18
+
+### Changed
+- ChatKit timing lines include `q=` and `db=` for the SQL in that phase. Schema and cached statements are left out. A new chat logs `create_tools`, `create_provider` (with `tools=`, a count), and `create_persist`. `model_stream` times the first provider read until it returns tool calls or ends. A round line adds `answers_ms=` and `model_ms=`. `total` adds `dropped=` when a replay was dropped.
+- One chat turn builds the actor's tool grant and tool surface once and reuses them for the write cap, the audit kind, and each tool call. A write still goes through Recording Studio and Accessible when it runs.
+- `threads.list` pages in SQL by `created_at` descending, then `id` descending. It authorizes the fetched rows and keeps reading when a row is not viewable, so a page is not short while more viewable chats exist. The 50 cap, `has_more`, `after`, and page-parent filter stay.
+- A dropped assistant replay logs `[recording_studio_agents.chatkit] dedupe dropped item_id=<id|none> by=<id|text>`. The line has no message text.
+
+### Upgrade notes
+- No migration and no host setting. Tool permissions, limits, and audit rows are unchanged. A grant revoked during a turn still cannot write.
+- Log collectors see `q=`, `db=`, the split create phases, `model_stream`, `answers_ms=`, `model_ms=`, and the dedupe line. The lines still leave out message text, tool arguments, tool results, and secrets.
+
 ## [0.18.3] - 2026-11-18
 
 ### Fixed
