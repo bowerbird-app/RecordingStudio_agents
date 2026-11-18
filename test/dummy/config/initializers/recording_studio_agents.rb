@@ -2,6 +2,13 @@
 
 RecordingStudioAgents.configure do |config|
   config.instructions = "Answer in one sentence."
+  config.recording_names = {
+    "RecordingStudioAgents::Session" => "title",
+    "Workspace" => "name",
+    "Folder" => "name",
+    "Page" => "title",
+    "PressKit" => "name"
+  }
   config.chatkit_domain_key = ENV["CHATKIT_DOMAIN_KEY"].presence
   # Off unless RECORDING_STUDIO_AGENTS_DECLINE_CREDITS=1. Used to view the notice locally.
   config.out_of_credits_url = "/billing" if ENV["RECORDING_STUDIO_AGENTS_DECLINE_CREDITS"] == "1"

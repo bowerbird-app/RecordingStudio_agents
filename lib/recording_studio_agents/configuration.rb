@@ -104,6 +104,10 @@ module RecordingStudioAgents
     include ChatkitHostSettings
     include McpToolSettings
 
+    # Recordable class name => column used as the display name in the chat index.
+    # Unmapped types are listed as type and id only.
+    DEFAULT_RECORDING_NAMES = { "RecordingStudioAgents::Session" => "title" }.freeze
+
     OVERRIDE_GATES = %i[none admin edit].freeze
 
     attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key,
@@ -221,12 +225,20 @@ module RecordingStudioAgents
       @chatkit_options || {}
     end
 
+    def recording_names
+      @recording_names || DEFAULT_RECORDING_NAMES
+    end
+
+    def recording_names=(value)
+      @recording_names = value.nil? ? nil : NameFields.parse(value)
+    end
+
     def to_h
       {
         instructions: instructions, instructions_override: instructions_override,
         max_instructions_length: max_instructions_length, default_profile: default_profile,
         purpose: purpose, provider: provider, mcp_tools: mcp_tools,
-        retention_period: retention_period,
+        retention_period: retention_period, recording_names: recording_names.dup,
         hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size)
       }.merge(popup_settings, mcp_limits)
     end
@@ -307,6 +319,34 @@ module RecordingStudioAgents
       return value.seconds if value.is_a?(Numeric)
 
       value
+    end
+  end
+
+  # Class name => column. Used by the recording index. No attribute guessing.
+  module NameFields
+    TYPE_NAME = /\A[A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*\z/
+    FIELD_NAME = /\A[a-z][a-z0-9_]*\z/
+
+    module_function
+
+    def parse(value)
+      raise Error, "recording_names must be a hash" unless value.is_a?(Hash)
+
+      value.to_h { |type, field| [type_name(type), field_name(field)] }.freeze
+    end
+
+    def type_name(type)
+      text = type.to_s
+      return text if text.match?(TYPE_NAME)
+
+      raise Error, "recording_names keys must be recordable class names"
+    end
+
+    def field_name(field)
+      text = field.to_s
+      return text if text.match?(FIELD_NAME)
+
+      raise Error, "recording_names values must be field names"
     end
   end
 end
