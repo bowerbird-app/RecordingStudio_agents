@@ -60,11 +60,10 @@ module RecordingStudioAgents
 
     # Counts writes for one turn. Blank turn ids stay in memory.
     class WriteCount
-      def initialize(audit, actor, root, local_writes)
+      def initialize(audit, local_writes, turn_tools)
         @audit = audit
-        @actor = actor
-        @root = root
         @local_writes = local_writes
+        @turn_tools = turn_tools
       end
 
       def over?(call)
@@ -76,8 +75,7 @@ module RecordingStudioAgents
       end
 
       def kind(call)
-        grant = Mcp::ChatTools.installed? ? Mcp::ChatTools.grant_for(@actor, @root) : nil
-        Mcp::ChatTools.kind_for(call.name, grant)
+        @turn_tools.kind_for(call.name)
       end
 
       private
@@ -109,18 +107,19 @@ module RecordingStudioAgents
       # joined and stale stay in memory. The audit row stays the first caller's.
       Entry = Data.define(:call, :row, :joined, :stale)
 
-      def initialize(actor, root)
+      def initialize(actor, root, turn_tools = nil)
         @actor = actor
         @root = root
+        @turn_tools = turn_tools || Mcp::TurnTools.build(actor: actor, root: root)
         @local_writes = Hash.new(0)
         @plain_rounds = 0
       end
 
+      # The locked prepare reads rounds_used once. This only counts a turn with no provider id.
       def round_open?(calls)
-        turn_id = batch_turn(calls)
-        return plain_round? if turn_id.nil?
+        return plain_round? if batch_turn(calls).nil?
 
-        TurnLock.with(turn_id) { rounds_left?(turn_id) }
+        true
       end
 
       def answer_round(calls)
@@ -145,13 +144,10 @@ module RecordingStudioAgents
       end
 
       def prepare(calls, turn_id)
-        return :closed unless rounds_left?(turn_id)
+        used = audit.rounds_used(turn_id)
+        return :closed unless used < ToolRound::MAX_ROUNDS
 
-        audit.with_round(audit.rounds_used(turn_id) + 1) { calls.map { |call| reserve(call) } }
-      end
-
-      def rounds_left?(turn_id)
-        audit.rounds_used(turn_id) < ToolRound::MAX_ROUNDS
+        audit.with_round(used + 1) { calls.map { |call| reserve(call) } }
       end
 
       def answer(call)
@@ -159,11 +155,12 @@ module RecordingStudioAgents
       end
 
       def reserve(call)
-        audit.with_turn(call.provider_turn_id) { counter.over?(call) ? limited(call) : hold(call) }
+        audit.with_turn(call.provider_turn_id) { counter.over?(call) ? limited(call) : hold(call, @turn_tools) }
       end
 
-      def hold(call)
-        saved = AuditInsert.once(audit) { audit.begin!(entry_for(call), actor: @actor, kind: counter.kind(call)) }
+      def hold(call, turn_tools)
+        kind = turn_tools.kind_for(call.name)
+        saved = AuditInsert.once(audit) { audit.begin!(entry_for(call), actor: @actor, kind: kind) }
         saved == :joined ? JoinedCall.entry(audit, call) : fresh(call, saved)
       end
 
@@ -200,7 +197,9 @@ module RecordingStudioAgents
       def invoke_tool(item)
         Timeout.timeout(RecordingStudioAgents.configuration.chat_tool_deadline) do
           audit.with_turn(item.call.provider_turn_id) do
-            audit.with_reserved(item.row) { Mcp::ChatTools.answer(item.call, actor: @actor, root: @root) }
+            audit.with_reserved(item.row) do
+              Mcp::ChatTools.answer(item.call, actor: @actor, root: @root, turn_tools: @turn_tools)
+            end
           end
         end
       end
@@ -210,7 +209,7 @@ module RecordingStudioAgents
       end
 
       def counter
-        @counter ||= WriteCount.new(audit, @actor, @root, @local_writes)
+        @counter ||= WriteCount.new(audit, @local_writes, @turn_tools)
       end
 
       def limited(call)

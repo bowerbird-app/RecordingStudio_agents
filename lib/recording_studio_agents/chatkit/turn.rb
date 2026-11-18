@@ -48,23 +48,21 @@ module RecordingStudioAgents
       def stop?(recording)
         return true if @terminal
 
-        @model = ModelStream.new(@actor, @root, recording)
+        @model = ModelStream.new(@actor, @root, recording, turn_tools: @turn_tools)
         false
       end
 
       def store
         Timing.measure("page_context") { resolve_context! }
-        Timing.measure(store_phase) { save_turn }
+        built = -> { Mcp::TurnTools.build(actor: @actor, root: @root) }
+        @turn_tools = @created ? Timing.measure("create_tools", &built) : built.call
+        @created ? create_chat : Timing.measure("append") { append_chat }
       rescue RecordingStudioAI::Errors::UsageDeclined => e
         notice!(e)
       rescue RecordingStudioAI::Errors::ContractValidationError => e
         failed!(e, "chatkit_controller.create")
       rescue Error => e
         failed!(e, "server.call")
-      end
-
-      def store_phase
-        @created ? "create" : "append"
       end
 
       def notice!(error)
@@ -102,7 +100,7 @@ module RecordingStudioAgents
         Sessions::Create.call(
           parent_recording: @parent, root_recording: @root, actor: @actor, input: @text,
           provider_input: @model_input, idempotency_key: SecureRandom.uuid, title: @text.truncate(60),
-          recording_id: @thread_id, item_id: @item_id, item_created_at: @time
+          recording_id: @thread_id, item_id: @item_id, item_created_at: @time, turn_tools: @turn_tools
         ).value!
       end
 

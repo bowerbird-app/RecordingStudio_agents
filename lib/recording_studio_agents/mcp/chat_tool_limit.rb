@@ -7,24 +7,21 @@ module RecordingStudioAgents
     module ChatToolLimit
       module_function
 
-      def limited?(grant, name, actor)
+      def limited?(turn_tools, name, actor)
         return false unless defined?(RecordingStudioApi::RateLimit)
 
-        policy = RecordingStudioApi::ApiRuntimePolicy.for(ChatToolCall.api_key(grant))
-        return false unless policy.rate_limit_api_enabled
+        grant = turn_tools.grant
+        return false unless RecordingStudioApi::ApiRuntimePolicy.for(ChatToolCall.api_key(grant)).rate_limit_api_enabled
 
         decision = RecordingStudioApi::RateLimit.check(
-          kind: rate_bucket(grant, name),
-          identifier: identifier_for(grant, actor),
-          api: ChatToolCall.api_key(grant),
-          fail_closed: true
+          kind: rate_bucket(turn_tools, name), identifier: identifier_for(grant, actor),
+          api: ChatToolCall.api_key(grant), fail_closed: true
         )
         decision&.limited? || false
       end
 
-      def rate_bucket(grant, name)
-        read = RecordingStudioMcp::ToolSurface.for(access_grant: grant).read_only_tool?(name)
-        read ? "api_read" : "api_write"
+      def rate_bucket(turn_tools, name)
+        turn_tools.read_only?(name) ? "api_read" : "api_write"
       end
 
       def identifier_for(grant, actor)

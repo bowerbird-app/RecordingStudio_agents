@@ -2,7 +2,7 @@
 
 ## Current Requirements
 
-- Gem version `0.18.3`
+- Gem version `0.18.4`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `~> 7.7` (lockfile resolves 7.7.1). The dummy does not vendor the 7.4, 7.5, or 7.7 migrations. Host apps run those migrations. Fresh installs use Recording Studio `db/install_migrate`.
@@ -15,6 +15,10 @@
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
 - Users dummy tag `v0.32.0`, Oauth dummy tag `v0.25.0`, MCP dummy tag `v0.35.0`, API dummy tag `v1.2.1`, Moveable dummy tag `v6.0.0`, Icons dummy tag `v0.4.0`, Admin dummy tag `v2.18.0`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.31.0` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
+
+## Chat list and timing
+
+0.18.4 pages `threads.list` in SQL (`created_at` descending, then `id` descending) and checks Accessible on the fetched rows. The 50 cap, `has_more`, `after`, and page-parent filter are unchanged. Timing lines add `q=` and `db=`. A new chat logs `create_tools`, `create_provider`, and `create_persist`. A round logs `answers_ms=` and `model_ms=`. One turn reuses a single tool grant and tool surface. A write is still checked with Recording Studio and Accessible when the call runs. A dropped replay logs `dedupe dropped` with an item id and `by=id` or `by=text`, and no message text.
 
 ## Repeated assistant text
 

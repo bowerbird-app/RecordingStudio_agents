@@ -6,12 +6,13 @@ module RecordingStudioAgents
     class ToolRound
       MAX_ROUNDS = 8
 
-      def initialize(actor:, root:, agent_args:, chat_recording: nil, &emit)
+      def initialize(actor:, root:, agent_args:, chat_recording: nil, turn_tools: nil, &emit)
         @actor = actor
         @root = root
         @agent_args = agent_args
         @chat_recording = chat_recording
-        @budget = WriteBudget.new(actor, root)
+        @turn_tools = turn_tools || Mcp::TurnTools.build(actor: actor, root: root)
+        @budget = WriteBudget.new(actor, root, @turn_tools)
         @emit = emit
       end
 
@@ -42,18 +43,33 @@ module RecordingStudioAgents
       end
 
       def timed_step(calls, delivered)
-        started = Timing.mark
-        advance(calls, delivered)
+        stamp = Timing.mark
+        answers_ms = nil
+        model_ms = nil
+        step_result, answers_ms, model_ms = timed_parts(calls, delivered)
+        step_result
       ensure
-        Timing.round(next_round, started) if started
+        Timing.round(next_round, stamp, answers_ms: answers_ms, model_ms: model_ms) if stamp
       end
 
-      def advance(calls, delivered)
-        results = answers(calls)
-        return [delivered, calls, true] if results == :closed
+      def timed_parts(calls, delivered)
+        answers_ms, results = timed_answers(calls)
+        return [[delivered, calls, true], answers_ms, nil] if results == :closed
 
+        model_ms, delivered = timed_model(results)
+        [[delivered, PostedResults.pending(delivered), false], answers_ms, model_ms]
+      end
+
+      def timed_answers(calls)
+        started = Timing.mark
+        results = answers(calls)
+        [Timing.elapsed_ms(started), results]
+      end
+
+      def timed_model(results)
+        started = Timing.mark
         delivered = deliver(results)
-        [delivered, PostedResults.pending(delivered), false]
+        [Timing.elapsed_ms(started), delivered]
       end
 
       def next_round

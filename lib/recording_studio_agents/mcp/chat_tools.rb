@@ -12,42 +12,40 @@ module RecordingStudioAgents
       module_function
 
       def definitions(actor:, root:)
-        return if off? || !installed?
-
-        grant = grant_for(actor, root)
-        return if grant.nil?
-
-        surface = RecordingStudioMcp::ToolSurface.for(access_grant: grant)
-        listed = surface.tool_definitions.filter_map { |definition| function_tool(surface, definition) }
-        listed.presence
+        TurnTools.build(actor: actor, root: root).definitions
       end
 
-      def answer(call, actor:, root:)
-        { call_id: call.call_id, turn_id: call.provider_turn_id }.merge(result_body(call, actor, root))
+      def answer(call, actor:, root:, turn_tools: nil)
+        tools = turn_tools || TurnTools.build(actor: actor, root: root)
+        { call_id: call.call_id, turn_id: call.provider_turn_id }.merge(result_body(call, actor, tools))
       end
 
-      def invoke(name, arguments, actor:, root:, call_id:)
-        ChatToolCall.perform(name, arguments, actor: actor, root: root, call_id: call_id)
+      def invoke(name, arguments, actor:, root:, call_id:, turn_tools: nil) # rubocop:disable Metrics/ParameterLists
+        tools = turn_tools || TurnTools.build(actor: actor, root: root)
+        ChatToolCall.perform(name, arguments, actor: actor, call_id: call_id, turn_tools: tools)
       end
 
-      def result_body(call, actor, root)
-        return argument_failure(call, actor, root) if call.arguments_error.present?
+      def result_body(call, actor, turn_tools)
+        return argument_failure(call, actor, turn_tools) if call.arguments_error.present?
 
-        ChatToolCall.outcome(invoke(call.name, call.arguments, actor: actor, root: root, call_id: call.call_id))
+        ran = ChatToolCall.perform(
+          call.name, call.arguments, actor: actor, call_id: call.call_id, turn_tools: turn_tools
+        )
+        ChatToolCall.outcome(ran)
       end
 
-      def argument_failure(call, actor, root)
-        note_call(call, actor, root, "error")
+      def argument_failure(call, actor, turn_tools)
+        note_call(call, actor, turn_tools, "error")
         { error: ChatToolCall.bounded(call.arguments_error) }
       end
 
-      def note_call(call, actor, root, outcome)
+      def note_call(call, actor, turn_tools, outcome)
         reserved = ChatToolAudit.current_reserved
         return ChatToolAudit.finish!(reserved, outcome) if reserved
 
         ChatToolAudit.record!(
           ChatToolAudit::Entry.new(name: call.name, arguments: nil, call_id: call.call_id),
-          actor: actor, kind: kind_for(call.name, grant_for(actor, root)), outcome: outcome
+          actor: actor, kind: kind_for(call.name, turn_tools), outcome: outcome
         )
       end
 
@@ -64,11 +62,10 @@ module RecordingStudioAgents
         MODES.include?(value) ? value : :write
       end
 
-      def kind_for(name, grant)
-        return "write" if grant.nil?
+      def kind_for(name, turn_tools)
+        return "write" if turn_tools.nil? || turn_tools.grant.nil?
 
-        read = RecordingStudioMcp::ToolSurface.for(access_grant: grant).read_only_tool?(name)
-        read ? "read" : "write"
+        turn_tools.read_only?(name) ? "read" : "write"
       end
 
       def named_tool?(name)

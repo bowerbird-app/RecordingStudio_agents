@@ -14,19 +14,18 @@ module RecordingStudioAgents
       FAILED = "tool call failed"
       OWNED_ERRORS = [OFF, NOT_ALLOWED, TOOL_NOT_ALLOWED, API_DISABLED, TOO_MANY, FAILED].freeze
 
-      def perform(name, arguments, actor:, root:, call_id:)
+      def perform(name, arguments, actor:, call_id:, turn_tools:)
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        grant = ChatTools.installed? ? ChatTools.grant_for(actor, root) : nil
-        row = ChatToolAudit.current_reserved || start_audit(name, arguments, actor, grant, call_id)
-        result, status = guarded(name, arguments, grant, actor, call_id)
-        ChatToolLog.record(name, result, started, grant, status == :limited)
+        row = ChatToolAudit.current_reserved || start_audit(name, arguments, actor, turn_tools, call_id)
+        result, status = guarded(name, arguments, turn_tools, actor, call_id)
+        ChatToolLog.record(name, result, started, turn_tools.grant, status == :limited)
         ChatToolAudit.finish!(row, status)
         result
       end
 
-      def start_audit(name, arguments, actor, grant, call_id)
+      def start_audit(name, arguments, actor, turn_tools, call_id)
         entry = ChatToolAudit::Entry.new(name: name, arguments: arguments, call_id: call_id)
-        ChatToolAudit.begin!(entry, actor: actor, kind: ChatTools.kind_for(name, grant))
+        ChatToolAudit.begin!(entry, actor: actor, kind: turn_tools.kind_for(name))
       end
 
       def outcome(result)
@@ -37,32 +36,32 @@ module RecordingStudioAgents
         ChatToolOutput.bounded(text)
       end
 
-      def guarded(name, arguments, grant, actor, call_id)
-        refusal = refusal_for(name, grant)
+      def guarded(name, arguments, turn_tools, actor, call_id)
+        refusal = refusal_for(name, turn_tools)
         return [error_result(refusal), :refused] if refusal
-        return [error_result(TOO_MANY), :limited] if ChatToolLimit.limited?(grant, name, actor)
+        return [error_result(TOO_MANY), :limited] if ChatToolLimit.limited?(turn_tools, name, actor)
 
-        result = dispatch(name, arguments, grant, call_id)
+        result = dispatch(name, arguments, turn_tools.grant, call_id)
         [result, error_result?(result) ? :error : :ok]
       end
 
-      def refusal_for(name, grant)
+      def refusal_for(name, turn_tools)
         return OFF if ChatTools.off? || !ChatTools.installed?
-        return NOT_ALLOWED if grant.nil? || ChatTools.self_tool?(name)
-        return TOOL_NOT_ALLOWED unless callable?(name, grant)
-        return API_DISABLED unless api_enabled?(grant)
+        return NOT_ALLOWED if turn_tools.grant.nil? || ChatTools.self_tool?(name)
+        return TOOL_NOT_ALLOWED unless callable?(name, turn_tools)
+        return API_DISABLED unless api_enabled?(turn_tools.grant)
 
         nil
       end
 
-      def callable?(name, grant)
-        ChatTools.named_tool?(name) && allowed?(name, grant)
+      def callable?(name, turn_tools)
+        ChatTools.named_tool?(name) && allowed?(name, turn_tools)
       end
 
-      def allowed?(name, grant)
+      def allowed?(name, turn_tools)
         return true if ChatTools.mode == :write
 
-        RecordingStudioMcp::ToolSurface.for(access_grant: grant).read_only_tool?(name)
+        turn_tools.read_only?(name)
       end
 
       def api_enabled?(grant)

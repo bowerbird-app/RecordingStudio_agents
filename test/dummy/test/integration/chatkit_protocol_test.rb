@@ -168,7 +168,7 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
 
     timing = lines.map { |line| line.to_s }.grep(/timing phase=/)
     text = timing.join("\n")
-    %w[phase=page_context phase=create phase=append phase=ttft phase=total type=threads.create].each do |part|
+    %w[phase=page_context phase=create_tools phase=create_provider phase=create_persist phase=model_stream phase=append phase=ttft phase=total type=threads.create].each do |part|
       assert_includes text, part
     end
     assert_includes text, "type=threads.add_user_message"
@@ -192,7 +192,9 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
 
     timing = lines.grep(/timing phase=/)
     assert timing.any? { |line| line.include?("phase=tool") && line.include?("name=show") }
-    assert timing.any? { |line| line.include?("phase=round") && line.include?("n=1") }
+    assert timing.any? { |line| line.include?("phase=round") && line.include?("n=1") && line.include?("answers_ms=") && line.include?("model_ms=") }
+    assert timing.any? { |line| line.include?("phase=create_provider") && line.match?(/tools=\d+/) }
+    assert timing.all? { |line| line.match?(/q=\d+ db=\d+/) }
     text = timing.join("\n")
     refute_includes text, "PressKit"
     refute_includes text, "missing"
@@ -713,6 +715,9 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
 
   test "the same provider item replayed across tool rounds is one bubble" do
     line = "I'll find your press center and rename it to Awesome Center."
+    lines = []
+    previous = Rails.logger
+    Rails.logger = timing_logger(lines)
     replay_rounds([
       [event("message_completed", text: line, item_id: "item-press"), event("turn_completed")],
       [event("message_completed", text: line, item_id: "item-press"), event("turn_completed")],
@@ -727,6 +732,12 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_equal 1, assistant_items(thread_id).count
     assert_equal line, assistant_items(thread_id).pick(:text)
     assert_equal 3, @calls[:submit_tool_results].size
+    drops = lines.grep(/dedupe dropped/)
+    assert_equal 3, drops.size
+    assert drops.all? { |entry| entry.include?("item_id=item-press") && entry.include?("by=id") }
+    refute drops.join.include?(line)
+  ensure
+    Rails.logger = previous if previous
   end
 
   test "the same text with a different provider item is a second bubble" do
@@ -770,6 +781,9 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
   end
 
   test "a bare replay without a provider item is dropped and other copies are kept" do
+    lines = []
+    previous = Rails.logger
+    Rails.logger = timing_logger(lines)
     @stream = [
       event("message_completed", text: "Hello"),
       event("message_completed", text: "Hello"),
@@ -785,6 +799,10 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_equal ["Hello", "Different", "Hello"], assistant_texts(events)
     assert_equal ["Hello", "Different", "Hello"], assistant_items(thread_id).order(:created_at).pluck(:text)
     assert_equal 1, events.count { |event| event.dig("update", "delta") == "Hello" }
+    drops = lines.grep(/dedupe dropped/)
+    assert_equal ["[recording_studio_agents.chatkit] dedupe dropped item_id=none by=text"], drops
+  ensure
+    Rails.logger = previous if previous
   end
 
   test "the same text in the next user turn is a new bubble" do
