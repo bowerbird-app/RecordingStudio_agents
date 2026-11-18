@@ -4,8 +4,8 @@ source "https://rubygems.org"
 gem "recording_studio_agents", path: "../.."
 
 # RecordingStudio engine
-gem "recording_studio", ">= 7.0", github: "bowerbird-app/RecordingStudio", tag: "v7.3.0"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.24.0"
+gem "recording_studio", "~> 7.7", github: "bowerbird-app/RecordingStudio"
+gem "recording_studio_ai", "~> 0.25", github: "bowerbird-app/RecordingStudio_AI"
 gem "recording_studio_accessible", github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.45.1"
 # Required by accessible for trashable query helpers (GitHub-only; not on RubyGems).
 gem "recording_studio_trashable", github: "bowerbird-app/RecordingStudio_trashable", tag: "v1.0.1", require: false
@@ -17,8 +17,8 @@ gem "recording_studio_root_switchable", github: "bowerbird-app/RecordingStudio_r
 gem "recording_studio_user", github: "bowerbird-app/RecordingStudio_users", tag: "v0.32.0"
 
 # Bearer tokens for the API and MCP. Pinned by tag, not branch.
-# API 1.2.1 requires recordable_type on :id endpoints. Attachable 0.31.0 accepts
-# that release and requires FlatPack >= 0.1.376. Moveable is an API dependency.
+# API 1.2.1 requires recordable_type on :id endpoints and Recording Studio >= 7.1.
+# Attachable 0.31.0 accepts that release and requires FlatPack >= 0.1.376. Moveable is an API dependency.
 gem "recording_studio_api", github: "bowerbird-app/RecordingStudio_api", tag: "v1.2.1"
 gem "recording_studio_oauth", github: "bowerbird-app/RecordingStudio_Oauth", tag: "v0.25.0"
 gem "recording_studio_mcp", github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.35.0"

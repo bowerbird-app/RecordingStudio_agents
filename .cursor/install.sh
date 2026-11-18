@@ -71,13 +71,12 @@ bundle install
 # ---------------------------------------------------------------------------
 # 5. Dummy credentials (shared RecordingStudio_* development master key)
 # ---------------------------------------------------------------------------
-# The committed credentials.yml.enc is reused across gems. Set
-# RAILS_MASTER_KEY in the environment, or write test/dummy/config/master.key.
-# Do not generate a per-repo master key. Never commit the key.
-if [ -n "${RAILS_MASTER_KEY:-}" ]; then
-  log "Writing dummy master.key from RAILS_MASTER_KEY"
-  umask 077
-  printf '%s' "${RAILS_MASTER_KEY}" > "${ROOT}/test/dummy/config/master.key"
+# The committed credentials.yml.enc is reused across gems. Development and test
+# read EMBEDDABLE_DUMMY_DEVELOPMENT_KEY (the same value for both). boot.rb copies
+# it onto RAILS_MASTER_KEY. Do not generate a per-repo key. Never commit a .key file
+# and never print the key.
+if [ -n "${EMBEDDABLE_DUMMY_DEVELOPMENT_KEY:-}" ]; then
+  log "Dummy credentials will use EMBEDDABLE_DUMMY_DEVELOPMENT_KEY"
 fi
 
 # ---------------------------------------------------------------------------

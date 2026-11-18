@@ -20,6 +20,8 @@ bin/rails db:setup
 bin/dev
 ```
 
+Development and test decrypt `config/credentials.yml.enc` with `EMBEDDABLE_DUMMY_DEVELOPMENT_KEY`. Both environments use that same value. Leave the key in the environment. Do not commit a `.key` file and do not print the key.
+
 Run the commands above from the dummy app directory, not the repository root.
 
 Then open the app and sign in with:
