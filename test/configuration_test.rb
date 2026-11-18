@@ -344,4 +344,33 @@ class ConfigurationTest < Minitest::Test
     assert_match "launcher_icon", error.message
     assert_equal :chat, @configuration.launcher_icon
   end
+
+  def test_recording_names_default_to_the_session_title
+    assert_equal({ "RecordingStudioAgents::Session" => "title" }, @configuration.recording_names)
+    assert_equal @configuration.recording_names, @configuration.to_h.fetch(:recording_names)
+  end
+
+  def test_recording_names_accept_a_class_to_field_map
+    @configuration.merge!(recording_names: { "Page" => :title, "PressKit" => "name" })
+
+    assert_equal({ "Page" => "title", "PressKit" => "name" }, @configuration.recording_names)
+  end
+
+  def test_recording_names_reject_anything_other_than_a_class_and_a_field
+    key = assert_raises(RecordingStudioAgents::Error) { @configuration.recording_names = { "page" => "title" } }
+    field = assert_raises(RecordingStudioAgents::Error) { @configuration.recording_names = { "Page" => "Title" } }
+    shape = assert_raises(RecordingStudioAgents::Error) { @configuration.recording_names = "title" }
+
+    assert_equal "recording_names keys must be recordable class names", key.message
+    assert_equal "recording_names values must be field names", field.message
+    assert_equal "recording_names must be a hash", shape.message
+    assert_equal({ "RecordingStudioAgents::Session" => "title" }, @configuration.recording_names)
+  end
+
+  def test_clearing_recording_names_restores_the_default
+    @configuration.recording_names = { "Page" => "title" }
+    @configuration.recording_names = nil
+
+    assert_equal RecordingStudioAgents::Configuration::DEFAULT_RECORDING_NAMES, @configuration.recording_names
+  end
 end

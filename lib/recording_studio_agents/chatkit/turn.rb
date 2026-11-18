@@ -53,9 +53,8 @@ module RecordingStudioAgents
       end
 
       def store
+        load_tools
         Timing.measure("page_context") { resolve_context! }
-        built = -> { Mcp::TurnTools.build(actor: @actor, root: @root) }
-        @turn_tools = @created ? Timing.measure("create_tools", &built) : built.call
         @created ? create_chat : Timing.measure("append") { append_chat }
       rescue RecordingStudioAI::Errors::UsageDeclined => e
         notice!(e)
@@ -83,17 +82,18 @@ module RecordingStudioAgents
         error.message
       end
 
+      def load_tools
+        build = -> { Mcp::TurnTools.build(actor: @actor, root: @root) }
+        @turn_tools = @created ? Timing.measure("create_tools", &build) : build.call
+      end
+
       def resolve_context!
         page = @page_recording || @page_context&.page_for(@root, @actor)
         @parent = page || @root
-        @preface = @page_context.preface(page) if @page_context
+        @preface = RecordingIndex.preface(
+          @page_context, page, actor: @actor, root: @root, turn_tools: @turn_tools
+        )
         @model_input = PageContext.model_input(@text, @preface)
-      end
-
-      def save_turn
-        return create_chat if @created
-
-        append_chat
       end
 
       def create_chat

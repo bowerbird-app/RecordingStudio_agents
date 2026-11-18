@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.5] - 2026-11-18
+
+### Added
+- Each ChatKit turn sends a recording index in the model input, on create and on append. The index lists the current page, its parent, its viewable siblings and children, and nearby recordings in the same root. Each entry is `id`, `type`, and, when the type is mapped, `name`. At most 25 entries, and the JSON stays within 4096 bytes.
+- `config.recording_names` maps a recordable class name to the column used as its display name. The default maps `RecordingStudioAgents::Session` to `title`. A type that is not in the map is listed as type and id only.
+
+### Changed
+- The `page_context` timing line adds `index_n=` (entries sent) and `index_ms=` (time to build the index). The line still leaves out names, message text, and tool arguments.
+
+### Upgrade notes
+- No migration. Set `config.recording_names` to the columns your recordables use (`"Page" => "title"`, `"PressKit" => "name"`). An unmapped type contributes no title. Access rows are left out.
+- The index is untrusted data. Titles are user content. Write tools are still checked with Recording Studio and Accessible when the call runs.
+- Log collectors see `index_n=` and `index_ms=` on `phase=page_context`.
+
 ## [0.18.4] - 2026-11-18
 
 ### Changed

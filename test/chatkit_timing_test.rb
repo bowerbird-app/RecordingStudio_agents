@@ -91,4 +91,19 @@ class ChatkitTimingTest < Minitest::Test
     assert_includes total, "dropped=1"
     refute_includes total, "SELECT"
   end
+
+  def test_page_context_logs_index_counts_without_a_title
+    title = "secret index title"
+    Timing.open(type: "threads.create")
+    Timing.measure("page_context") do
+      RecordingStudioAgents::ChatKit::TimingLine.note(count: 3, milliseconds: 4)
+    end
+    Timing.finish
+
+    line = @lines.find { |entry| entry.include?("phase=page_context") }
+    assert_includes line, "index_n=3"
+    assert_includes line, "index_ms=4"
+    refute_includes line, title
+    refute_includes @lines.join("\n"), title
+  end
 end

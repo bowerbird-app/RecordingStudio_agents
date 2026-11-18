@@ -6,7 +6,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 
 ## Requirements
 
-- Recording Studio Agents `0.18.4`
+- Recording Studio Agents `0.18.5`
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
 - Recording Studio `~> 7.7` (lockfile resolves 7.7.1; the dummy does not vendor the 7.4, 7.5, or 7.7 migrations)
@@ -243,6 +243,8 @@ The message carries:
 - an optional metadata object, capped at 2048 JSON characters
 
 The server checks the header again, drops anything past those caps, and ignores a page id the signed-in person cannot view. A page id that is visible through Accessible parents a new chat. The open chat is not moved and is not replaced. The next turn of that same thread gets a server-built preface in the model input. The stored message stays the person's words.
+
+The preface also includes a recording index: the page, its parent, viewable siblings and children, and nearby recordings in the same root. Each entry is JSON with `id`, `type`, and `name` when `config.recording_names` maps that class to a column. The default map is `RecordingStudioAgents::Session` => `title`. Set the host's types there (`"Page" => "title"`, `"PressKit" => "name"`). An unmapped type is id and type only. The list stops at 25 entries and 4096 bytes. Names are stripped of control characters, capped at 80 characters, and kept inside `<recording-index>`. The lines above the block say the titles are user content and that tools are the source of truth. A recording is included only when the actor can view it through the same Accessible check the tools use. Access rows are left out. `phase=page_context` logs `index_n=` and `index_ms=` and does not log the names.
 
 Set the page id on the host page with either of these:
 

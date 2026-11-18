@@ -171,6 +171,8 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     %w[phase=page_context phase=create_tools phase=create_provider phase=create_persist phase=model_stream phase=append phase=ttft phase=total type=threads.create].each do |part|
       assert_includes text, part
     end
+    page_lines = timing.select { |line| line.include?("phase=page_context") }
+    assert(page_lines.all? { |line| line.match?(/index_n=\d+/) && line.match?(/index_ms=\d+/) })
     assert_includes text, "type=threads.add_user_message"
     %w[hello\ timing\ phrase again\ timing\ phrase Hi\ there timing-secret-title selected\ timing\ words studio.test].each do |secret|
       refute_includes text, secret
@@ -614,6 +616,53 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_equal "hello", RecordingStudioAgents::Item.find_by!(recording: recording, role: "user").text
   end
 
+  test "a stubbed rename reads the target from the recording index" do
+    target = record_kit("ACUTE HOUSE")
+    page = record_kit("HELLO HOUSE")
+    picked = {}
+    helper = self
+    RecordingStudioAI::Agents.define_singleton_method(:create_session) do |**kwargs|
+      helper.send(:push_call, :create_session, kwargs)
+      picked[:id] = helper.send(:index_id, kwargs.fetch(:input), "ACUTE HOUSE")
+      helper.send(:hosted, "sess_rename")
+    end
+    RecordingStudioAI::Agents.define_singleton_method(:stream) do |**kwargs, &|
+      helper.send(:push_call, :stream, kwargs)
+      call = RecordingStudioAI::Agents::ToolCall.new(
+        call_id: "call_rename", name: "update", provider_turn_id: "turn_rename",
+        arguments: { "type" => "PressKit", "id" => picked[:id], "name" => "RENAMED HOUSE" }
+      )
+      helper.send(:tool_turn, [call])
+    end
+    @continuation = [event("message_completed", text: "Renamed"), event("turn_completed")]
+
+    post_context("threads.create", create_params("Rename ACUTE HOUSE"), header: page_header(page.id))
+    thread_id = created_thread_id
+    post_context(
+      "threads.add_user_message",
+      create_params("What is it called now?").merge("thread_id" => thread_id),
+      header: page_header(page.id)
+    )
+
+    assert_equal target.id, picked[:id]
+    assert_equal "RENAMED HOUSE", target.reload.recordable.name
+    input = @calls[:create_session].first.fetch(:input)
+    assert_includes input, "untrusted data"
+    assert_includes input, "<recording-index>"
+    assert @calls[:create_session].first.fetch(:tools).any? { |tool| tool[:name] == "update" }
+    follow = @calls[:send_input].last.fetch(:input)
+    assert_includes follow, "RENAMED HOUSE"
+    assert_includes follow, "<recording-index>"
+    viewer = User.create!(email: "view-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
+    grant_role(viewer, @root, "view")
+    refused = RecordingStudioAgents::Mcp::ChatTools.invoke(
+      "update", { "type" => "PressKit", "id" => target.id, "name" => "BLOCKED" },
+      actor: viewer, root: @root, call_id: "call-blocked"
+    )
+    assert refused[:isError]
+    assert_equal "RENAMED HOUSE", target.reload.recordable.name
+  end
+
   test "an inaccessible page recording id is ignored" do
     grant_edit(@user, @other_root)
     hidden = @other_root.record(Page, actor: @user) { |record| record.title = "Elsewhere" }
@@ -643,7 +692,7 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal @root, RecordingStudio::Recording.find(created_thread_id).parent_recording
-    refute_includes @calls[:create_session].first.fetch(:input), folder.id
+    refute_includes @calls[:create_session].first.fetch(:input), "Page: #{folder.id}"
   end
 
   test "the page context header and a follow up reject instructions" do
@@ -907,6 +956,19 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
       headers[RecordingStudioAgents::ChatKit::PageContext::HEADER] = header.to_json
     end
     post chatkit_path(page_id), params: { type: type, params: params }, headers: headers, as: :json
+  end
+
+  def record_kit(name)
+    @root.record(PressKit, actor: @user) do |kit|
+      kit.name = name
+      kit.description = "A house"
+      kit.content = "The wall"
+    end
+  end
+
+  def index_id(input, name)
+    line = input.lines.find { |entry| entry.start_with?("[") }
+    JSON.parse(line).find { |entry| entry["name"] == name }.fetch("id")
   end
 
   def page_header(page_id)

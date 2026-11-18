@@ -2,7 +2,7 @@
 
 ## Current Requirements
 
-- Gem version `0.18.4`
+- Gem version `0.18.5`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `~> 7.7` (lockfile resolves 7.7.1). The dummy does not vendor the 7.4, 7.5, or 7.7 migrations. Host apps run those migrations. Fresh installs use Recording Studio `db/install_migrate`.
@@ -15,6 +15,10 @@
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
 - Users dummy tag `v0.32.0`, Oauth dummy tag `v0.25.0`, MCP dummy tag `v0.35.0`, API dummy tag `v1.2.1`, Moveable dummy tag `v6.0.0`, Icons dummy tag `v0.4.0`, Admin dummy tag `v2.18.0`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.31.0` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
+
+## Recording index
+
+0.18.5 adds a recording index to the model input on `threads.create` and `threads.add_user_message`. It lists the current page, its parent, viewable siblings and children, and nearby recordings in that root. The cap is 25 entries and 4096 bytes of JSON. A recording is included only when the turn's tool grant, or `RecordingStudioAccessible.authorized?(role: :view)` when that grant is absent, allows view. `config.recording_names` maps a class name to one column (`"Page" => "title"`). The gem default is `RecordingStudioAgents::Session` => `title`. Other types are type and id only. Access rows are left out. The `page_context` timing line adds `index_n=` and `index_ms=`. Write tools are unchanged.
 
 ## Chat list and timing
 

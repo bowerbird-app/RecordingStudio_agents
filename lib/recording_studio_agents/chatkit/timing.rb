@@ -12,7 +12,7 @@ module RecordingStudioAgents
       TEXT_DELTA = "assistant_message.content_part.text_delta"
       PHASE = /\A[a-z_]+\z/
       TOOL_NAME = /\A[A-Za-z0-9_-]{1,64}\z/
-      COUNTS = %w[n q db tools answers_ms model_ms dropped].freeze
+      COUNTS = %w[n q db tools answers_ms model_ms dropped index_n index_ms].freeze
       Stamp = Struct.new(:at, :queries, :db)
       LISTEN = Mutex.new
 
@@ -133,12 +133,28 @@ module RecordingStudioAgents
     module TimingLine
       module_function
 
+      def note(count:, milliseconds:)
+        state = Timing.current
+        return unless state
+
+        state[:index_n] = count.to_i
+        state[:index_ms] = milliseconds.to_i
+        nil
+      end
+
       def compose(phase, milliseconds, extra, state)
         parts = [ErrorLog::PREFIX, "timing", "phase=#{phase}"]
-        Array(extra).each { |key, value| parts << piece(key, value) }
+        fields = indexed(phase, extra, state)
+        fields.each { |key, value| parts << piece(key, value) }
         parts << "ms=#{milliseconds}"
         parts << "type=#{state[:type]}" if state && state[:type]
         parts.compact.join(" ")
+      end
+
+      def indexed(phase, extra, state)
+        return extra unless phase.to_s == "page_context" && state&.key?(:index_n)
+
+        extra.merge(index_n: state[:index_n], index_ms: state[:index_ms])
       end
 
       def piece(key, value)
