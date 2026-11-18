@@ -12,6 +12,7 @@ module RecordingStudioAgents
       def play(&)
         @assistant = AssistantTurn.new(@recording.id)
         @saw_text = false
+        @shown = ShownLines.new
         finish_stream(read_stream(&), &)
       rescue RecordingStudioAI::Agents::Failure,
              RecordingStudioAI::Errors::UsageDeclined,
@@ -45,9 +46,7 @@ module RecordingStudioAgents
         remember(@assistant)
       end
 
-      def read_stream(&block)
-        RecordingStudioAI::Agents.stream(**agent_args) { |event| emit(event, &block) }
-      end
+      def read_stream(&block) = RecordingStudioAI::Agents.stream(**agent_args) { |event| emit(event, &block) }
 
       def answer_tools(calls, &)
         return if calls.empty?
@@ -82,17 +81,25 @@ module RecordingStudioAgents
         RecordingStudioAI::Providers::StreamEvent.new(type: "message_completed", text: item.text)
       end
 
-      def reply?(entry)
-        entry.role != "user" && entry.text.present?
-      end
+      def reply?(entry) = entry.role != "user" && entry.text.present?
 
       def emit(event, &)
-        if @assistant.savable? && text_event?(event)
-          remember(@assistant)
-          @assistant = AssistantTurn.new(@recording.id)
-        end
+        fresh = fresh_text?(event)
+        return if @shown.drop?(event, fresh: fresh)
+
+        open_next if fresh
+        @shown.see(event)
         @saw_text = true if text_event?(event)
         @assistant.apply(event).each(&)
+        @shown.keep(@assistant.text) if @assistant.savable?
+      end
+
+      def fresh_text?(event) = @assistant.savable? && text_event?(event)
+
+      def open_next
+        remember(@assistant)
+        @assistant = AssistantTurn.new(@recording.id)
+        @shown.restart
       end
 
       def remember(assistant)
@@ -108,15 +115,9 @@ module RecordingStudioAgents
         ToolRound.new(actor: @actor, root: @root, chat_recording: @recording, agent_args: agent_args)
       end
 
-      def pending_calls(source)
-        return [] unless source.respond_to?(:tool_calls)
+      def pending_calls(source) = source.respond_to?(:tool_calls) ? Array(source.tool_calls) : []
 
-        Array(source.tool_calls)
-      end
-
-      def text_event?(event)
-        %w[text_delta message_completed].include?(event.type.to_s)
-      end
+      def text_event?(event) = %w[text_delta message_completed].include?(event.type.to_s)
 
       def failure(message) = { type: "error", code: "custom", message: message, allow_retry: true }
 
@@ -129,6 +130,59 @@ module RecordingStudioAgents
             root_recording: @root, initiator: @actor, context_recording: @recording, execution_source: :web
           )
         }
+      end
+    end
+
+    # Text already shown in one ModelStream#play. The next play uses a new instance.
+    class ShownLines
+      def initialize
+        @rows = []
+        restart
+      end
+
+      def restart
+        @deltas = false
+        @item_id = nil
+        @kept = false
+      end
+
+      def see(event)
+        @deltas = true if event.type.to_s == "text_delta"
+        found = item_id(event)
+        @item_id = found if found
+      end
+
+      def keep(text)
+        return if @kept
+
+        @rows << [@item_id, text]
+        @kept = true
+      end
+
+      def drop?(event, fresh:)
+        return false unless event.type.to_s == "message_completed"
+
+        text = event.text.to_s
+        return false if text.empty?
+
+        id = item_id(event)
+        return same_item?(id, text) if id
+        return false if !fresh && @deltas
+
+        @rows.any? { |_id, saved| saved == text }
+      end
+
+      private
+
+      def same_item?(item_id, text)
+        @rows.any? { |saved_id, saved| saved_id == item_id && saved == text }
+      end
+
+      def item_id(event)
+        metadata = event.metadata
+        return if metadata.blank?
+
+        metadata["item_id"].presence
       end
     end
   end
