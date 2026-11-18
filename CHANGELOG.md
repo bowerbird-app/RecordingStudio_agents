@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.6] - 2026-11-18
+
+### Changed
+- The gem-owned preamble tells the model to say a change is done only after a write tool returned success in this turn. Otherwise it calls the tool, or asks if something is unclear. A result from an earlier turn does not count. The line is part of the instructions sent when the hosted session is created. `threads.add_user_message` stays on that session, so later turns keep the same instructions. A text-only reply does not run a tool and does not change a recording.
+
+### Upgrade notes
+- No migration and no host setting. A chat opened before this release keeps the instructions stored for that hosted session. A new chat gets the extra line.
+
 ## [0.18.5] - 2026-11-18
 
 ### Added
