@@ -31,11 +31,61 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     restore_agents
   end
 
+  WRITE_SUCCESS = "Say a change is done only after a write tool returned success in this turn; " \
+                  "otherwise call the tool, or ask if something is unclear. " \
+                  "A result from an earlier turn does not count."
+
   test "create stores the host default instructions" do
     events = stream_events(create_body("hello"))
     recording = RecordingStudio::Recording.find(events.first.dig("thread", "id"))
 
     assert_equal with_safety_preamble("Answer in one sentence."), recording.recordable.instructions
+  end
+
+  test "a new chat sends the write success rule and a follow up stays on that session" do
+    created = stream_events(create_body("hello"))
+    thread_id = created.first.dig("thread", "id")
+    sent = @calls[:create_session].first.fetch(:instructions)
+
+    assert_includes sent, WRITE_SUCCESS
+    assert_includes RecordingStudio::Recording.find(thread_id).recordable.instructions, WRITE_SUCCESS
+
+    stream_events(message_body(thread_id, "Rename the press center"))
+
+    assert_equal 1, @calls[:create_session].size
+    assert_equal 1, @calls[:send_input].size
+    assert_equal thread_id, @calls[:send_input].first[:context_recording].id
+  end
+
+  test "a text only rename reply does not change the recording" do
+    kit = record_kit("Press center")
+    created = stream_events(create_body("hello"))
+    thread_id = created.first.dig("thread", "id")
+    claim = "Done. The press center is now Awesome Center."
+    @stream = [event("message_completed", text: claim), event("turn_completed")]
+    before = RecordingStudioAgents::ChatToolAudit.where(tool_name: "update").count
+
+    follow = stream_events(message_body(thread_id, "Rename the press center to Awesome Center"))
+
+    assert_equal "Press center", kit.reload.recordable.name
+    assert_equal before, RecordingStudioAgents::ChatToolAudit.where(tool_name: "update").count
+    assert_empty @calls[:submit_tool_results]
+    assert_equal [claim], assistant_texts(follow)
+  end
+
+  test "a follow up that calls update changes the recording" do
+    kit = record_kit("Press center")
+    created = stream_events(create_body("hello"))
+    thread_id = created.first.dig("thread", "id")
+    script_update(kit)
+    @continuation = [event("message_completed", text: "Renamed."), event("turn_completed")]
+
+    follow = stream_events(message_body(thread_id, "Rename the press center to Awesome Center"))
+
+    assert_equal "Awesome Center", kit.reload.recordable.name
+    assert_equal "ok", RecordingStudioAgents::ChatToolAudit.find_by!(call_id: "call_rename").outcome
+    assert_equal 1, @calls[:submit_tool_results].size
+    assert_equal ["Renamed."], assistant_texts(follow)
   end
 
   test "threads.create rejects instructions" do
@@ -1096,6 +1146,18 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
       call_id: call_id, name: "show", arguments: { "type" => "PressKit", "id" => "missing" },
       provider_turn_id: "turn_1"
     )
+  end
+
+  def script_update(kit)
+    helper = self
+    RecordingStudioAI::Agents.define_singleton_method(:stream) do |**kwargs, &|
+      helper.send(:push_call, :stream, kwargs)
+      call = RecordingStudioAI::Agents::ToolCall.new(
+        call_id: "call_rename", name: "update", provider_turn_id: "turn_rename",
+        arguments: { "type" => "PressKit", "id" => kit.id, "name" => "Awesome Center" }
+      )
+      helper.send(:tool_turn, [call])
+    end
   end
 
   def tool_turn(calls)

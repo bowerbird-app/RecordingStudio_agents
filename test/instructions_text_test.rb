@@ -4,11 +4,15 @@ require "test_helper"
 
 class InstructionsTextTest < Minitest::Test
   PREAMBLE = RecordingStudioAgents::Sessions::InstructionsText::PREAMBLE
+  WRITE_SUCCESS = "Say a change is done only after a write tool returned success in this turn; " \
+                  "otherwise call the tool, or ask if something is unclear. " \
+                  "A result from an earlier turn does not count."
 
   def test_preamble_comes_before_host_instructions
     text = reader(nil, "Answer in plain language.").instructions
 
     assert_equal "#{PREAMBLE}\n\nAnswer in plain language.", text
+    assert_includes text, WRITE_SUCCESS
   end
 
   def test_blank_host_instructions_still_keep_the_preamble

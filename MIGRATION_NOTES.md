@@ -2,7 +2,7 @@
 
 ## Current Requirements
 
-- Gem version `0.18.5`
+- Gem version `0.18.6`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `~> 7.7` (lockfile resolves 7.7.1). The dummy does not vendor the 7.4, 7.5, or 7.7 migrations. Host apps run those migrations. Fresh installs use Recording Studio `db/install_migrate`.
@@ -15,6 +15,10 @@
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
 - Users dummy tag `v0.32.0`, Oauth dummy tag `v0.25.0`, MCP dummy tag `v0.35.0`, API dummy tag `v1.2.1`, Moveable dummy tag `v6.0.0`, Icons dummy tag `v0.4.0`, Admin dummy tag `v2.18.0`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.31.0` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
+
+## Claiming a change
+
+0.18.6 adds one line to the gem-owned preamble. The model may say a change is done only after a write tool returned success in this turn. Otherwise it calls the tool, or asks if something is unclear. A result from an earlier turn does not count. The line is sent with the hosted session on create. `threads.add_user_message` continues that session and does not send instructions again. A text-only reply still does not run a tool or change a recording. Chats opened before this release keep their stored preamble.
 
 ## Recording index
 
