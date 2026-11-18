@@ -2,11 +2,11 @@
 
 ## Current Requirements
 
-- Gem version `0.18.2`
+- Gem version `0.18.3`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
-- Recording Studio `>= 7.0.0, < 8.0` (dummy GitHub tag `v7.3.0`)
-- Recording Studio AI `~> 0.24` (dummy GitHub tag `v0.24.0`)
+- Recording Studio `~> 7.7` (lockfile resolves 7.7.1). The dummy does not vendor the 7.4, 7.5, or 7.7 migrations. Host apps run those migrations. Fresh installs use Recording Studio `db/install_migrate`.
+- Recording Studio AI `~> 0.25` (lockfile resolves 0.25.1)
 - Metrics dummy tag `v0.9.0`
 - Logs dummy tag `v0.8.0` (GitHub-only; AI 0.22.0 depends on it)
 - Accessible dummy tag `v0.45.1`, Trashable dummy tag `v1.0.1` (`require: false`), and Root Switchable dummy tag `v0.16.0`
@@ -15,6 +15,10 @@
 - view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
 - Users dummy tag `v0.32.0`, Oauth dummy tag `v0.25.0`, MCP dummy tag `v0.35.0`, API dummy tag `v1.2.1`, Moveable dummy tag `v6.0.0`, Icons dummy tag `v0.4.0`, Admin dummy tag `v2.18.0`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.31.0` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
+
+## Repeated assistant text
+
+0.18.3 keeps one copy of an assistant message the provider sends again in the same turn. A repeat is a `message_completed` event with no text deltas. It is dropped when the provider item id and the text both match, or when there is no item id and the text matches a message already shown. Text deltas are kept. A different item id, different text, or the same words on the next turn are shown. Nothing is stored for a dropped repeat.
 
 ## ChatKit stream
 

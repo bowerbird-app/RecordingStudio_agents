@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.3] - 2026-11-18
+
+### Fixed
+- ChatKit shows one copy of an assistant message that the provider sends again in the same turn. After a tool round, a hosted read can repeat the message as `message_completed` with no text deltas. That repeat is dropped when it is the same provider item id and the same text, or when it has no item id and the text matches a message already shown in this turn. Text deltas are kept. A different item id, different text, or the same text on the next turn is shown. A dropped repeat adds no bubble, no thread event, and no item.
+
+### Changed
+- Require Recording Studio `~> 7.7` and Recording Studio AI `~> 0.25`. The root and dummy Gemfiles use those ranges. Lockfiles resolve Recording Studio 7.7.1 and Recording Studio AI 0.25.1.
+- The dummy app does not copy the Recording Studio 7.4, 7.5, or 7.7 migrations.
+
+### Upgrade notes
+- Install Recording Studio `~> 7.7` (`7.7.1` or newer, below `7.8`) and Recording Studio AI `~> 0.25` (`0.25.1` or newer, below `0.26`). This gem has no migration.
+- Host apps run the Recording Studio 7.4, 7.5, and 7.7 migrations themselves. Fresh installs get the same changes from Recording Studio's `db/install_migrate`.
+- A repeated assistant line in one turn is shown once. The next turn still shows that line when the person asks again.
+
 ## [0.18.2] - 2026-11-17
 
 ### Changed

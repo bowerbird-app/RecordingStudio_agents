@@ -6,11 +6,11 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 
 ## Requirements
 
-- Recording Studio Agents `0.18.2`
+- Recording Studio Agents `0.18.3`
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
-- Recording Studio `>= 7.0.0, < 8.0` (dummy GitHub tag `v7.3.0`)
-- Recording Studio AI `~> 0.24` (dummy GitHub tag `v0.24.0`)
+- Recording Studio `~> 7.7` (lockfile resolves 7.7.1; the dummy does not vendor the 7.4, 7.5, or 7.7 migrations)
+- Recording Studio AI `~> 0.25` (lockfile resolves 0.25.1)
 - Recording Studio Metrics dummy GitHub tag `v0.9.0`
 - Accessible dummy GitHub tag `v0.45.1`
 - Trashable dummy GitHub tag `v1.0.1`
@@ -28,7 +28,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 - Site Settings dummy GitHub tag `v0.6.0`
 - Attachable dummy GitHub tag `v0.31.0`
 
-This gem depends on Recording Studio API `>= 0.26.0, < 2.0`. It does not depend on MCP or Oauth. The dummy pins API `v1.2.1`, MCP `v0.35.0`, and Oauth `v0.25.0`. Those MCP and Oauth tags require API `>= 1.2.0` and `>= 1.0.0`. API `1.2.1` needs Recording Studio `>= 7.1`, which the dummy tag `v7.3.0` satisfies. Chat `:id` endpoints register `recordable_type: "RecordingStudioAgents::Session"`. API 0.20 records the access-grant actor on a resource update. An in-process chat write uses the signed-in person as that actor. `agent_chats_create` still records the OAuth client, because this gem chooses that actor. An older API leaves the in-process event actor empty. API 0.21.2 keys a create with no API client as `actor:<Type>:<id>`. A grant with neither a client nor an actor raises `AuthorizationError`. Recording Studio refuses `record!` unless the host sets `config.authorize_write`. The dummy authorizer allows a write when an actor is present. `root_recording_for` only finds a root. Create one with `create_root_recording!(recordable, actor:)`. Trashable 0.17 removed `kept_sql`. Use `Recording.kept`. Root Switchable still requires an Accessible `:view` grant on the current root before the mounted switch page renders.
+This gem depends on Recording Studio API `>= 0.26.0, < 2.0`. It does not depend on MCP or Oauth. The dummy pins API `v1.2.1`, MCP `v0.35.0`, and Oauth `v0.25.0`. Those MCP and Oauth tags require API `>= 1.2.0` and `>= 1.0.0`. API `1.2.1` needs Recording Studio `>= 7.1`, which `~> 7.7` satisfies. Chat `:id` endpoints register `recordable_type: "RecordingStudioAgents::Session"`. API 0.20 records the access-grant actor on a resource update. An in-process chat write uses the signed-in person as that actor. `agent_chats_create` still records the OAuth client, because this gem chooses that actor. An older API leaves the in-process event actor empty. API 0.21.2 keys a create with no API client as `actor:<Type>:<id>`. A grant with neither a client nor an actor raises `AuthorizationError`. Recording Studio refuses `record!` unless the host sets `config.authorize_write`. The dummy authorizer allows a write when an actor is present. `root_recording_for` only finds a root. Create one with `create_root_recording!(recordable, actor:)`. Trashable 0.17 removed `kept_sql`. Use `Recording.kept`. Root Switchable still requires an Accessible `:view` grant on the current root before the mounted switch page renders.
 
 The provider API key stays in Recording Studio AI. This gem does not read one.
 
@@ -37,8 +37,8 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 ```ruby
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
 gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.377"
-gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v7.0.0"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.24.0"
+gem "recording_studio", "~> 7.7", github: "bowerbird-app/RecordingStudio"
+gem "recording_studio_ai", "~> 0.25", github: "bowerbird-app/RecordingStudio_AI"
 gem "recording_studio_api", github: "bowerbird-app/RecordingStudio_api", tag: "v0.26.0"
 gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.8.0"
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.9.0"
@@ -123,6 +123,8 @@ Create and append are idempotent on their keys inside one root. The same create 
 ## ChatKit
 
 `POST /recording_studio_agents/chatkit` accepts the ChatKit protocol and answers with JSON or server-sent events. The host session resolves the actor. The root is the workspace selected in Root Switchable (`RecordingStudio::RootSwitchable.resolve_current_root`), not the oldest workspace. Client metadata ids are ignored. Create, append, rename, and delete go through the Sessions services. Streaming, cancel, and reading a finished first turn go through `RecordingStudioAI::Agents`. A chat the actor cannot view is a 404, the same as a missing chat. A rescued error on that request is one Rails log line starting with `[recording_studio_agents.chatkit]`. A client disconnect is info. Any other rescued error is a warning. Invalid JSON, a rejected page, a missing thread, and a signed-out request keep their HTTP status and JSON body. The line leaves out the request body, headers, cookies, and credentials.
+
+A hosted read can send an assistant message again after a tool round, as `message_completed` and with no text deltas. ChatKit keeps the first copy in that turn. The repeat is dropped when the provider item id and the text both match a message already shown, or when there is no item id and the text matches. Text deltas are always shown. A different item id, different text, or the same words on the next turn are shown. A dropped repeat adds no bubble, no thread event, and no stored item.
 
 The same log prefix records phase timings: `page_context`, `create` or `append`, `ttft`, `tool`, `round`, and `total`. A line looks like `[recording_studio_agents.chatkit] timing phase=create ms=40 type=threads.create`. `ttft` is the time from the start of the request until the first assistant text delta is written to the client. A tool line adds `name=`. A round line adds `n=`. The clock is monotonic. The line does not include message text, tool arguments, tool results, page context, tokens, headers, or secrets.
 

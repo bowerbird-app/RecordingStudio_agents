@@ -27,13 +27,15 @@ class DummyCredentialsTest < Minitest::Test
     assert_includes gitignore, "config/master.key"
 
     tracked = Dir.chdir(File.expand_path("..", __dir__)) do
-      `git ls-files -- config/master.key test/dummy/config/master.key`.strip
+      `git ls-files -- '*.key' config/master.key test/dummy/config/master.key`.strip
     end
-    assert_equal "", tracked, "master.key must not be committed"
+    assert_equal "", tracked, "key files must not be committed"
   end
 
   def test_dummy_credentials_decrypt_when_master_key_is_available
-    skip "Set RAILS_MASTER_KEY or test/dummy/config/master.key to the shared dummy key" unless master_key_available?
+    skip "Set EMBEDDABLE_DUMMY_DEVELOPMENT_KEY to the shared dummy key" unless master_key_available?
+    shared = ENV["EMBEDDABLE_DUMMY_DEVELOPMENT_KEY"].to_s
+    ENV["RAILS_MASTER_KEY"] = shared if ENV["RAILS_MASTER_KEY"].to_s.empty? && !shared.empty?
 
     parsed = YAML.safe_load(
       ActiveSupport::EncryptedFile.new(
@@ -63,6 +65,6 @@ class DummyCredentialsTest < Minitest::Test
   end
 
   def master_key_available?
-    ENV["RAILS_MASTER_KEY"].to_s.strip.present? || File.exist?(dummy_master_key_path)
+    ENV["EMBEDDABLE_DUMMY_DEVELOPMENT_KEY"].to_s.strip.present? || File.exist?(dummy_master_key_path)
   end
 end

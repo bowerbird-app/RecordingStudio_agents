@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.18.2", ::RecordingStudioAgents::VERSION
+    assert_equal "0.18.3", ::RecordingStudioAgents::VERSION
   end
 
   def test_engine_exists
@@ -15,8 +15,8 @@ class RecordingStudioAgentsTest < Minitest::Test
     gemspec = File.read(File.expand_path("../recording_studio_agents.gemspec", __dir__))
 
     assert_includes gemspec, 'spec.add_dependency "flat_pack", ">= 0.1.354"'
-    assert_includes gemspec, 'spec.add_dependency "recording_studio", ">= 7.0.0", "< 8.0"'
-    assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", "~> 0.24"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio", "~> 7.7"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio_ai", "~> 0.25"'
     assert_includes gemspec, 'spec.add_dependency "recording_studio_api", ">= 0.26.0", "< 2.0"'
     assert_includes gemspec, 'spec.add_dependency "view_component", ">= 4.14", "< 5"'
     assert_includes gemspec, "https://github.com/bowerbird-app/RecordingStudio_agents"
@@ -26,8 +26,10 @@ class RecordingStudioAgentsTest < Minitest::Test
   def test_root_gemfile_pins_recording_studio_seven
     gemfile = File.read(File.expand_path("../Gemfile", __dir__))
 
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v7.0.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.24.0"'
+    assert_includes gemfile, 'gem "recording_studio", "~> 7.7", github: "bowerbird-app/RecordingStudio"'
+    assert_includes gemfile, 'gem "recording_studio_ai", "~> 0.25", github: "bowerbird-app/RecordingStudio_AI"'
+    refute_includes gemfile, 'tag: "v7.0.0"'
+    refute_includes gemfile, 'tag: "v0.24.0"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_api", tag: "v0.26.0"'
     refute_includes gemfile, "79723ed015318b790069b7c6cccae7d11d52dcf1"
     refute_includes gemfile, "until 0.20.0 is tagged"
@@ -70,14 +72,16 @@ class RecordingStudioAgentsTest < Minitest::Test
   def test_dummy_gemfile_pins_verified_4x_github_tags
     gemfile = File.read(File.expand_path("dummy/Gemfile", __dir__))
 
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v7.3.0"'
+    assert_includes gemfile, 'gem "recording_studio", "~> 7.7", github: "bowerbird-app/RecordingStudio"'
+    refute_includes gemfile, 'tag: "v7.3.0"'
     assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.377"'
     assert_includes gemfile, 'gem "view_component", "4.19.0"'
     refute_includes gemfile, "widen_recording_studio_requirement"
     refute_includes gemfile, 'branch: "main"'
     refute_includes gemfile, 'tag: "v4.7.0"'
     refute_includes gemfile, 'tag: "v0.1.254"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.24.0"'
+    assert_includes gemfile, 'gem "recording_studio_ai", "~> 0.25", github: "bowerbird-app/RecordingStudio_AI"'
+    refute_includes gemfile, 'tag: "v0.24.0"'
     refute_includes gemfile, "79723ed015318b790069b7c6cccae7d11d52dcf1"
     refute_includes gemfile, "until 0.20.0 is tagged"
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.9.0"'
@@ -272,11 +276,11 @@ class RecordingStudioAgentsTest < Minitest::Test
     readme = File.read(File.expand_path("../README.md", __dir__))
 
     assert_includes readme, "RecordingStudio"
-    assert_includes readme, "dummy GitHub tag `v7.3.0`"
+    assert_includes readme, "Recording Studio `~> 7.7`"
     assert_includes readme, 'github: "bowerbird-app/flatpack", tag: "v0.1.377"'
     refute_includes readme, "1fcbafe94f8eb118f0a22182f63f5110fcc97a56"
     refute_includes readme, "dummy GitHub tag `v4.7.0`"
-    assert_includes readme, 'github: "bowerbird-app/RecordingStudio_AI", tag: "v0.24.0"'
+    assert_includes readme, 'gem "recording_studio_ai", "~> 0.25", github: "bowerbird-app/RecordingStudio_AI"'
     assert_includes readme, "Accessible dummy GitHub tag `v0.45.1`"
     refute_includes readme, "79723ed015318b790069b7c6cccae7d11d52dcf1"
     refute_includes readme, "until 0.20.0 is tagged"

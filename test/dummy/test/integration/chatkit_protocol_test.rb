@@ -711,6 +711,95 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_equal 1, RecordingStudioAgents::Binding.where(recording_id: thread_id).count
   end
 
+  test "the same provider item replayed across tool rounds is one bubble" do
+    line = "I'll find your press center and rename it to Awesome Center."
+    replay_rounds([
+      [event("message_completed", text: line, item_id: "item-press"), event("turn_completed")],
+      [event("message_completed", text: line, item_id: "item-press"), event("turn_completed")],
+      [event("message_completed", text: line, item_id: "item-press"), event("turn_completed")],
+      [event("message_completed", text: line, item_id: "item-press"), event("turn_completed")]
+    ])
+
+    events = stream_events(create_body("rename the press center"))
+    thread_id = events.first.dig("thread", "id")
+
+    assert_equal [line], assistant_texts(events)
+    assert_equal 1, assistant_items(thread_id).count
+    assert_equal line, assistant_items(thread_id).pick(:text)
+    assert_equal 3, @calls[:submit_tool_results].size
+  end
+
+  test "the same text with a different provider item is a second bubble" do
+    line = "I'll find your press center and rename it to Awesome Center."
+    replay_rounds([
+      [event("message_completed", text: line, item_id: "item-a"), event("turn_completed")],
+      [event("message_completed", text: line, item_id: "item-b"), event("turn_completed")]
+    ])
+
+    events = stream_events(create_body("rename it"))
+    thread_id = events.first.dig("thread", "id")
+
+    assert_equal [line, line], assistant_texts(events)
+    assert_equal 2, assistant_items(thread_id).count
+  end
+
+  test "different text in the same turn is a second bubble" do
+    @stream = [
+      event("message_completed", text: "Looking now."),
+      event("message_completed", text: "Renamed."),
+      event("turn_completed")
+    ]
+
+    events = stream_events(create_body("rename it"))
+    thread_id = events.first.dig("thread", "id")
+
+    assert_equal ["Looking now.", "Renamed."], assistant_texts(events)
+    assert_equal ["Looking now.", "Renamed."], assistant_items(thread_id).order(:created_at).pluck(:text)
+  end
+
+  test "the same provider item with changed text is a second bubble" do
+    replay_rounds([
+      [event("message_completed", text: "Looking now.", item_id: "item-a"), event("turn_completed")],
+      [event("message_completed", text: "Renamed.", item_id: "item-a"), event("turn_completed")]
+    ])
+
+    events = stream_events(create_body("rename it"))
+
+    assert_equal ["Looking now.", "Renamed."], assistant_texts(events)
+    assert_equal 2, assistant_items(events.first.dig("thread", "id")).count
+  end
+
+  test "a bare replay without a provider item is dropped and other copies are kept" do
+    @stream = [
+      event("message_completed", text: "Hello"),
+      event("message_completed", text: "Hello"),
+      event("message_completed", text: "Different"),
+      event("text_delta", text_delta: "Hello"),
+      event("message_completed", text: "Hello"),
+      event("turn_completed")
+    ]
+
+    events = stream_events(create_body("hello"))
+    thread_id = events.first.dig("thread", "id")
+
+    assert_equal ["Hello", "Different", "Hello"], assistant_texts(events)
+    assert_equal ["Hello", "Different", "Hello"], assistant_items(thread_id).order(:created_at).pluck(:text)
+    assert_equal 1, events.count { |event| event.dig("update", "delta") == "Hello" }
+  end
+
+  test "the same text in the next user turn is a new bubble" do
+    line = "I'll find your press center and rename it to Awesome Center."
+    @stream = [event("message_completed", text: line, item_id: "item-press"), event("turn_completed")]
+
+    created = stream_events(create_body("rename it"))
+    thread_id = created.first.dig("thread", "id")
+    follow = stream_events(message_body(thread_id, "say that again"))
+
+    assert_equal [line], assistant_texts(created)
+    assert_equal [line], assistant_texts(follow)
+    assert_equal [line, line], assistant_items(thread_id).order(:created_at).pluck(:text)
+  end
+
   private
 
   def chatkit_path(page_id = nil)
@@ -949,8 +1038,44 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     )
   end
 
-  def event(type, text: nil, text_delta: nil)
-    RecordingStudioAI::Providers::StreamEvent.new(type: type, text: text, text_delta: text_delta)
+  def event(type, text: nil, text_delta: nil, item_id: nil)
+    metadata = {}
+    metadata["item_id"] = item_id if item_id
+    RecordingStudioAI::Providers::StreamEvent.new(type: type, text: text, text_delta: text_delta, metadata: metadata)
+  end
+
+  def replay_rounds(rounds)
+    helper = self
+    @stream = rounds.first
+    @stream_result = tool_turn([tool_call("round-0")]) if rounds.size > 1
+    cursor = { index: 0 }
+    RecordingStudioAI::Agents.define_singleton_method(:submit_tool_results) do |**kwargs, &block|
+      helper.send(:push_call, :submit_tool_results, kwargs)
+      cursor[:index] += 1
+      Array(rounds[cursor[:index]]).each { |stream_event| block&.call(stream_event) }
+      if cursor[:index] >= rounds.size - 1
+        kwargs.fetch(:session)
+      else
+        helper.send(:tool_turn, [helper.send(:tool_call, "round-#{cursor[:index]}")])
+      end
+    end
+  end
+
+  def push_call(name, kwargs)
+    @calls[name] << kwargs
+  end
+
+  def assistant_texts(events)
+    events.filter_map do |stream_event|
+      next unless stream_event["type"] == "thread.item.done"
+      next unless stream_event.dig("item", "type") == "assistant_message"
+
+      stream_event.dig("item", "content", 0, "text")
+    end
+  end
+
+  def assistant_items(thread_id)
+    RecordingStudioAgents::Item.where(recording_id: thread_id, role: "assistant")
   end
 
   def remember_agent(name)
