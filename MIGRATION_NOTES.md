@@ -22,7 +22,7 @@
 
 ## Recording index
 
-0.18.5 adds a recording index to the model input on `threads.create` and `threads.add_user_message`. It lists the current page, its parent, viewable siblings and children, and nearby recordings in that root. The cap is 25 entries and 4096 bytes of JSON. A recording is included only when the turn's tool grant, or `RecordingStudioAccessible.authorized?(role: :view)` when that grant is absent, allows view. `config.recording_names` maps a class name to one column (`"Page" => "title"`). The gem default is `RecordingStudioAgents::Session` => `title`. Other types are type and id only. Access rows are left out. The `page_context` timing line adds `index_n=` and `index_ms=`. Write tools are unchanged.
+0.18.5 adds a recording index to the model input on `threads.create` and `threads.add_user_message`. It lists the current page, its parent, viewable siblings and children, and nearby recordings in that root. The cap is 25 entries and 4096 bytes of JSON. 0.18.7 reads `RecordingStudioAccessible.authorized_recordings` once per index for that root. A root grant is `Recording.within`. A narrower grant is the seeded descendant set, so a sibling outside the grant and a child nested under that sibling stay out. A turn grant that is not this root still uses that grant's own check. `config.recording_names` maps a class name to one column (`"Page" => "title"`). The gem default is `RecordingStudioAgents::Session` => `title`. Other types are type and id only. Access rows are left out. The `page_context` timing line adds `index_n=` and `index_ms=`. Write tools are unchanged.
 
 ## Chat list and timing
 

@@ -1027,15 +1027,22 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
 
   def with_page_hidden(page)
     original = RecordingStudioAccessible.method(:authorized?)
-    RecordingStudioAccessible.define_singleton_method(:authorized?) do |actor:, recording:, role: :view|
-      return false if recording.id == page.id
+    original_recordings = RecordingStudioAccessible.method(:authorized_recordings)
+    RecordingStudioAccessible.define_singleton_method(:authorized?) do |*args, **kwargs|
+      return false if kwargs[:recording]&.id == page.id
 
-      original.call(actor: actor, recording: recording, role: role)
+      original.call(*args, **kwargs)
+    end
+    RecordingStudioAccessible.define_singleton_method(:authorized_recordings) do |*args, **kwargs|
+      original_recordings.call(*args, **kwargs).where.not(id: page.id)
     end
     yield
   ensure
     RecordingStudioAccessible.define_singleton_method(:authorized?) do |*args, **kwargs, &block|
       original.call(*args, **kwargs, &block)
+    end
+    RecordingStudioAccessible.define_singleton_method(:authorized_recordings) do |*args, **kwargs, &block|
+      original_recordings.call(*args, **kwargs, &block)
     end
   end
 

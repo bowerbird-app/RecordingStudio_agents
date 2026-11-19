@@ -40,28 +40,23 @@ class RecordingIndexTest < ActiveSupport::TestCase
   end
 
   test "a child the actor cannot view is left out even when the page is included" do
-    folder = record_folder("Open folder")
-    secret = folder.record(Page, actor: @user) { |page| page.title = "SECRET CHILD TITLE" }
-    shown = folder.record(Page, actor: @user) { |page| page.title = "Shown child" }
-    tools = RecordingStudioAgents::Mcp::TurnTools.build(actor: @user, root: @root)
-    original = RecordingStudioAccessible.method(:authorized?)
-    RecordingStudioAccessible.define_singleton_method(:authorized?) do |*args, **kwargs|
-      return false if kwargs[:recording]&.id == secret.id
+    page = record_kit("Open kit")
+    shown = record_chat(page, "Shown child")
+    closed = record_kit("Closed kit")
+    secret = record_chat(closed, "SECRET CHILD TITLE")
+    viewer = User.create!(email: "child-#{SecureRandom.hex(4)}@example.com", password: "Password") { |user| user.skip_confirmation! }
+    grant_view(viewer, page)
+    tools = RecordingStudioAgents::Mcp::TurnTools.build(actor: viewer, root: @root)
 
-      original.call(*args, **kwargs)
-    end
+    text = index_text(actor: viewer, page: page, turn_tools: tools)
 
-    text = index_text(actor: @user, page: folder, turn_tools: tools)
-
-    assert_includes text, "Open folder"
+    assert_includes text, "Open kit"
     assert_includes text, "Shown child"
+    assert_includes text, shown.id
+    refute_includes text, "Closed kit"
     refute_includes text, "SECRET CHILD TITLE"
     refute_includes text, secret.id
-    assert tools.grant
-  ensure
-    RecordingStudioAccessible.define_singleton_method(:authorized?) do |*args, **kwargs, &block|
-      original.call(*args, **kwargs, &block)
-    end
+    refute_includes text, closed.id
   end
 
   test "a hostile title stays capped data inside the block" do
