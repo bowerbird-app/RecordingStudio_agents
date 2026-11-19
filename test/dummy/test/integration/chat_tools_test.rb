@@ -258,15 +258,23 @@ class ChatToolsTest < ActiveSupport::TestCase
 
     assert_difference("PressKit.count", 1) do
       @created = invoke("create", arguments, call_id: "c1")
-      @replay = invoke("create", arguments.merge("name" => "TWICE"), call_id: "c1")
+      @replay = invoke("create", arguments, call_id: "c1")
     end
 
     refute @created[:isError]
     refute @replay[:isError]
     assert_equal 1, PressKit.where(name: "ONCE").count
-    assert_equal 0, PressKit.where(name: "TWICE").count
     assert_includes @created.dig(:content, 0, :text).to_s, "ONCE"
     assert_includes @replay.dig(:content, 0, :text).to_s, "ONCE"
+
+    assert_no_difference("PressKit.count") do
+      @changed = invoke("create", arguments.merge("name" => "TWICE"), call_id: "c1")
+    end
+
+    assert @changed[:isError]
+    assert_includes @changed.dig(:content, 0, :text).to_s, "Idempotency key already used with different parameters"
+    assert_equal "idempotency_key_reused", @changed.dig(:structuredContent, "code")
+    assert_equal 0, PressKit.where(name: "TWICE").count
 
     listed = invoke("list", { "type" => "PressKit" }, call_id: "c-list")
 

@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
 module RecordingStudioAgents
-  VERSION = "0.18.6"
+  VERSION = "0.18.7"
 end

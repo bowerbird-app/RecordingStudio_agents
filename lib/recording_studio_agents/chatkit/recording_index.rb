@@ -98,9 +98,15 @@ module RecordingStudioAgents
       def viewable?(recording)
         grant = @turn_tools&.grant
         return grant.authorized?(recording: recording, role: :view) if grant && !root_scoped?(grant)
-        return false unless defined?(RecordingStudioAccessible)
 
-        RecordingStudioAccessible.authorized?(actor: @actor, recording: recording, role: :view)
+        viewable_ids[recording.id]
+      end
+
+      # One Accessible read for this index. See Candidates.viewable_ids.
+      def viewable_ids
+        return @viewable_ids if defined?(@viewable_ids)
+
+        @viewable_ids = Candidates.viewable_ids(@actor, @root)
       end
 
       # The turn grant from a root access row covers this root. The candidate
@@ -145,6 +151,21 @@ module RecordingStudioAgents
         return false if recording.respond_to?(:trashed_at) && recording.trashed_at.present?
 
         recording.id == root.id || recording.root_recording_id == root.id
+      end
+
+      # One read for the index. A root grant becomes Recording.within.
+      # Any other grant is the seeded descendant set, so a sibling outside
+      # that set stays out, and so does a child nested under it.
+      def self.viewable_ids(actor, root)
+        return {} unless defined?(RecordingStudioAccessible)
+
+        ids = RecordingStudioAccessible.authorized_recordings(
+          actor: actor,
+          root: root,
+          scope: RecordingStudio::Recording.for_root(root.id).kept,
+          role: :view
+        ).pluck(:id)
+        ids.to_h { |id| [id, true] }
       end
 
       def initialize(root, parent, skip)

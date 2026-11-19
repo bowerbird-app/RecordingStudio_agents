@@ -2,18 +2,18 @@
 
 ## Current Requirements
 
-- Gem version `0.18.6`
+- Gem version `0.18.7`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
-- Recording Studio `~> 7.7` (lockfile resolves 7.7.1). The dummy does not vendor the 7.4, 7.5, or 7.7 migrations. Host apps run those migrations. Fresh installs use Recording Studio `db/install_migrate`.
-- Recording Studio AI `~> 0.25` (lockfile resolves 0.25.1)
-- Metrics dummy tag `v0.9.0`
-- Logs dummy tag `v0.8.0` (GitHub-only; AI 0.22.0 depends on it)
-- Accessible dummy tag `v0.45.1`, Trashable dummy tag `v1.0.1` (`require: false`), and Root Switchable dummy tag `v0.16.0`
-- Cache dummy tag `v0.7.0`
-- FlatPack `>= 0.1.354`. The root Gemfile pins tag `v0.1.377`. The dummy pins tag `v0.1.377`. Attachable `v0.31.0` requires FlatPack `>= 0.1.376`. `FloatingFrame` shipped in `v0.1.354`.
-- view_component `>= 4.14`, `< 5` (this repository locks `4.19.0`)
-- Users dummy tag `v0.32.0`, Oauth dummy tag `v0.25.0`, MCP dummy tag `v0.35.0`, API dummy tag `v1.2.1`, Moveable dummy tag `v6.0.0`, Icons dummy tag `v0.4.0`, Admin dummy tag `v2.18.0`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.31.0` (`require: false`)
+- Recording Studio `~> 7.7` (tag `v7.7.2`). Hosts MUST run the Recording Studio 7.4, 7.5, and 7.7 migrations. The dummy does not vendor those migrations. Fresh installs use Recording Studio `db/install_migrate`.
+- Recording Studio AI `~> 0.25` (tag `v0.25.3`)
+- Metrics dummy tag `v0.9.2`
+- Logs dummy tag `v0.8.2` (GitHub-only; AI 0.22.0 depends on it)
+- Accessible dummy tag `v0.55.0`, Trashable dummy tag `v1.2.3` (`require: false`), and Root Switchable dummy tag `v0.16.1`
+- Cache dummy tag `v0.7.1`
+- FlatPack `>= 0.1.354`. The root Gemfile pins tag `v0.1.380`. The dummy pins tag `v0.1.380`. Attachable `v0.33.2` requires FlatPack `>= 0.1.376`. `FloatingFrame` shipped in `v0.1.354`.
+- view_component `>= 4.14`, `< 5` (this repository locks `~> 4.19`)
+- Users dummy tag `v0.37.0`, Oauth dummy tag `v0.25.1`, MCP dummy tag `v0.39.2`, API dummy tag `v1.19.0`, Moveable dummy tag `v6.0.3`, Icons dummy tag `v0.4.2`, Admin dummy tag `v2.19.1`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.33.2` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
 
 ## Claiming a change
@@ -22,7 +22,7 @@
 
 ## Recording index
 
-0.18.5 adds a recording index to the model input on `threads.create` and `threads.add_user_message`. It lists the current page, its parent, viewable siblings and children, and nearby recordings in that root. The cap is 25 entries and 4096 bytes of JSON. A recording is included only when the turn's tool grant, or `RecordingStudioAccessible.authorized?(role: :view)` when that grant is absent, allows view. `config.recording_names` maps a class name to one column (`"Page" => "title"`). The gem default is `RecordingStudioAgents::Session` => `title`. Other types are type and id only. Access rows are left out. The `page_context` timing line adds `index_n=` and `index_ms=`. Write tools are unchanged.
+0.18.5 adds a recording index to the model input on `threads.create` and `threads.add_user_message`. It lists the current page, its parent, viewable siblings and children, and nearby recordings in that root. The cap is 25 entries and 4096 bytes of JSON. 0.18.7 reads `RecordingStudioAccessible.authorized_recordings` once per index for that root. A root grant is `Recording.within`. A narrower grant is the seeded descendant set, so a sibling outside the grant and a child nested under that sibling stay out. A turn grant that is not this root still uses that grant's own check. `config.recording_names` maps a class name to one column (`"Page" => "title"`). The gem default is `RecordingStudioAgents::Session` => `title`. Other types are type and id only. Access rows are left out. The `page_context` timing line adds `index_n=` and `index_ms=`. Write tools are unchanged.
 
 ## Chat list and timing
 
