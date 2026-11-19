@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Root and dummy Gemfiles pin Recording Studio `~> 7.8` (`v7.8.0`), FlatPack `~> 0.2` (`v0.2.0`), Recording Studio AI `~> 0.26` (`v0.26.0`), API `~> 1.21` (`v1.21.2`), Accessible `~> 0.58` (`v0.58.0`), Icons `~> 0.5` (`v0.5.0`), Logs `~> 0.9` (`v0.9.0`), Metrics `~> 0.10` (`v0.10.0`), Moveable `~> 6.1` (`v6.1.0`), and Trashable `~> 1.3` (`v1.3.0`).
 - Dummy-only pins: Admin `~> 2.20` (`v2.20.0`), Attachable `~> 0.34` (`v0.34.0`, `require: false`), Cache `~> 0.8` (`v0.8.0`), and Root Switchable `~> 0.17` (`v0.17.0`). Users stays `v0.37.0`. Oauth stays `v0.25.1`. MCP stays `v0.39.2`. Site Settings stays `v0.6.0`.
-- The dummy drops the `flat_pack/heroicons` importmap pin and the `flat-pack--icon` controller registration. Launcher icons are the server-rendered SVG.
+- The dummy drops the `flat_pack/heroicons` importmap pin. The icon controller pin came from FlatPack's `pin_all_from` and goes away with FlatPack 0.2; no registration file changed. `test/dummy/install_page.html` drops the icon controller pin and modulepreload. Launcher icons are the server-rendered SVG.
 - Gemspec floors are unchanged.
 
 ### Upgrade notes
