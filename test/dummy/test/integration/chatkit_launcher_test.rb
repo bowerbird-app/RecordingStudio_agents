@@ -38,7 +38,7 @@ class ChatkitLauncherTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".fp-floating-frame [data-fp-position=?]", "bottom_left"
     assert_select "button[aria-label=?][aria-expanded=?][aria-controls]", "Open chat", "false"
-    assert_select "[data-flat-pack--icon-name-value=?]", "chat-bubble-left-ellipsis"
+    assert_rendered_heroicon(response.body, "chat-bubble-left-ellipsis")
     iframe = css_select("iframe").first
     assert_equal recording_studio_agents.popup_path, iframe["src"]
     assert_equal "Chat", iframe["title"]
@@ -169,7 +169,7 @@ class ChatkitLauncherTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "button[aria-label=?]", "Ask the studio"
-    assert_select "[data-flat-pack--icon-name-value=?]", "sparkles"
+    assert_rendered_heroicon(response.body, "sparkles")
     assert_equal "Studio chat", css_select("iframe").first["title"]
     assert_select "h2", text: "Studio chat"
   end
@@ -185,7 +185,7 @@ class ChatkitLauncherTest < ActionDispatch::IntegrationTest
 
     assert_includes html, "Ask"
     assert_includes html, "Studio chat"
-    assert_includes html, 'data-flat-pack--icon-name-value="chat-bubble-left-ellipsis"'
+    assert_rendered_heroicon(html, "chat-bubble-left-ellipsis")
     assert_includes html, 'data-fp-position="top_right"'
     assert_includes html, %(src="#{RecordingStudioAgents::Engine.routes.url_helpers.popup_path}")
     assert_includes html, %(sandbox="#{SANDBOX}")
@@ -209,6 +209,15 @@ class ChatkitLauncherTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def assert_rendered_heroicon(html, name)
+    variant = FlatPack.configuration.default_icon_variant
+    markup = FlatPack::Heroicons.fetch(variant, name)
+    assert markup.present?, "missing #{variant} heroicon #{name}"
+    assert_includes html, "<svg"
+    assert_includes html, markup
+    refute_includes html, "data-flat-pack--icon-name-value"
+  end
 
   # Renderer and a bare controller have no session, so the host resolvers
   # would hide the launcher. These examples only check the frame markup.

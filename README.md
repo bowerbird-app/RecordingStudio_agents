@@ -6,29 +6,29 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 
 ## Requirements
 
-- Recording Studio Agents `0.19.0`
+- Recording Studio Agents `0.20.0`
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
-- Recording Studio `~> 7.7` (tag `v7.7.2`). Hosts MUST run the Recording Studio 7.4, 7.5, and 7.7 migrations. The dummy does not vendor those migrations.
-- Recording Studio AI `~> 0.25` (tag `v0.25.3`)
-- Recording Studio Metrics dummy GitHub tag `v0.9.2`
-- Accessible dummy GitHub tag `v0.55.0`
-- Trashable dummy GitHub tag `v1.2.3`
-- Root Switchable dummy GitHub tag `v0.16.1`
-- Cache dummy GitHub tag `v0.7.1`
-- FlatPack `>= 0.1.354` (root GitHub tag `v0.1.380`; dummy GitHub tag `v0.1.380`)
+- Recording Studio gemspec `~> 7.7`. This repository pins `~> 7.8` (tag `v7.8.0`). Hosts MUST run the Recording Studio 7.4, 7.5, and 7.7 migrations. The dummy does not vendor those migrations.
+- Recording Studio AI gemspec `~> 0.25`. This repository pins `~> 0.26` (tag `v0.26.0`)
+- Recording Studio Metrics dummy GitHub tag `v0.10.0`
+- Accessible dummy GitHub tag `v0.58.0`
+- Trashable dummy GitHub tag `v1.3.0`
+- Root Switchable dummy GitHub tag `v0.17.0`
+- Cache dummy GitHub tag `v0.8.0`
+- FlatPack gemspec `>= 0.1.354` (root GitHub tag `v0.2.0`; dummy GitHub tag `v0.2.0`). Hosts moving to 0.2 remove the manual `flat_pack/heroicons` importmap pin and any `flat-pack--icon` controller registration.
 - view_component `>= 4.14`, `< 5` (this repository locks `~> 4.19`)
 - Recording Studio Users dummy GitHub tag `v0.37.0`
 - Oauth dummy GitHub tag `v0.25.1`
 - Recording Studio MCP dummy GitHub tag `v0.39.2`
-- Recording Studio API dummy GitHub tag `v1.19.0`
-- Moveable dummy GitHub tag `v6.0.3` and Icons dummy GitHub tag `v0.4.2` (API dependencies)
-- Recording Studio Logs dummy GitHub tag `v0.8.2`
-- Recording Studio Admin dummy GitHub tag `v2.19.1`
+- Recording Studio API dummy GitHub tag `v1.21.2`
+- Moveable dummy GitHub tag `v6.1.0` and Icons dummy GitHub tag `v0.5.0` (API dependencies)
+- Recording Studio Logs dummy GitHub tag `v0.9.0`
+- Recording Studio Admin dummy GitHub tag `v2.20.0`
 - Site Settings dummy GitHub tag `v0.6.0`
-- Attachable dummy GitHub tag `v0.33.2`
+- Attachable dummy GitHub tag `v0.34.0`
 
-This gem depends on Recording Studio API `>= 0.26.0, < 2.0`. It does not depend on MCP or Oauth. The dummy pins API `v1.19.0`, MCP `v0.39.2`, and Oauth `v0.25.1`. MCP `0.39.2` requires API `>= 1.19.0`. API `1.19.0` needs Recording Studio `>= 7.7`, which `~> 7.7` satisfies. Chat `:id` endpoints register `recordable_type: "RecordingStudioAgents::Session"`. API 0.20 records the access-grant actor on a resource update. An in-process chat write uses the signed-in person as that actor. `agent_chats_create` still records the OAuth client, because this gem chooses that actor. An older API leaves the in-process event actor empty. API 0.21.2 keys a create with no API client as `actor:<Type>:<id>`. A grant with neither a client nor an actor raises `AuthorizationError`. Recording Studio refuses `record!` unless the host sets `config.authorize_write`. The dummy authorizer allows a write when an actor is present. `root_recording_for` only finds a root. Create one with `create_root_recording!(recordable, actor:)`. Trashable 0.17 removed `kept_sql`. Use `Recording.kept`. Root Switchable still requires an Accessible `:view` grant on the current root before the mounted switch page renders.
+This gem depends on Recording Studio API `>= 0.26.0, < 2.0`. It does not depend on MCP or Oauth. The dummy pins API `v1.21.2`, MCP `v0.39.2`, and Oauth `v0.25.1`. MCP `0.39.2` requires API `>= 1.19.0`. API `1.19.0` needs Recording Studio `>= 7.7`, which the `~> 7.8` pin satisfies. Chat `:id` endpoints register `recordable_type: "RecordingStudioAgents::Session"`. API 0.20 records the access-grant actor on a resource update. An in-process chat write uses the signed-in person as that actor. `agent_chats_create` still records the OAuth client, because this gem chooses that actor. An older API leaves the in-process event actor empty. API 0.21.2 keys a create with no API client as `actor:<Type>:<id>`. A grant with neither a client nor an actor raises `AuthorizationError`. Recording Studio refuses `record!` unless the host sets `config.authorize_write`. The dummy authorizer allows a write when an actor is present. `root_recording_for` only finds a root. Create one with `create_root_recording!(recordable, actor:)`. Trashable 0.17 removed `kept_sql`. Use `Recording.kept`. Root Switchable still requires an Accessible `:view` grant on the current root before the mounted switch page renders.
 
 The provider API key stays in Recording Studio AI. This gem does not read one.
 
@@ -36,16 +36,16 @@ The provider API key stays in Recording Studio AI. This gem does not read one.
 
 ```ruby
 gem "recording_studio_agents", github: "bowerbird-app/RecordingStudio_agents"
-gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.380"
-gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v7.7.2"
-gem "recording_studio_ai", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.25.3"
-gem "recording_studio_api", github: "bowerbird-app/RecordingStudio_api", tag: "v1.19.0"
-gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.8.2"
-gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.9.2"
+gem "flat_pack", "~> 0.2", github: "bowerbird-app/flatpack", tag: "v0.2.0"
+gem "recording_studio", "~> 7.8", github: "bowerbird-app/RecordingStudio", tag: "v7.8.0"
+gem "recording_studio_ai", "~> 0.26", github: "bowerbird-app/RecordingStudio_AI", tag: "v0.26.0"
+gem "recording_studio_api", "~> 1.21", github: "bowerbird-app/RecordingStudio_api", tag: "v1.21.2"
+gem "recording_studio_logs", "~> 0.9", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.9.0"
+gem "recording_studio_metrics", "~> 0.10", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.10.0"
 gem "view_component", "~> 4.19"
 ```
 
-Cache `v0.7.1`, Attachable `v0.33.2`, Site Settings `v0.6.0`, and Icons `v0.4.2` are pinned in the dummy Gemfile. Attachable `v0.33.2` accepts API `>= 1.1.0, < 2.0` and FlatPack `>= 0.1.376`. There is no Bundler gemspec rewrite.
+Cache `v0.8.0`, Attachable `v0.34.0`, Site Settings `v0.6.0`, and Icons `v0.5.0` are pinned in the dummy Gemfile. Attachable `v0.34.0` accepts API `>= 1.1.0, < 2.0` and FlatPack `>= 0.1.376`. There is no Bundler gemspec rewrite.
 
 Register the recordable, opt a parent type into `:agents`, and copy migrations:
 
@@ -214,7 +214,7 @@ The dummy page at `/agent-chat` uses the same helper. With neither key set, it s
 
 ## Popup
 
-`recording_studio_agents_launcher` puts a FlatPack `FloatingFrame` on the host layout. It opens the popup through `RecordingStudioAgents::Engine.routes`, so the path follows the host mount (`GET /recording_studio_agents/popup` at the default mount). It is a same-site iframe. FlatPack `0.1.354` or newer supplies that component. The root Gemfile pins tag `v0.1.380`. The dummy pins tag `v0.1.380`.
+`recording_studio_agents_launcher` puts a FlatPack `FloatingFrame` on the host layout. It opens the popup through `RecordingStudioAgents::Engine.routes`, so the path follows the host mount (`GET /recording_studio_agents/popup` at the default mount). It is a same-site iframe. FlatPack `0.2.0` supplies that component and renders icons on the server. The root Gemfile pins `~> 0.2` (tag `v0.2.0`). The dummy pins the same tag. Hosts moving to 0.2 remove the manual `flat_pack/heroicons` importmap pin and any `flat-pack--icon` controller registration.
 
 ```erb
 <%= recording_studio_agents_launcher %>
