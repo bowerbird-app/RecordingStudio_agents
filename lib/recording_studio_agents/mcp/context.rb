@@ -76,6 +76,10 @@ module RecordingStudioAgents
       end
 
       def call
+        unless RecordingStudioAgents::Availability.enabled?
+          raise RecordingStudioApi::NotFoundError, "chat was not found"
+        end
+
         yield
       rescue ChatKit::ProtocolError => e then raise_protocol!(e)
       # During the A to B window this says only that the key string exists in another workspace.

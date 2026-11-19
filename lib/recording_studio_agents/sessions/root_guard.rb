@@ -5,6 +5,12 @@ module RecordingStudioAgents
     module RootGuard
       private
 
+      def ensure_enabled!
+        return if RecordingStudioAgents::Availability.enabled?
+
+        raise RecordingStudioAgents::DisabledError, "agent chats are off"
+      end
+
       def ensure_root!(recording)
         return if recording.respond_to?(:root?) && recording.root?
 

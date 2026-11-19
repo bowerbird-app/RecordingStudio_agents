@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-11-19
+
+### Added
+- `config.enabled` turns agent chats off for the whole site. It defaults to `true`. It accepts `true`, `false`, or a lambda. The lambda is called on every check. It can take the controller, or no argument. A service or an MCP tool passes `nil`. A lambda that raises is off, and the log line is the error class only. While chats are off, the launcher and the chat frame render nothing, every engine route responds 404 (including a POST with no CSRF token), `Sessions::Create` and `Sessions::Append` raise `RecordingStudioAgents::DisabledError` before the provider is called, and the agent chat tools return not found. `ExpireSessionsJob` still closes expired chats. `config.launcher = true` does not turn any of that back on.
+
+### Upgrade notes
+- No migration and no host setting. The default is on, so an existing app behaves as before. Set `config.enabled` or `enabled:` in `config/recording_studio_agents.yml` to turn chats off. A boolean taken from an environment variable is read at boot, so restart the process after changing it.
+- [Compare v0.18.7...v0.19.0](https://github.com/bowerbird-app/RecordingStudio_agents/compare/v0.18.7...v0.19.0)
+
 ## [0.18.7] - 2026-11-19
 
 ### Changed

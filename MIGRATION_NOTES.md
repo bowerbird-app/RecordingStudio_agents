@@ -2,7 +2,7 @@
 
 ## Current Requirements
 
-- Gem version `0.18.7`
+- Gem version `0.19.0`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio `~> 7.7` (tag `v7.7.2`). Hosts MUST run the Recording Studio 7.4, 7.5, and 7.7 migrations. The dummy does not vendor those migrations. Fresh installs use Recording Studio `db/install_migrate`.
@@ -15,6 +15,10 @@
 - view_component `>= 4.14`, `< 5` (this repository locks `~> 4.19`)
 - Users dummy tag `v0.37.0`, Oauth dummy tag `v0.25.1`, MCP dummy tag `v0.39.2`, API dummy tag `v1.19.0`, Moveable dummy tag `v6.0.3`, Icons dummy tag `v0.4.2`, Admin dummy tag `v2.19.1`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.33.2` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
+
+## Turning chats off
+
+0.19.0 adds `config.enabled`. The default is `true`, so no host action is required and existing chats stay available. Set it to `false`, or to `enabled: false` in `config/recording_studio_agents.yml`, to hide the launcher and the chat frame, answer engine routes with 404, and refuse new messages and the agent chat tools. There is no table and no per-workspace setting. `ExpireSessionsJob` still closes expired chats. A boolean read from the environment at boot needs a process restart after it changes.
 
 ## Claiming a change
 

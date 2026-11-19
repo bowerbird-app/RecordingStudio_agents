@@ -54,7 +54,7 @@ module RecordingStudioAgents
       end
 
       def off?
-        mode == :off
+        mode == :off || !RecordingStudioAgents::Availability.enabled?
       end
 
       def mode

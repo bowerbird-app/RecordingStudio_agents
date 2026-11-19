@@ -24,15 +24,20 @@ module RecordingStudioAgents
     end
 
     def recording_studio_agents_chatkit(endpoint: nil, page_recording: nil, chatkit_options: nil, fill: false)
+      return unless RecordingStudioAgents::Availability.enabled?(controller)
+
       append_chatkit_views
       render partial: chatkit_partial, locals: chatkit_locals(endpoint, page_recording, chatkit_options, fill)
     end
 
     private
 
-    # Actor and workspace first, then config.launcher. A missing person or
-    # workspace omits the launcher. A lambda runs only after both are present.
+    # The site switch is first. Actor and workspace come next, then
+    # config.launcher. A missing person or workspace omits the launcher.
+    # A launcher lambda runs only after both are present.
     def show_launcher?
+      return false unless RecordingStudioAgents::Availability.enabled?(controller)
+
       actor = RequestContext.recording_studio_agents_resolve(:request_actor, controller)
       return false if actor.blank?
 

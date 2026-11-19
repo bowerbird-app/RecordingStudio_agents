@@ -47,6 +47,8 @@ class ConfigurationTest < Minitest::Test
     assert_nil configuration.mcp_tool_deny
     assert_equal "tailwind", configuration.popup_stylesheet
     assert_equal "rounded", configuration.popup_theme
+    assert_equal true, configuration.enabled
+    assert_equal true, configuration.to_h.fetch(:enabled)
     assert_equal true, configuration.launcher
     assert_equal :chat, configuration.launcher_icon
     assert_equal "Open chat", configuration.launcher_label
@@ -224,6 +226,36 @@ class ConfigurationTest < Minitest::Test
     @configuration.merge!(mcp_tools: "off")
     assert_equal :off, @configuration.mcp_tools
     assert_equal :off, @configuration.to_h.fetch(:mcp_tools)
+  end
+
+  def test_enabled_accepts_true_false_or_a_lambda
+    @configuration.enabled = false
+    assert_equal false, @configuration.enabled
+    assert_equal false, @configuration.to_h.fetch(:enabled)
+
+    calls = 0
+    callable = lambda { |controller|
+      calls += 1
+      controller
+    }
+    @configuration.enabled = callable
+    assert_equal callable, @configuration.enabled
+    assert_equal 0, calls
+
+    @configuration.merge!("enabled" => false)
+    assert_equal false, @configuration.enabled
+
+    @configuration.merge!(enabled: true)
+    assert_equal true, @configuration.enabled
+    assert_equal true, @configuration.to_h.fetch(:enabled)
+
+    error = assert_raises(RecordingStudioAgents::Error) { @configuration.enabled = "false" }
+
+    assert_equal true, @configuration.enabled
+    assert_match "enabled", error.message
+    assert_raises(RecordingStudioAgents::Error) { @configuration.enabled = nil }
+    assert_raises(RecordingStudioAgents::Error) { @configuration.enabled = 1 }
+    assert_equal true, @configuration.enabled
   end
 
   def test_launcher_accepts_true_false_or_a_lambda

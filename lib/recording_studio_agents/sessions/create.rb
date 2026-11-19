@@ -65,6 +65,7 @@ module RecordingStudioAgents
       end
 
       def validate!
+        ensure_enabled!
         ensure_root!(@root_recording)
         ensure_actor!(@actor)
         ensure_key!(@idempotency_key)
@@ -74,9 +75,7 @@ module RecordingStudioAgents
       end
 
       def ensure_input!
-        return if @input.is_a?(String) && !@input.strip.empty?
-
-        raise Error, "input must be a non-empty string"
+        raise Error, "input must be a non-empty string" unless @input.is_a?(String) && !@input.strip.empty?
       end
 
       def ensure_parent!

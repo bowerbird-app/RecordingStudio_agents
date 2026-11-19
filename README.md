@@ -6,7 +6,7 @@ ChatKit talks to this gem. The browser embed uses the host session. MCP uses an 
 
 ## Requirements
 
-- Recording Studio Agents `0.18.7`
+- Recording Studio Agents `0.19.0`
 - Ruby 3.3 or newer
 - Rails 8.1 (this repository locks `8.1.4.1`)
 - Recording Studio `~> 7.7` (tag `v7.7.2`). Hosts MUST run the Recording Studio 7.4, 7.5, and 7.7 migrations. The dummy does not vendor those migrations.
@@ -89,6 +89,34 @@ config.request_root = lambda do |controller|
 rescue RecordingStudio::RootSwitchable::DeviceKey::Unavailable
   nil
 end
+```
+
+### Site switch
+
+`config.enabled` defaults to `true`, so an upgrade changes nothing. Set it to `false` to turn agent chats off for the whole site. There is no per-workspace switch and no new table.
+
+While it is off:
+
+- `recording_studio_agents_launcher` and `recording_studio_agents_chatkit` render nothing. `config.launcher = true` does not bring the launcher back.
+- Every engine route responds 404. That includes `POST /recording_studio_agents/chatkit` with no CSRF token, which is 404 and not 422 or 401.
+- `Sessions::Create` and `Sessions::Append` raise `RecordingStudioAgents::DisabledError` before they call the provider. They write no chat, item, or binding rows.
+- `agent_chats_list`, `agent_chats_create`, `agent_chats_read`, `agent_chats_append`, `agent_items_list`, and `agent_items_read` return not found.
+- `ExpireSessionsJob` still closes expired chats. A reply already in progress is not stopped.
+
+`true` and `false` are the usual values. A lambda is called on every check, with the controller, or with no argument. A service or an MCP tool passes `nil`. Return a false value and that check is off. A lambda that raises is off. The log line is `[recording_studio_agents] enabled` plus the error class. It leaves out the message, request bodies, and secrets.
+
+`RecordingStudioAgents::Availability.enabled?` reads the setting each time. It does not remember the last result.
+
+A boolean taken from the environment is fixed when the process boots. Restart after you change it.
+
+```ruby
+config.enabled = ENV.fetch("RS_AGENTS_ENABLED", "true") != "false"
+```
+
+`config/recording_studio_agents.yml` accepts a boolean:
+
+```yaml
+enabled: false
 ```
 
 ```ruby
@@ -219,7 +247,7 @@ config.launcher_label = "Ask the studio"
 config.popup_title = "Studio chat"
 ```
 
-`config.launcher` defaults to on. It accepts `true`, `false`, or a lambda that takes the controller. `false` renders nothing. The lambda runs on each render, after the actor and workspace checks, and renders the launcher when it returns a truthy value.
+`config.launcher` defaults to on. It accepts `true`, `false`, or a lambda that takes the controller. `false` renders nothing. The lambda runs on each render, after the actor and workspace checks, and renders the launcher when it returns a truthy value. `config.enabled` is checked before any of that. `false` renders nothing even when `config.launcher` is `true`.
 
 The helper also renders nothing when `config.request_actor` or `config.request_root` returns nothing. ChatKit and the popup use those same resolvers. A signed-out page has no launcher. A signed-in person with no workspace has no launcher.
 

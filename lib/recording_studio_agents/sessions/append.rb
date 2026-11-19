@@ -38,6 +38,7 @@ module RecordingStudioAgents
       end
 
       def validate!
+        ensure_enabled!
         ensure_root!(@root_recording)
         ensure_actor!(@actor)
         ensure_key!(@idempotency_key)

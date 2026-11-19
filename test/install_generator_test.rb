@@ -151,6 +151,7 @@ class InstallGeneratorTest < Minitest::Test
     assert_includes template, "RecordingStudio::RootSwitchable.resolve_current_root"
     assert_includes template,
                     'config.launcher = ->(controller) { controller.controller_path.start_with?("workspaces") }'
+    assert_includes template, 'config.enabled = ENV.fetch("RS_AGENTS_ENABLED", "true") != "false"'
     refute_includes template, "# config.request_actor"
     refute_includes template, "# config.request_root"
   end
