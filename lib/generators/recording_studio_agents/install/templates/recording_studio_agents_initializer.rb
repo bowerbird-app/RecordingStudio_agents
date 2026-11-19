@@ -45,6 +45,12 @@ RecordingStudioAgents.configure do |config|
   # config.popup_stylesheet = "tailwind"
   # Flatpack theme on the popup document. The default is "rounded".
   # config.popup_theme = "rounded"
+  # Site-wide switch. The default is on. False hides the launcher and the chat,
+  # answers engine routes with 404, and refuses new messages and the chat tools.
+  # A lambda is called every time, with the controller or with no argument.
+  # A service or an MCP tool passes nil. A raising lambda is off.
+  # A value read from the environment is fixed at boot. Restart after you change it.
+  # config.enabled = ENV.fetch("RS_AGENTS_ENABLED", "true") != "false"
   # True, false, or a lambda that takes the controller. The default is on.
   # A lambda can hide the launcher outside workspace pages.
   # The launcher is also omitted when the request has no signed-in person or no workspace.

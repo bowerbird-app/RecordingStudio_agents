@@ -28,6 +28,32 @@ class McpToolsTest < Minitest::Test
     remove_fakes
   end
 
+  def test_every_agent_chat_tool_is_not_found_when_agents_are_off
+    configuration = RecordingStudioAgents.configuration
+    previous = configuration.enabled
+    configuration.enabled = false
+    @context.params = { id: "chat-1", item_id: "item-1", input: "Hello", idempotency_key: "key-1" }
+    @context.recording = Recording.new("chat-1", nil)
+    names = RecordingStudioAgents::Mcp::Registration::OWN_TOOLS
+    assert_equal names.sort, tool_handlers.keys.map(&:to_s).sort
+
+    RecordingStudioAgents::Sessions::Create.stub(:call, ->(**) { flunk "create ran" }) do
+      RecordingStudioAgents::Sessions::Append.stub(:call, ->(**) { flunk "append ran" }) do
+        tool_handlers.each_value do |handler|
+          error = assert_raises(RecordingStudioApi::NotFoundError) { handler.call(@context) }
+          assert_equal "chat was not found", error.message
+        end
+      end
+    end
+
+    configuration.enabled = -> { raise "token=secret-value" }
+    assert_raises(RecordingStudioApi::NotFoundError) do
+      RecordingStudioAgents::Mcp::Chats::List.call(@context)
+    end
+  ensure
+    configuration.enabled = previous if configuration
+  end
+
   def test_list_and_read_authorize_view
     catalog = catalog_double(threads: { data: [{ id: "chat-1" }], has_more: false, after: nil })
     @context.params = { "limit" => 5, id: "chat-1" }
@@ -204,6 +230,17 @@ class McpToolsTest < Minitest::Test
       roles << role
       [recording, include_trashed]
     end
+  end
+
+  def tool_handlers
+    {
+      agent_chats_list: RecordingStudioAgents::Mcp::Chats::List,
+      agent_chats_create: RecordingStudioAgents::Mcp::Chats::Create,
+      agent_chats_read: RecordingStudioAgents::Mcp::Chats::Read,
+      agent_chats_append: RecordingStudioAgents::Mcp::Chats::Append,
+      agent_items_list: RecordingStudioAgents::Mcp::Items::List,
+      agent_items_read: RecordingStudioAgents::Mcp::Items::Read
+    }
   end
 
   def catalog_double(threads: nil, found: nil)

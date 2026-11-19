@@ -113,7 +113,7 @@ module RecordingStudioAgents
     attr_accessor :instructions, :purpose, :request_actor, :request_root, :chatkit_domain_key,
                   :popup_stylesheet, :popup_theme
     attr_reader :hooks, :default_profile, :retention_period, :provider, :instructions_override,
-                :max_instructions_length, :layout, :mcp_tools, :launcher, :launcher_icon, :launcher_label,
+                :max_instructions_length, :layout, :mcp_tools, :enabled, :launcher, :launcher_icon, :launcher_label,
                 :out_of_credits_url, :out_of_credits_label
 
     def initialize
@@ -122,7 +122,7 @@ module RecordingStudioAgents
       assign_tool_defaults
       @popup_stylesheet = "tailwind"
       @popup_theme = "rounded"
-      @launcher = true
+      @enabled = @launcher = true
       @launcher_icon = :chat
       @launcher_label = "Open chat"
       @popup_title = nil
@@ -160,6 +160,14 @@ module RecordingStudioAgents
 
     def mcp_tools=(value)
       @mcp_tools = allowed_symbol(value, Mcp::ChatTools::MODES, "mcp_tools")
+    end
+
+    def enabled=(value)
+      unless [true, false].include?(value) || value.respond_to?(:call)
+        raise Error, "enabled must be true, false, or a lambda"
+      end
+
+      @enabled = value
     end
 
     def launcher=(value)
@@ -287,7 +295,7 @@ module RecordingStudioAgents
     def popup_settings
       {
         popup_stylesheet: popup_stylesheet, popup_theme: popup_theme, popup_title: popup_title,
-        launcher_label: launcher_label, launcher_icon: launcher_icon
+        launcher_label: launcher_label, launcher_icon: launcher_icon, enabled: enabled
       }
     end
 

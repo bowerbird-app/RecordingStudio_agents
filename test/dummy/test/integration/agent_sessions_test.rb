@@ -525,6 +525,43 @@ class AgentSessionsTest < ActiveSupport::TestCase
     assert_equal with_safety_preamble("Answer in one sentence."), @calls[:create_session].last[:instructions]
   end
 
+  test "create and append write nothing when agents are off" do
+    configuration = RecordingStudioAgents.configuration
+    previous = configuration.enabled
+    recording = create_chat("hello", key: "kept-while-on")
+    creates = @calls[:create_session].size
+    sends = @calls[:send_input].size
+    bindings = RecordingStudioAgents::Binding.count
+    items = RecordingStudioAgents::Item.count
+    configuration.enabled = -> { false }
+
+    assert_raises(RecordingStudioAgents::DisabledError) { create_chat("blocked", key: "blocked-create") }
+    assert_raises(RecordingStudioAgents::DisabledError) { append_chat(recording) }
+
+    assert_equal creates, @calls[:create_session].size
+    assert_equal sends, @calls[:send_input].size
+    assert_equal bindings, RecordingStudioAgents::Binding.count
+    assert_equal items, RecordingStudioAgents::Item.count
+    assert RecordingStudio::Recording.exists?(recording.id)
+  ensure
+    configuration.enabled = previous if configuration
+  end
+
+  test "the expire job still closes an expired chat when agents are off" do
+    configuration = RecordingStudioAgents.configuration
+    previous = configuration.enabled
+    expired = create_chat("old", key: "expire-while-off")
+    RecordingStudioAgents::Binding.find_by!(recording: expired).update!(expires_at: 1.minute.ago)
+    configuration.enabled = false
+
+    RecordingStudioAgents::ExpireSessionsJob.perform_now
+
+    assert_nil RecordingStudio::Recording.find_by(id: expired.id)
+    assert_equal 1, @calls[:delete_session].size
+  ensure
+    configuration.enabled = previous if configuration
+  end
+
   test "expire deletes the stored instructions with the chat" do
     text = "Keep this private"
     with_instruction_settings(instructions: text) do

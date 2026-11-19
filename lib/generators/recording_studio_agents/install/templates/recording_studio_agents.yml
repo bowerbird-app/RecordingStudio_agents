@@ -1,10 +1,12 @@
 development:
+  enabled: true
   instructions: "Answer in plain language."
   default_profile: medium
   purpose: agent_chat
   provider: openai
 
 production:
+  enabled: true
   instructions: "Answer in plain language."
   default_profile: medium
   purpose: agent_chat

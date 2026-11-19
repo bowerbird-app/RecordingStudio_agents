@@ -29,6 +29,25 @@ class McpChatToolsTest < Minitest::Test
     configuration.mcp_tools = previous if configuration && previous
   end
 
+  def test_off_is_true_when_agents_are_disabled
+    configuration = RecordingStudioAgents.configuration
+    previous_enabled = configuration.enabled
+    previous_mode = configuration.mcp_tools
+    configuration.mcp_tools = :write
+    configuration.enabled = false
+
+    assert RecordingStudioAgents::Mcp::ChatTools.off?
+
+    configuration.enabled = true
+    refute RecordingStudioAgents::Mcp::ChatTools.off?
+
+    configuration.mcp_tools = :off
+    assert RecordingStudioAgents::Mcp::ChatTools.off?
+  ensure
+    configuration.enabled = previous_enabled if configuration
+    configuration.mcp_tools = previous_mode if configuration && previous_mode
+  end
+
   def test_chat_and_item_tools_are_treated_as_its_own
     tools = RecordingStudioAgents::Mcp::ChatTools
 

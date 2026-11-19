@@ -6,6 +6,7 @@ require "recording_studio_agents/version"
 
 module RecordingStudioAgents
   class Error < StandardError; end
+  class DisabledError < Error; end
   class IsolationError < Error; end
   class KeyConflictError < IsolationError; end
   class InstructionsError < Error; end
@@ -29,6 +30,7 @@ require "recording_studio_agents/engine"
 require "recording_studio_agents/chat_tool_argument_keys"
 require "recording_studio_agents/mcp_tool_settings"
 require "recording_studio_agents/configuration"
+require "recording_studio_agents/availability"
 require "recording_studio/capabilities/agents"
 require "recording_studio_agents/provider_sessions"
 require "recording_studio_agents/sessions/root_guard"
