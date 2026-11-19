@@ -2,18 +2,18 @@
 
 ## Current Requirements
 
-- Gem version `0.19.0`
+- Gem version `0.20.0`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
-- Recording Studio `~> 7.7` (tag `v7.7.2`). Hosts MUST run the Recording Studio 7.4, 7.5, and 7.7 migrations. The dummy does not vendor those migrations. Fresh installs use Recording Studio `db/install_migrate`.
-- Recording Studio AI `~> 0.25` (tag `v0.25.3`)
-- Metrics dummy tag `v0.9.2`
-- Logs dummy tag `v0.8.2` (GitHub-only; AI 0.22.0 depends on it)
-- Accessible dummy tag `v0.55.0`, Trashable dummy tag `v1.2.3` (`require: false`), and Root Switchable dummy tag `v0.16.1`
-- Cache dummy tag `v0.7.1`
-- FlatPack `>= 0.1.354`. The root Gemfile pins tag `v0.1.380`. The dummy pins tag `v0.1.380`. Attachable `v0.33.2` requires FlatPack `>= 0.1.376`. `FloatingFrame` shipped in `v0.1.354`.
+- Recording Studio gemspec `~> 7.7`. This repository pins `~> 7.8` (tag `v7.8.0`). Hosts MUST run the Recording Studio 7.4, 7.5, and 7.7 migrations. The dummy does not vendor those migrations. Fresh installs use Recording Studio `db/install_migrate`.
+- Recording Studio AI gemspec `~> 0.25`. This repository pins `~> 0.26` (tag `v0.26.0`)
+- Metrics dummy tag `v0.10.0`
+- Logs dummy tag `v0.9.0` (GitHub-only)
+- Accessible dummy tag `v0.58.0`, Trashable dummy tag `v1.3.0` (`require: false`), and Root Switchable dummy tag `v0.17.0`
+- Cache dummy tag `v0.8.0`
+- FlatPack gemspec `>= 0.1.354`. The root and dummy Gemfiles pin `~> 0.2` (tag `v0.2.0`). Attachable `v0.34.0` requires FlatPack `>= 0.1.376`. Hosts moving to 0.2 remove the manual `flat_pack/heroicons` importmap pin and any `flat-pack--icon` controller registration.
 - view_component `>= 4.14`, `< 5` (this repository locks `~> 4.19`)
-- Users dummy tag `v0.37.0`, Oauth dummy tag `v0.25.1`, MCP dummy tag `v0.39.2`, API dummy tag `v1.19.0`, Moveable dummy tag `v6.0.3`, Icons dummy tag `v0.4.2`, Admin dummy tag `v2.19.1`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.33.2` (`require: false`)
+- Users dummy tag `v0.37.0`, Oauth dummy tag `v0.25.1`, MCP dummy tag `v0.39.2`, API dummy tag `v1.21.2`, Moveable dummy tag `v6.1.0`, Icons dummy tag `v0.5.0`, Admin dummy tag `v2.20.0`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.34.0` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
 
 ## Turning chats off
