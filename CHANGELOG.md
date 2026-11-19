@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.7] - 2026-11-19
+
+### Changed
+- Root and dummy Gemfiles pin release tags. Recording Studio is `v7.7.2` and Recording Studio AI is `v0.25.3` (within `~> 0.25`). FlatPack stays on `v0.1.380`. API is `v1.19.0` in both Gemfiles. Accessible is `v0.55.0`, Icons `v0.4.2`, Logs `v0.8.2`, Metrics `v0.9.2`, Moveable `v6.0.3`, and Trashable `v1.2.3`.
+- Dummy-only tags: Root Switchable `v0.16.1`, Users `v0.37.0`, Oauth `v0.25.1`, MCP `v0.39.2`, Admin `v2.19.1`, Attachable `v0.33.2`, and Cache `v0.7.1`. Site Settings stays `v0.6.0`.
+- `view_component` is `~> 4.19` and Puma is `~> 8.1`.
+
+### Upgrade notes
+- Hosts MUST run the Recording Studio 7.4, 7.5, and 7.7 migrations. This gem does not copy them. Fresh installs get the same changes from Recording Studio `db/install_migrate`.
+- API 1.19 needs `config/recording_studio_api.yml` and the API client owner migration. Users 0.37 needs the sign-in lockout and sign-in link migrations. Recording Studio AI 0.25.3 adds migration `20261118120000`.
+- [Compare v0.18.6...v0.18.7](https://github.com/bowerbird-app/RecordingStudio_agents/compare/v0.18.6...v0.18.7)
+
 ## [0.18.6] - 2026-11-18
 
 ### Changed

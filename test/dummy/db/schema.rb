@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_14_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_18_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -526,8 +526,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_14_090000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "api_key", default: "public", null: false
+    t.string "owner_type"
+    t.uuid "owner_id"
     t.index ["access_recording_id"], name: "index_recording_studio_api_api_clients_on_access_recording_id", unique: true
     t.index ["api_key"], name: "index_recording_studio_api_api_clients_on_api_key"
+    t.index ["owner_type", "owner_id"], name: "index_rs_api_clients_on_owner"
   end
 
   create_table "recording_studio_api_api_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -967,6 +970,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_14_090000) do
     t.index ["user_id"], name: "index_recording_studio_user_otp_challenges_on_user_id"
   end
 
+  create_table "recording_studio_user_password_failures", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "created_at"], name: "index_rs_user_password_failures_on_user_and_created_at"
+  end
+
   create_table "recording_studio_user_people", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
   end
@@ -979,6 +989,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_14_090000) do
     t.jsonb "additional_profile_attributes", default: {}, null: false
     t.datetime "created_at", null: false
     t.index ["user_id"], name: "index_recording_studio_user_profiles_on_user_id"
+  end
+
+  create_table "recording_studio_user_sign_in_links", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.string "token_digest", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "consumed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["token_digest"], name: "index_rs_user_sign_in_links_on_token_digest", unique: true
+    t.index ["user_id"], name: "index_rs_user_sign_in_links_on_user_id"
+  end
+
+  create_table "recording_studio_user_sign_in_locks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.string "kind", null: false
+    t.datetime "locked_at", null: false
+    t.datetime "notified_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "kind", "locked_at"], name: "index_rs_user_sign_in_locks_on_user_kind_locked_at"
   end
 
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1042,5 +1073,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_14_090000) do
   add_foreign_key "recording_studio_trashable_retention_settings", "recording_studio_recordings", column: "recording_id"
   add_foreign_key "recording_studio_user_identities", "users"
   add_foreign_key "recording_studio_user_otp_challenges", "users"
+  add_foreign_key "recording_studio_user_password_failures", "users"
   add_foreign_key "recording_studio_user_profiles", "users"
+  add_foreign_key "recording_studio_user_sign_in_links", "users"
+  add_foreign_key "recording_studio_user_sign_in_locks", "users"
 end
