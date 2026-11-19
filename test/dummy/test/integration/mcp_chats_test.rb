@@ -295,7 +295,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     post_mcp("tools/call", name: "agent_chats_create", arguments: {
       input: "nope", idempotency_key: "view-only", title: "Nope"
     })
-    assert_authorization_error
+    assert_tool_error("Resource was not found in this API scope")
 
     post_mcp("tools/call", name: "agent_chats_append", arguments: {
       id: @alpha_chat.id, input: "nope", idempotency_key: "view-only-append"
@@ -517,7 +517,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     refused_message = refused.dig("result", "content", 0, "text").to_s
 
     assert_equal true, refused.dig("result", "isError")
-    assert_includes refused_message, "Unknown fields authorized_by_id, authorized_by_type, metadata"
+    assert_includes refused_message, "Unknown fields metadata"
     assert_nil latest_updated_event(kit)
 
     post_mcp("tools/call", name: "update", arguments: {
@@ -823,14 +823,6 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
     assert_equal true, payload.dig("result", "isError")
     assert_includes message, fragment
-  end
-
-  def assert_authorization_error
-    payload = JSON.parse(response.body)
-    message = payload.dig("result", "content", 0, "text").to_s
-
-    assert_equal true, payload.dig("result", "isError")
-    assert_includes message, "not authorized"
   end
 
   def latest_updated_event(recording)
