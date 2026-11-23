@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MCP chat tools are opt-in named tools. The names are `list_agent_chats`, `create_agent_chat`, `read_agent_chat`, `append_agent_chat`, `list_agent_items`, and `read_agent_item`. The 0.20 names `agent_chats_list`, `agent_chats_create`, `agent_chats_read`, `agent_chats_append`, `agent_items_list`, and `agent_items_read` are removed.
 - `RecordingStudioAgents::McpCopy` registers each tool with `RecordingStudioMcp.register_tool(endpoint:)` when MCP is loaded. MCP stays optional. The gemspec does not depend on it. Tool text lives in `RecordingStudioAgents::McpCopy::Copy`.
 - OpenAPI descriptions for those endpoints live in `RecordingStudioAgents::Api::ToolCopy`. They describe the HTTP call, its parameters, and the response. They are not the MCP tool text.
-- The dummy pins MCP `~> 0.45.2` (`v0.45.2`) and API `v1.21.3`. The public server includes `RecordingStudioAgents::McpCopy.tool_names`. The dummy lock moves Brakeman to 8.1.1 and net-ssh to 7.3.10 so the security scans pass.
+- The dummy pins MCP `~> 0.45.2` (`v0.45.2`) and API `v1.21.3`. The public server includes `RecordingStudioAgents::McpCopy.tool_names`. The dummy lock moves Brakeman to 8.1.1 and net-ssh to 7.3.10, and the dummy Ruby pin moves from 3.3.6 to 3.3.14, so the security scans pass.
 
 ### Upgrade notes
 - Breaking. Clients that call the old tool names must switch to the names above.
