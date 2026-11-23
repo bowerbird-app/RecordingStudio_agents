@@ -51,8 +51,8 @@ class McpChatToolsTest < Minitest::Test
   def test_chat_and_item_tools_are_treated_as_its_own
     tools = RecordingStudioAgents::Mcp::ChatTools
 
-    assert tools.self_tool?("agent_chats_create")
-    assert tools.self_tool?("agent_items_read")
+    assert tools.self_tool?("create_agent_chat")
+    assert tools.self_tool?("read_agent_item")
     refute tools.self_tool?("agent_chats_extra")
     refute tools.self_tool?("update")
   end

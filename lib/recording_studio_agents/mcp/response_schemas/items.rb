@@ -69,7 +69,7 @@ module RecordingStudioAgents
         }.freeze
 
         EXAMPLES = {
-          agent_items_list: {
+          list_agent_items: {
             items: [{
               type: "user_message", id: "item_1", thread_id: "chat_1",
               created_at: "2026-11-11T04:00:01Z",
@@ -80,7 +80,7 @@ module RecordingStudioAgents
             has_more: false,
             after: nil
           },
-          agent_items_read: {
+          read_agent_item: {
             type: "user_message", id: "item_1", thread_id: "chat_1",
             created_at: "2026-11-11T04:00:01Z",
             content: [{ type: "input_text", text: "Hello" }],

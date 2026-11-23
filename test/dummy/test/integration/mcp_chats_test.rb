@@ -40,17 +40,17 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     post_mcp("tools/list")
     assert_response :success
     names = JSON.parse(response.body).dig("result", "tools").map { |tool| tool["name"] }
-    assert_includes names, "agent_chats_list"
-    assert_includes names, "agent_chats_create"
-    assert_includes names, "agent_chats_read"
-    assert_includes names, "agent_items_list"
+    RecordingStudioAgents::McpCopy.tool_names.each { |name| assert_includes names, name }
+    %w[agent_chats_list agent_chats_create agent_chats_read agent_chats_append agent_items_list agent_items_read].each do |name|
+      refute_includes names, name
+    end
 
     post_mcp("resources/list")
     assert_response :success
     uris = JSON.parse(response.body).dig("result", "resources").map { |resource| resource["uri"] }
     refute_includes uris, "skill://agent-chats/SKILL.md"
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: {})
+    post_mcp("tools/call", name: "list_agent_chats", arguments: {})
     assert_response :success
     payload = JSON.parse(response.body)
     ids = tool_payload(payload).fetch("chats").map { |chat| chat["id"] }
@@ -69,12 +69,12 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     post_mcp("tools/list")
     tools = JSON.parse(response.body).dig("result", "tools")
     expected = {
-      "agent_chats_list" => %w[limit parent],
-      "agent_chats_create" => %w[input idempotency_key title instructions parent],
-      "agent_chats_read" => %w[id],
-      "agent_chats_append" => %w[id input idempotency_key],
-      "agent_items_list" => %w[id limit order],
-      "agent_items_read" => %w[id item_id]
+      "list_agent_chats" => %w[limit parent],
+      "create_agent_chat" => %w[input idempotency_key title instructions parent],
+      "read_agent_chat" => %w[id],
+      "append_agent_chat" => %w[id input idempotency_key],
+      "list_agent_items" => %w[id limit order],
+      "read_agent_item" => %w[id item_id]
     }
 
     expected.each do |name, fields|
@@ -93,20 +93,20 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   end
 
   test "a bearer for one workspace cannot read or append another workspace chat" do
-    post_mcp("tools/call", name: "agent_chats_read", arguments: { id: @zulu_chat.id })
+    post_mcp("tools/call", name: "read_agent_chat", arguments: { id: @zulu_chat.id })
     assert_equal true, JSON.parse(response.body).dig("result", "isError")
 
-    post_mcp("tools/call", name: "agent_chats_append", arguments: {
+    post_mcp("tools/call", name: "append_agent_chat", arguments: {
       id: @zulu_chat.id, input: "nope", idempotency_key: "cross-root"
     })
     assert_equal true, JSON.parse(response.body).dig("result", "isError")
     assert_equal 0, RecordingStudioAgents::Item.where(idempotency_key: "cross-root").count
 
-    post_mcp("tools/call", name: "agent_items_list", arguments: { id: @zulu_chat.id })
+    post_mcp("tools/call", name: "list_agent_items", arguments: { id: @zulu_chat.id })
     assert_equal true, JSON.parse(response.body).dig("result", "isError")
 
     item = RecordingStudioAgents::Item.find_by!(recording_id: @zulu_chat.id)
-    post_mcp("tools/call", name: "agent_items_read", arguments: { id: @zulu_chat.id, item_id: item.id })
+    post_mcp("tools/call", name: "read_agent_item", arguments: { id: @zulu_chat.id, item_id: item.id })
     assert_equal true, JSON.parse(response.body).dig("result", "isError")
   end
 
@@ -117,7 +117,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     RecordingStudioAgents::Sessions::GlobalKey.reset_index_cache!
     before = @calls.size
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "hello", idempotency_key: key, title: "Clash"
     })
     message = JSON.parse(response.body).dig("result", "content", 0, "text").to_s
@@ -132,7 +132,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
   test "create stores an instructions override from the tool call" do
     with_instruction_settings(override: :edit) do
-      post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      post_mcp("tools/call", name: "create_agent_chat", arguments: {
         input: "hello", idempotency_key: "instr-#{SecureRandom.hex(4)}", instructions: "Be terse."
       })
       payload = JSON.parse(response.body)
@@ -146,7 +146,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
   test "a blank instructions value stores the host default" do
     before = @calls.size
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "hello", idempotency_key: "blank-#{SecureRandom.hex(4)}", instructions: "  \n "
     })
     payload = JSON.parse(response.body)
@@ -159,7 +159,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
   test "a real override is rejected when the host has not opted in" do
     before = @calls.size
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "hello", idempotency_key: "none-#{SecureRandom.hex(4)}", instructions: "Be terse."
     })
 
@@ -171,7 +171,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     before = @calls.size
 
     with_instruction_settings(override: :admin) do
-      post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      post_mcp("tools/call", name: "create_agent_chat", arguments: {
         input: "hello", idempotency_key: "edit-admin-#{SecureRandom.hex(4)}", instructions: "Be terse."
       })
 
@@ -184,7 +184,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     @token = delegated_token(@alpha_access, role: "admin")
 
     with_instruction_settings(override: :admin) do
-      post_mcp("tools/call", name: "agent_chats_create", arguments: {
+      post_mcp("tools/call", name: "create_agent_chat", arguments: {
         input: "hello", idempotency_key: "admin-#{SecureRandom.hex(4)}", instructions: "Be terse."
       })
       payload = JSON.parse(response.body)
@@ -197,7 +197,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
   test "a non-string instructions value is rejected" do
     before = @calls.size
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "hello", idempotency_key: "type-#{SecureRandom.hex(4)}", instructions: { tone: "terse" }
     })
 
@@ -207,7 +207,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
 
   test "instructions longer than 4000 characters are rejected" do
     before = @calls.size
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "hello", idempotency_key: "long-#{SecureRandom.hex(4)}", instructions: "a" * 4001
     })
 
@@ -216,7 +216,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   end
 
   test "the create contract caps instructions at 4000 characters" do
-    contract = RecordingStudioApi.registered_endpoint(:agent_chats_create).input_contract
+    contract = RecordingStudioApi.registered_endpoint(:create_agent_chat).input_contract
 
     assert_equal 4000, contract.as_json.dig(:fields, :instructions, :maxLength)
   end
@@ -233,7 +233,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   end
 
   test "session id endpoints register a session recordable type" do
-    %i[agent_chats_read agent_chats_append agent_items_list agent_items_read].each do |name|
+    %i[read_agent_chat append_agent_chat list_agent_items read_agent_item].each do |name|
       endpoint = RecordingStudioApi.registered_endpoint(name)
 
       assert_equal "RecordingStudioAgents::Session", endpoint.recordable_type
@@ -245,19 +245,19 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   test "a token scoped to one chat can read append and load items" do
     @token = delegated_token(chat_access(@alpha_chat))
 
-    read = mcp_ok("agent_chats_read", { id: @alpha_chat.id })
+    read = mcp_ok("read_agent_chat", { id: @alpha_chat.id })
     assert_equal @alpha_chat.id, read.fetch("id")
 
-    appended = mcp_ok("agent_chats_append", {
+    appended = mcp_ok("append_agent_chat", {
       id: @alpha_chat.id, input: "scoped hello", idempotency_key: "scoped-append"
     })
     assert_equal @alpha_chat.id, appended.fetch("id")
 
-    listed = mcp_ok("agent_items_list", { id: @alpha_chat.id })
+    listed = mcp_ok("list_agent_items", { id: @alpha_chat.id })
     assert listed.fetch("items").any?
 
     item = RecordingStudioAgents::Item.find_by!(recording_id: @alpha_chat.id, idempotency_key: "scoped-append")
-    fetched = mcp_ok("agent_items_read", { id: @alpha_chat.id, item_id: item.id })
+    fetched = mcp_ok("read_agent_item", { id: @alpha_chat.id, item_id: item.id })
     assert_equal item.id, fetched.fetch("id")
   end
 
@@ -266,25 +266,25 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     @token = delegated_token(chat_access(other))
     before = RecordingStudioAgents::Item.where(recording_id: @alpha_chat.id).count
 
-    post_mcp("tools/call", name: "agent_chats_read", arguments: { id: @alpha_chat.id })
+    post_mcp("tools/call", name: "read_agent_chat", arguments: { id: @alpha_chat.id })
     assert_tool_error("not found")
 
-    post_mcp("tools/call", name: "agent_chats_append", arguments: {
+    post_mcp("tools/call", name: "append_agent_chat", arguments: {
       id: @alpha_chat.id, input: "nope", idempotency_key: "other-chat-append"
     })
     assert_tool_error("not found")
 
-    post_mcp("tools/call", name: "agent_items_list", arguments: { id: @alpha_chat.id })
+    post_mcp("tools/call", name: "list_agent_items", arguments: { id: @alpha_chat.id })
     assert_tool_error("not found")
 
     item = RecordingStudioAgents::Item.find_by!(recording_id: @alpha_chat.id)
-    post_mcp("tools/call", name: "agent_items_read", arguments: { id: @alpha_chat.id, item_id: item.id })
+    post_mcp("tools/call", name: "read_agent_item", arguments: { id: @alpha_chat.id, item_id: item.id })
     assert_tool_error("not found")
     assert_equal before, RecordingStudioAgents::Item.where(recording_id: @alpha_chat.id).count
     assert_equal 0, RecordingStudioAgents::Item.where(idempotency_key: "other-chat-append").count
 
     @token = delegated_token(kit_grant(@alpha))
-    post_mcp("tools/call", name: "agent_chats_read", arguments: { id: @alpha_chat.id })
+    post_mcp("tools/call", name: "read_agent_chat", arguments: { id: @alpha_chat.id })
     assert_tool_error("not found")
   end
 
@@ -292,12 +292,12 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     @token = delegated_token(@alpha_access, role: "view")
     before = RecordingStudioAgents::Binding.count
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "nope", idempotency_key: "view-only", title: "Nope"
     })
     assert_tool_error("Resource was not found in this API scope")
 
-    post_mcp("tools/call", name: "agent_chats_append", arguments: {
+    post_mcp("tools/call", name: "append_agent_chat", arguments: {
       id: @alpha_chat.id, input: "nope", idempotency_key: "view-only-append"
     })
     assert_tool_error("not found in this API scope")
@@ -309,13 +309,13 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     sign_in @user
     switch_to(@zulu)
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: {})
+    post_mcp("tools/call", name: "list_agent_chats", arguments: {})
     ids = tool_payload(JSON.parse(response.body)).fetch("chats").map { |chat| chat["id"] }
 
     assert_equal [@alpha_chat.id], ids
     refute_includes ids, @zulu_chat.id
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { root_recording_id: @zulu.id })
+    post_mcp("tools/call", name: "list_agent_chats", arguments: { root_recording_id: @zulu.id })
     rejected = JSON.parse(response.body)
     message = rejected.dig("result", "content", 0, "text").to_s
 
@@ -328,7 +328,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     page = @alpha.record(Page, actor: @user) { |record| record.title = "Press kit" }
     key = "page-#{SecureRandom.hex(4)}"
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "on the page", idempotency_key: key, title: "On the page", parent: page.id
     })
     payload = JSON.parse(response.body)
@@ -338,12 +338,12 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_equal false, payload.dig("result", "isError"), response.body
     assert_equal page.id, recording.parent_recording_id
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: page.id })
+    post_mcp("tools/call", name: "list_agent_chats", arguments: { parent: page.id })
     scoped_ids = tool_payload(JSON.parse(response.body)).fetch("chats").map { |chat| chat["id"] }
 
     assert_equal [created_id], scoped_ids
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: {})
+    post_mcp("tools/call", name: "list_agent_chats", arguments: {})
     all_ids = tool_payload(JSON.parse(response.body)).fetch("chats").map { |chat| chat["id"] }
 
     assert_includes all_ids, created_id
@@ -355,10 +355,10 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     page = @zulu.record(Page, actor: @user) { |record| record.title = "Elsewhere" }
     before = RecordingStudioAgents::Binding.count
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: page.id })
+    post_mcp("tools/call", name: "list_agent_chats", arguments: { parent: page.id })
     assert_tool_error("page was not found")
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "nope", idempotency_key: "cross-page-#{SecureRandom.hex(4)}", parent: page.id
     })
     assert_tool_error("page was not found")
@@ -370,10 +370,10 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     @token = delegated_token(kit_grant(@alpha))
     before = RecordingStudioAgents::Binding.count
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: page.id })
+    post_mcp("tools/call", name: "list_agent_chats", arguments: { parent: page.id })
     assert_tool_error("not authorized")
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "nope", idempotency_key: "hidden-#{SecureRandom.hex(4)}", parent: page.id
     })
     assert_tool_error("not authorized")
@@ -386,12 +386,12 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     other = @alpha.record(Page, actor: @user) { |record| record.title = "Other page" }
     key = "replay-parent-#{SecureRandom.hex(4)}"
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "on the page", idempotency_key: key, title: "On the page", parent: page.id
     })
     created_id = tool_payload(JSON.parse(response.body)).fetch("id")
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "on the page", idempotency_key: key, title: "Moved", parent: other.id
     })
     replay = JSON.parse(response.body)
@@ -402,10 +402,10 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   end
 
   test "a non-string parent is not found" do
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: { id: @alpha.id } })
+    post_mcp("tools/call", name: "list_agent_chats", arguments: { parent: { id: @alpha.id } })
     assert_tool_error("page was not found")
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "nope", idempotency_key: "hash-parent-#{SecureRandom.hex(4)}", parent: ["not-a-page"]
     })
     assert_tool_error("page was not found")
@@ -414,10 +414,10 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   test "a folder parent cannot hold a chat" do
     folder = @alpha.record(Folder, actor: @user) { |record| record.name = "Notes" }
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: folder.id })
+    post_mcp("tools/call", name: "list_agent_chats", arguments: { parent: folder.id })
     assert_tool_error("page cannot hold a chat")
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "nope", idempotency_key: "folder-parent-#{SecureRandom.hex(4)}", parent: folder.id
     })
     assert_tool_error("page cannot hold a chat")
@@ -427,7 +427,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     page = @alpha.record(Page, actor: @user) { |record| record.title = "Gone" }
     page.update_columns(trashed_at: Time.current)
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: page.id })
+    post_mcp("tools/call", name: "list_agent_chats", arguments: { parent: page.id })
     assert_tool_error("page was not found")
   end
 
@@ -538,7 +538,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   end
 
   test "a chat create stores the oauth client and the approving person" do
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "hello", idempotency_key: "auth-#{SecureRandom.hex(4)}", title: "Approved chat",
       authorized_by_type: "Spoof", authorized_by_id: "spoof-id",
       metadata: { authorized_by_type: "Spoof", authorized_by_id: "spoof-id", note: "spoof" }
@@ -672,7 +672,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     kit = record_press_kit(@alpha, "HELLO HOUSE", "Richmond lane")
     key = "kit-#{SecureRandom.hex(4)}"
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "on the kit", idempotency_key: key, title: "On the kit", parent: kit.id
     })
     payload = JSON.parse(response.body)
@@ -681,7 +681,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     assert_equal false, payload.dig("result", "isError"), response.body
     assert_equal kit.id, RecordingStudio::Recording.find(created_id).parent_recording_id
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: kit.id })
+    post_mcp("tools/call", name: "list_agent_chats", arguments: { parent: kit.id })
     scoped_ids = tool_payload(JSON.parse(response.body)).fetch("chats").map { |chat| chat["id"] }
 
     assert_equal [created_id], scoped_ids
@@ -696,23 +696,23 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     trashed.update_columns(trashed_at: Time.current)
     before = RecordingStudioAgents::Binding.count
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: foreign.id })
+    post_mcp("tools/call", name: "list_agent_chats", arguments: { parent: foreign.id })
     assert_tool_error("page was not found")
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "nope", idempotency_key: "foreign-kit-#{SecureRandom.hex(4)}", parent: foreign.id
     })
     assert_tool_error("page was not found")
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: hidden.id })
+    post_mcp("tools/call", name: "list_agent_chats", arguments: { parent: hidden.id })
     assert_tool_error("not authorized")
 
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "nope", idempotency_key: "hidden-kit-#{SecureRandom.hex(4)}", parent: hidden.id
     })
     assert_tool_error("not authorized")
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: { parent: trashed.id })
+    post_mcp("tools/call", name: "list_agent_chats", arguments: { parent: trashed.id })
     assert_tool_error("page was not found")
     assert_equal before, RecordingStudioAgents::Binding.count
   end
@@ -720,26 +720,26 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   test "MCP tool JSON matches registered success schemas" do
     require File.expand_path("../../../../test/mcp_json_schema", __dir__)
 
-    created = mcp_ok("agent_chats_create", {
+    created = mcp_ok("create_agent_chat", {
       input: "schema hello", idempotency_key: "schema-#{SecureRandom.hex(4)}", title: "Schema chat"
     })
     chat_id = created.fetch("id")
-    appended = mcp_ok("agent_chats_append", {
+    appended = mcp_ok("append_agent_chat", {
       id: chat_id, input: "schema follow up", idempotency_key: "schema-append-#{SecureRandom.hex(4)}"
     })
-    listed = mcp_ok("agent_chats_list", {})
-    read = mcp_ok("agent_chats_read", { id: @alpha_chat.id })
-    items = mcp_ok("agent_items_list", { id: @alpha_chat.id })
+    listed = mcp_ok("list_agent_chats", {})
+    read = mcp_ok("read_agent_chat", { id: @alpha_chat.id })
+    items = mcp_ok("list_agent_items", { id: @alpha_chat.id })
     item_id = RecordingStudioAgents::Item.find_by!(recording_id: @alpha_chat.id, role: "user").id
-    item = mcp_ok("agent_items_read", { id: @alpha_chat.id, item_id: item_id })
+    item = mcp_ok("read_agent_item", { id: @alpha_chat.id, item_id: item_id })
 
     {
-      agent_chats_list: listed,
-      agent_chats_create: created,
-      agent_chats_read: read,
-      agent_chats_append: appended,
-      agent_items_list: items,
-      agent_items_read: item
+      list_agent_chats: listed,
+      create_agent_chat: created,
+      read_agent_chat: read,
+      append_agent_chat: appended,
+      list_agent_items: items,
+      read_agent_item: item
     }.each do |name, payload|
       error = McpJsonSchema.error(success_schema(name), payload)
       assert_nil error, "#{name}: #{error}\n#{payload.inspect}"
@@ -747,8 +747,8 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   end
 
   test "list and create contracts accept an optional parent" do
-    list = RecordingStudioApi.registered_endpoint(:agent_chats_list).input_contract.as_json
-    created = RecordingStudioApi.registered_endpoint(:agent_chats_create).input_contract.as_json
+    list = RecordingStudioApi.registered_endpoint(:list_agent_chats).input_contract.as_json
+    created = RecordingStudioApi.registered_endpoint(:create_agent_chat).input_contract.as_json
 
     assert_equal false, list.dig(:fields, :parent, :required)
     assert_equal false, created.dig(:fields, :parent, :required)
@@ -758,7 +758,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
     sign_in @user
     switch_to(@zulu)
 
-    post_mcp("tools/call", name: "agent_chats_list", arguments: {})
+    post_mcp("tools/call", name: "list_agent_chats", arguments: {})
     ids = tool_payload(JSON.parse(response.body)).fetch("chats").map { |chat| chat["id"] }
 
     assert_equal [@alpha_chat.id], ids
@@ -855,7 +855,7 @@ class McpChatsTest < ActionDispatch::IntegrationTest
   end
 
   def create_over_mcp(key)
-    post_mcp("tools/call", name: "agent_chats_create", arguments: {
+    post_mcp("tools/call", name: "create_agent_chat", arguments: {
       input: "shared", idempotency_key: key, title: "Shared"
     })
     payload = JSON.parse(response.body)

@@ -18,9 +18,9 @@ gem "recording_studio_user", github: "bowerbird-app/RecordingStudio_users", tag:
 
 # Bearer tokens for the API and MCP. Pinned by tag, not branch.
 # Moveable is an API dependency.
-gem "recording_studio_api", "~> 1.21", github: "bowerbird-app/RecordingStudio_api", tag: "v1.21.2"
+gem "recording_studio_api", "~> 1.21", github: "bowerbird-app/RecordingStudio_api", tag: "v1.21.3"
 gem "recording_studio_oauth", github: "bowerbird-app/RecordingStudio_Oauth", tag: "v0.25.1"
-gem "recording_studio_mcp", github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.39.2"
+gem "recording_studio_mcp", "~> 0.45.2", github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.45.2"
 gem "recording_studio_moveable", "~> 6.1", github: "bowerbird-app/RecordingStudio_moveable", tag: "v6.1.0"
 gem "recording_studio_icons", "~> 0.5", github: "bowerbird-app/RecordingStudio_icons", tag: "v0.5.0"
 # API and MCP register logs. GitHub-only, so Bundler needs this source.

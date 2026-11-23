@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "tool_copy"
+require "recording_studio_agents/api/tool_copy"
 
 module RecordingStudioAgents
   module Mcp
@@ -10,8 +10,8 @@ module RecordingStudioAgents
       def list
         {
           fields: {
-            limit: { type: :integer, required: false, description: ToolCopy::LIST_LIMIT },
-            parent: parent_field(ToolCopy::LIST_PARENT)
+            limit: { type: :integer, required: false, description: Api::ToolCopy::LIST_LIMIT },
+            parent: parent_field(Api::ToolCopy::LIST_PARENT)
           }
         }
       end
@@ -34,7 +34,7 @@ module RecordingStudioAgents
         }
       end
 
-      def parent_field(description = ToolCopy::PARENT)
+      def parent_field(description = Api::ToolCopy::PARENT)
         {
           type: :string, required: false,
           description: description
@@ -42,40 +42,40 @@ module RecordingStudioAgents
       end
 
       def input_field
-        { type: :string, required: true, allow_blank: false, description: ToolCopy::CREATE_INPUT }
+        { type: :string, required: true, allow_blank: false, description: Api::ToolCopy::CREATE_INPUT }
       end
 
       def create_key_field
         {
           type: :string, required: true, allow_blank: false,
-          description: ToolCopy::CREATE_KEY
+          description: Api::ToolCopy::CREATE_KEY
         }
       end
 
       def title_field
-        { type: :string, required: false, description: ToolCopy::TITLE }
+        { type: :string, required: false, description: Api::ToolCopy::TITLE }
       end
 
       def instructions_field
         limit = RecordingStudioAgents.configuration.max_instructions_length
         {
           type: :string, required: false, maxLength: limit,
-          description: ToolCopy.instructions(limit)
+          description: Api::ToolCopy.instructions(limit)
         }
       end
 
       def id
-        { fields: { id: { type: :string, required: true, allow_blank: false, description: ToolCopy::CHAT_ID } } }
+        { fields: { id: { type: :string, required: true, allow_blank: false, description: Api::ToolCopy::CHAT_ID } } }
       end
 
       def append
         {
           fields: {
-            id: { type: :string, required: true, allow_blank: false, description: ToolCopy::CHAT_ID },
-            input: { type: :string, required: true, allow_blank: false, description: ToolCopy::APPEND_INPUT },
+            id: { type: :string, required: true, allow_blank: false, description: Api::ToolCopy::CHAT_ID },
+            input: { type: :string, required: true, allow_blank: false, description: Api::ToolCopy::APPEND_INPUT },
             idempotency_key: {
               type: :string, required: true, allow_blank: false,
-              description: ToolCopy::APPEND_KEY
+              description: Api::ToolCopy::APPEND_KEY
             }
           }
         }
@@ -84,9 +84,9 @@ module RecordingStudioAgents
       def items
         {
           fields: {
-            id: { type: :string, required: true, allow_blank: false, description: ToolCopy::CHAT_ID },
-            limit: { type: :integer, required: false, description: ToolCopy::ITEM_LIMIT },
-            order: { type: :string, required: false, description: ToolCopy::ORDER }
+            id: { type: :string, required: true, allow_blank: false, description: Api::ToolCopy::CHAT_ID },
+            limit: { type: :integer, required: false, description: Api::ToolCopy::ITEM_LIMIT },
+            order: { type: :string, required: false, description: Api::ToolCopy::ORDER }
           }
         }
       end
@@ -94,8 +94,8 @@ module RecordingStudioAgents
       def item
         {
           fields: {
-            id: { type: :string, required: true, allow_blank: false, description: ToolCopy::CHAT_ID },
-            item_id: { type: :string, required: true, allow_blank: false, description: ToolCopy::ITEM_ID }
+            id: { type: :string, required: true, allow_blank: false, description: Api::ToolCopy::CHAT_ID },
+            item_id: { type: :string, required: true, allow_blank: false, description: Api::ToolCopy::ITEM_ID }
           }
         }
       end

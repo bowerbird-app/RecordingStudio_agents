@@ -234,12 +234,12 @@ class McpToolsTest < Minitest::Test
 
   def tool_handlers
     {
-      agent_chats_list: RecordingStudioAgents::Mcp::Chats::List,
-      agent_chats_create: RecordingStudioAgents::Mcp::Chats::Create,
-      agent_chats_read: RecordingStudioAgents::Mcp::Chats::Read,
-      agent_chats_append: RecordingStudioAgents::Mcp::Chats::Append,
-      agent_items_list: RecordingStudioAgents::Mcp::Items::List,
-      agent_items_read: RecordingStudioAgents::Mcp::Items::Read
+      list_agent_chats: RecordingStudioAgents::Mcp::Chats::List,
+      create_agent_chat: RecordingStudioAgents::Mcp::Chats::Create,
+      read_agent_chat: RecordingStudioAgents::Mcp::Chats::Read,
+      append_agent_chat: RecordingStudioAgents::Mcp::Chats::Append,
+      list_agent_items: RecordingStudioAgents::Mcp::Items::List,
+      read_agent_item: RecordingStudioAgents::Mcp::Items::Read
     }
   end
 

@@ -47,7 +47,7 @@ module RecordingStudioAgents
         }.freeze
 
         EXAMPLES = {
-          agent_chats_list: {
+          list_agent_chats: {
             chats: [{
               id: "chat_1", title: "Hello", created_at: "2026-11-11T04:00:00Z",
               status: { type: "active" }
@@ -55,12 +55,12 @@ module RecordingStudioAgents
             has_more: false,
             after: nil
           },
-          agent_chats_create: { id: "chat_1", title: "Hello" },
-          agent_chats_read: {
+          create_agent_chat: { id: "chat_1", title: "Hello" },
+          read_agent_chat: {
             id: "chat_1", title: "Hello", created_at: "2026-11-11T04:00:00Z",
             status: { type: "active" }
           },
-          agent_chats_append: { id: "chat_1" }
+          append_agent_chat: { id: "chat_1" }
         }.freeze
       end
     end

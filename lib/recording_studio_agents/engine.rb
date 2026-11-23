@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "recording_studio_agents/filter_instructions"
+require_relative "mcp_copy"
 
 module RecordingStudioAgents
   class Engine < ::Rails::Engine
@@ -95,6 +96,7 @@ module RecordingStudioAgents
     initializer "recording_studio_agents.mcp" do
       config.to_prepare do
         RecordingStudioAgents::Mcp.register!
+        RecordingStudioAgents::McpCopy.register!
         RecordingStudioAgents::Mcp::LogsRegistration.register!
       end
     end
