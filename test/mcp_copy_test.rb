@@ -47,9 +47,13 @@ class McpCopyTest < Minitest::Test
       refute tool.key?(:operation)
       refute tool.key?(:action)
       refute tool.key?(:type)
-      assert_equal RecordingStudioAgents::McpCopy::TITLES.fetch(name), tool[:title]
-      assert_equal RecordingStudioAgents::Mcp::ToolCopy.description(name), tool[:description]
-      assert_equal RecordingStudioAgents::McpCopy::OUTPUTS.fetch(name), tool[:output]
+      copy = RecordingStudioAgents::McpCopy::Copy
+      api = RecordingStudioAgents::Api::ToolCopy
+      assert_equal copy::TITLES.fetch(name), tool[:title]
+      assert_equal copy.description(name), tool[:description]
+      assert_equal copy::OUTPUTS.fetch(name), tool[:output]
+      refute_equal api.description(name), tool[:description]
+      refute_includes api.description(name), name
       assert(tool[:input].values.all? { |field| field.fetch(:description).present? })
       assert_includes tool[:description], "chat"
       ROLE_WORDS.each { |phrase| refute_includes tool[:description].downcase, phrase, name }

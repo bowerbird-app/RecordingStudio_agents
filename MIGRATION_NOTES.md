@@ -29,6 +29,8 @@
 | `agent_items_list` | `list_agent_items` |
 | `agent_items_read` | `read_agent_item` |
 
+MCP tool text lives in `RecordingStudioAgents::McpCopy::Copy`. OpenAPI text for the same calls lives in `RecordingStudioAgents::Api::ToolCopy` and is written for HTTP clients. The two texts are separate.
+
 Recording Studio MCP stays optional. This gem does not depend on it. When the host loads MCP 0.45 or newer, boot calls `RecordingStudioMcp.register_tool` with `endpoint:` for each name. Tools are opt-in, so a host that mounts MCP must add `RecordingStudioAgents::McpCopy.tool_names` to `register_server` `include_tools`. A server that leaves them out does not advertise the chat tools. `describe` is still present. Generic tree tools (`list`, `show`, `create`, `update`, `delete`, `capability_action`) are not in `tool_names`. Include those names yourself when the host still wants them, and call `register_type` for each recordable they should cover. MCP 0.45 advertises a generic tool only for a type registered that way.
 
 MCP `0.45.2` needs Recording Studio API `>= 1.21.3`. The dummy pins MCP `~> 0.45.2` (`v0.45.2`) and API `v1.21.3`.

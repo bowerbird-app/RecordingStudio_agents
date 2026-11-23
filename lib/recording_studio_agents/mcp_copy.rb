@@ -1,42 +1,10 @@
 # frozen_string_literal: true
 
+require_relative "mcp_copy/copy"
 require_relative "mcp/registration"
-require_relative "mcp/tool_copy"
 
 module RecordingStudioAgents
   module McpCopy
-    OUTPUTS = {
-      "list_agent_chats" => "Chats in this workspace, newest first.",
-      "create_agent_chat" => "The chat id and title.",
-      "read_agent_chat" => "The chat id, title, created time, and status.",
-      "append_agent_chat" => "The chat id. This call does not return a new item id.",
-      "list_agent_items" => "Stored messages on one chat.",
-      "read_agent_item" => "One stored message."
-    }.freeze
-    TITLES = {
-      "list_agent_chats" => "List chats",
-      "create_agent_chat" => "Create a chat",
-      "read_agent_chat" => "Read a chat",
-      "append_agent_chat" => "Append a message",
-      "list_agent_items" => "List chat items",
-      "read_agent_item" => "Read a chat item"
-    }.freeze
-    FIELD_TEXT = {
-      "list_agent_chats" => { "limit" => Mcp::ToolCopy::LIST_LIMIT, "parent" => Mcp::ToolCopy::LIST_PARENT },
-      "read_agent_chat" => { "id" => Mcp::ToolCopy::CHAT_ID },
-      "append_agent_chat" => {
-        "id" => Mcp::ToolCopy::CHAT_ID,
-        "input" => Mcp::ToolCopy::APPEND_INPUT,
-        "idempotency_key" => Mcp::ToolCopy::APPEND_KEY
-      },
-      "list_agent_items" => {
-        "id" => Mcp::ToolCopy::CHAT_ID,
-        "limit" => Mcp::ToolCopy::ITEM_LIMIT,
-        "order" => Mcp::ToolCopy::ORDER
-      },
-      "read_agent_item" => { "id" => Mcp::ToolCopy::CHAT_ID, "item_id" => Mcp::ToolCopy::ITEM_ID }
-    }.freeze
-
     module_function
 
     def tool_names
@@ -61,10 +29,10 @@ module RecordingStudioAgents
       mcp.register_tool(
         name: name,
         endpoint: name.to_sym,
-        title: TITLES.fetch(name),
-        description: Mcp::ToolCopy.description(name),
+        title: Copy::TITLES.fetch(name),
+        description: Copy.description(name),
         input: input_for(name),
-        output: OUTPUTS.fetch(name)
+        output: Copy::OUTPUTS.fetch(name)
       )
     end
 
@@ -76,19 +44,35 @@ module RecordingStudioAgents
     def field_text(name)
       return create_fields if name == "create_agent_chat"
 
-      FIELD_TEXT.fetch(name)
+      FIELDS.fetch(name)
     end
 
     def create_fields
       limit = RecordingStudioAgents.configuration.max_instructions_length
       {
-        "input" => Mcp::ToolCopy::CREATE_INPUT,
-        "idempotency_key" => Mcp::ToolCopy::CREATE_KEY,
-        "title" => Mcp::ToolCopy::TITLE,
-        "instructions" => Mcp::ToolCopy.instructions(limit),
-        "parent" => Mcp::ToolCopy::PARENT
+        "input" => Copy::CREATE_INPUT,
+        "idempotency_key" => Copy::CREATE_KEY,
+        "title" => Copy::TITLE,
+        "instructions" => Copy.instructions(limit),
+        "parent" => Copy::PARENT
       }
     end
+
+    FIELDS = {
+      "list_agent_chats" => { "limit" => Copy::LIST_LIMIT, "parent" => Copy::LIST_PARENT },
+      "read_agent_chat" => { "id" => Copy::CHAT_ID },
+      "append_agent_chat" => {
+        "id" => Copy::CHAT_ID,
+        "input" => Copy::APPEND_INPUT,
+        "idempotency_key" => Copy::APPEND_KEY
+      },
+      "list_agent_items" => {
+        "id" => Copy::CHAT_ID,
+        "limit" => Copy::ITEM_LIMIT,
+        "order" => Copy::ORDER
+      },
+      "read_agent_item" => { "id" => Copy::CHAT_ID, "item_id" => Copy::ITEM_ID }
+    }.freeze
     private_class_method :register_named_tool, :input_for, :field_text, :create_fields
   end
 end

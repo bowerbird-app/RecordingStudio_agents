@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module RecordingStudioAgents
-  module Mcp
-    module ToolCopy
+  module McpCopy
+    module Copy
       module ChatText
         ROWS = {
           list_agent_chats: [

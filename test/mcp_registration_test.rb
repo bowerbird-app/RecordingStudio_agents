@@ -36,16 +36,32 @@ class McpRegistrationTest < Minitest::Test
 
     with_api(fake) { RecordingStudioAgents::Mcp.register! }
 
-    RecordingStudioAgents::Mcp::ToolCopy::DESCRIPTIONS.each_key do |name|
+    api = RecordingStudioAgents::Api::ToolCopy
+    mcp = RecordingStudioAgents::McpCopy::Copy
+
+    api::DESCRIPTIONS.each_key do |name|
       endpoint = fake.endpoints.fetch(name)
       document = endpoint.fetch(:openapi)
       description = document.fetch(:description)
 
+      assert_equal api.summary(name), document.fetch(:summary)
+      assert_equal api.description(name), description
       assert description.present?, name
       refute_equal document.fetch(:summary), description
+      refute_equal mcp.description(name), description
+      refute_includes description, "this tool"
+      %w[view edit admin permission].each { |word| refute_includes description.downcase, word, name }
+      assert mcp.description(name).present?
       assert_input_descriptions(name, endpoint.fetch(:input_contract))
       assert_path_descriptions(name, endpoint.fetch(:path), document[:parameters])
     end
+
+    listed = fields(fake.endpoints.fetch(:list_agent_chats).fetch(:input_contract))
+    assert_equal api::LIST_LIMIT, listed.dig(:limit, :description)
+    refute_equal mcp::LIST_LIMIT, listed.dig(:limit, :description)
+    chat_id = fields(fake.endpoints.fetch(:read_agent_chat).fetch(:input_contract)).dig(:id, :description)
+    assert_equal api::CHAT_ID, chat_id
+    refute_equal mcp::CHAT_ID, chat_id
   end
 
   def test_register_does_nothing_until_api_and_mcp_exist

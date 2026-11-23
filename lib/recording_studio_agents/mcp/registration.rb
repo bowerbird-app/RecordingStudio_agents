@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "tool_copy"
+require "recording_studio_agents/api/tool_copy"
 
 module RecordingStudioAgents
   module Mcp
@@ -40,23 +40,19 @@ module RecordingStudioAgents
       end
 
       def register_chat_endpoints!
-        register_endpoint!(CHAT_LIST, [:get, "agent_chats"], Chats::List, "List chats", Contracts.list)
-        register_endpoint!(CHAT_CREATE, [:post, "agent_chats"], Chats::Create, "Create a chat", Contracts.create)
-        register_endpoint!(CHAT_READ, scoped_route(:get, "agent_chats/:id"), Chats::Read, "Read a chat", Contracts.id)
-        register_endpoint!(
-          CHAT_APPEND, scoped_route(:post, "agent_chats/:id/messages"), Chats::Append, "Append a message",
-          Contracts.append
-        )
+        register_chat(CHAT_LIST, [:get, "agent_chats"], Chats::List, Contracts.list)
+        register_chat(CHAT_CREATE, [:post, "agent_chats"], Chats::Create, Contracts.create)
+        register_chat(CHAT_READ, scoped_route(:get, "agent_chats/:id"), Chats::Read, Contracts.id)
+        register_chat(CHAT_APPEND, scoped_route(:post, "agent_chats/:id/messages"), Chats::Append, Contracts.append)
       end
 
       def register_item_endpoints!
-        register_endpoint!(
-          ITEM_LIST, scoped_route(:get, "agent_chats/:id/items"), Items::List, "List chat items", Contracts.items
-        )
-        register_endpoint!(
-          ITEM_READ, scoped_route(:get, "agent_chats/:id/items/:item_id"), Items::Read, "Read a chat item",
-          Contracts.item
-        )
+        register_chat(ITEM_LIST, scoped_route(:get, "agent_chats/:id/items"), Items::List, Contracts.items)
+        register_chat(ITEM_READ, scoped_route(:get, "agent_chats/:id/items/:item_id"), Items::Read, Contracts.item)
+      end
+
+      def register_chat(name, route, handler, contract)
+        register_endpoint!(name, route, handler, Api::ToolCopy.summary(name), contract)
       end
 
       def scoped_route(verb, path)
@@ -83,9 +79,9 @@ module RecordingStudioAgents
         document = {
           tags: ["Agent chats"],
           summary: summary,
-          description: ToolCopy.description(name)
+          description: Api::ToolCopy.description(name)
         }.merge(ResponseSchemas.for(name))
-        parameters = ToolCopy.path_parameters(path)
+        parameters = Api::ToolCopy.path_parameters(path)
         document[:parameters] = parameters if parameters.any?
         document
       end
