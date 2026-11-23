@@ -279,7 +279,9 @@ class ChatkitProtocolTest < ActionDispatch::IntegrationTest
     assert_includes names, "update"
     assert_equal "function", tools.first[:type]
     assert_equal "object", tools.first[:parameters]["type"]
-    refute names.any? { |name| name.start_with?("agent_chats_", "agent_items_") }
+    RecordingStudioAgents::Mcp::Registration::OWN_TOOLS.each do |name|
+      refute_includes names, name
+    end
   end
 
   test "mcp tools can be read only or off" do

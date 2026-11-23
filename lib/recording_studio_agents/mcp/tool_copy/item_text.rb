@@ -5,14 +5,14 @@ module RecordingStudioAgents
     module ToolCopy
       module ItemText
         ROWS = {
-          agent_items_list: [
+          list_agent_items: [
             "An item is one stored message on a chat.",
             "A user message has type user_message.",
             "An agent reply has type assistant_message.",
             "This lists the items stored for one chat.",
-            "Use agent_chats_read for the title and status.",
-            "id is the chat recording id from agent_chats_create or agent_chats_list.",
-            "You need view access on that chat.",
+            "Use read_agent_chat for the title and status.",
+            "id is the chat recording id from create_agent_chat or list_agent_chats.",
+            "A chat you cannot open is not found.",
             "limit is how many items to return.",
             "Omit limit, or send 0 or less, for 20.",
             "A limit above 50 is cut to 50.",
@@ -27,18 +27,18 @@ module RecordingStudioAgents
             "thread_id is the chat id.",
             "after is the last item id on this page when has_more is true, and null otherwise.",
             "This tool does not accept after, so you cannot ask for the next page.",
-            "A user message is stored by agent_chats_create and agent_chats_append.",
+            "A user message is stored by create_agent_chat and append_agent_chat.",
             "An assistant reply is stored when ChatKit reads that turn, so it can be absent just after those calls."
           ].join(" "),
-          agent_items_read: [
+          read_agent_item: [
             "This reads one stored item on one chat.",
-            "Use agent_items_list to get the item id.",
+            "Use list_agent_items to get the item id.",
             "id is the chat recording id.",
-            "item_id is the id of one item from agent_items_list for that chat.",
-            "You need view access on the chat.",
+            "item_id is the id of one item from list_agent_items for that chat.",
+            "A chat you cannot open is not found.",
             "A missing chat, a chat in another workspace, or an item that is not on this chat is not found.",
             "The result is that item.",
-            "Its fields match a user message or an assistant message from agent_items_list."
+            "Its fields match a user message or an assistant message from list_agent_items."
           ].join(" ")
         }.freeze
       end

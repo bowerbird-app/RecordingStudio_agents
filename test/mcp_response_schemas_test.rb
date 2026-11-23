@@ -66,8 +66,8 @@ class McpResponseSchemasTest < Minitest::Test
 
   def listed_and_read(thread)
     {
-      agent_chats_list: RecordingStudioAgents::Mcp::Chats::List.call(@context),
-      agent_chats_read: RecordingStudioAgents::ChatKit::Payload.stub(:thread, thread) do
+      list_agent_chats: RecordingStudioAgents::Mcp::Chats::List.call(@context),
+      read_agent_chat: RecordingStudioAgents::ChatKit::Payload.stub(:thread, thread) do
         RecordingStudioAgents::Mcp::Chats::Read.call(@context)
       end
     }
@@ -75,10 +75,10 @@ class McpResponseSchemasTest < Minitest::Test
 
   def written(created)
     {
-      agent_chats_create: RecordingStudioAgents::Sessions::Create.stub(:call, ServiceResult.new(created)) do
+      create_agent_chat: RecordingStudioAgents::Sessions::Create.stub(:call, ServiceResult.new(created)) do
         RecordingStudioAgents::Mcp::Chats::Create.call(@context)
       end,
-      agent_chats_append: RecordingStudioAgents::Sessions::Append.stub(:call, ServiceResult.new(created)) do
+      append_agent_chat: RecordingStudioAgents::Sessions::Append.stub(:call, ServiceResult.new(created)) do
         RecordingStudioAgents::Mcp::Chats::Append.call(@context)
       end
     }
@@ -86,10 +86,10 @@ class McpResponseSchemasTest < Minitest::Test
 
   def item_payloads(page, user)
     {
-      agent_items_list: RecordingStudioAgents::ChatKit::Payload.stub(:item_page, page) do
+      list_agent_items: RecordingStudioAgents::ChatKit::Payload.stub(:item_page, page) do
         RecordingStudioAgents::Mcp::Items::List.call(@context)
       end,
-      agent_items_read: RecordingStudioAgents::Item.stub(:find_by, user_row) do
+      read_agent_item: RecordingStudioAgents::Item.stub(:find_by, user_row) do
         RecordingStudioAgents::ChatKit::Payload.stub(:item, user) do
           RecordingStudioAgents::Mcp::Items::Read.call(@context)
         end

@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioAgentsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.20.0", ::RecordingStudioAgents::VERSION
+    assert_equal "0.21.0", ::RecordingStudioAgents::VERSION
   end
 
   def test_engine_exists
@@ -104,13 +104,17 @@ class RecordingStudioAgentsTest < Minitest::Test
     refute_includes gemfile, 'github: "bowerbird-app/RecordingStudio_site_settings", tag: "v0.5.6"'
     assert_full_pin gemfile, "recording_studio_logs", "~> 0.9", "RecordingStudio_logs", "v0.9.0"
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_Oauth", tag: "v0.25.1"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.39.2"'
+    mcp_pin = [
+      'gem "recording_studio_mcp", "~> 0.45.2",',
+      'github: "bowerbird-app/RecordingStudio_MCP", tag: "v0.45.2"'
+    ].join(" ")
+    assert_includes gemfile, mcp_pin
     assert_full_pin gemfile, "recording_studio_moveable", "~> 6.1", "RecordingStudio_moveable", "v6.1.0"
     assert_full_pin gemfile, "recording_studio_icons", "~> 0.5", "RecordingStudio_icons", "v0.5.0"
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_users", tag: "v0.37.0"'
     assert_full_pin gemfile, "recording_studio_attachable", "~> 0.34", "RecordingStudio_attachable", "v0.34.0",
                     "require: false"
-    assert_full_pin gemfile, "recording_studio_api", "~> 1.21", "RecordingStudio_api", "v1.21.2"
+    assert_full_pin gemfile, "recording_studio_api", "~> 1.21", "RecordingStudio_api", "v1.21.3"
     assert_full_pin gemfile, "recording_studio_admin", "~> 2.20", "RecordingStudio_admin", "v2.20.0"
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_site_settings", tag: "v0.6.0"'
     refute_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v6.1.0"'
@@ -303,8 +307,8 @@ class RecordingStudioAgentsTest < Minitest::Test
     refute_includes readme, "dummy GitHub tag `v4.5.0`"
     refute_includes readme, "dummy GitHub tag `v0.1.254`"
     assert_includes readme, "Oauth dummy GitHub tag `v0.25.1`"
-    assert_includes readme, "dummy GitHub tag `v0.39.2`"
-    assert_includes readme, "Recording Studio API dummy GitHub tag `v1.21.2`"
+    assert_includes readme, "dummy GitHub tag `v0.45.2`"
+    assert_includes readme, "Recording Studio API dummy GitHub tag `v1.21.3`"
     assert_includes readme, "RecordingStudioApi::RateLimit.check"
     assert_includes readme, "fail_closed: true"
     refute_includes readme, "increment script"

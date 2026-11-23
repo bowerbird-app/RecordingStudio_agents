@@ -5,12 +5,12 @@ require_relative "tool_copy"
 module RecordingStudioAgents
   module Mcp
     module Registration
-      CHAT_LIST = :agent_chats_list
-      CHAT_CREATE = :agent_chats_create
-      CHAT_READ = :agent_chats_read
-      CHAT_APPEND = :agent_chats_append
-      ITEM_LIST = :agent_items_list
-      ITEM_READ = :agent_items_read
+      CHAT_LIST = :list_agent_chats
+      CHAT_CREATE = :create_agent_chat
+      CHAT_READ = :read_agent_chat
+      CHAT_APPEND = :append_agent_chat
+      ITEM_LIST = :list_agent_items
+      ITEM_READ = :read_agent_item
       OWN_TOOLS = [CHAT_LIST, CHAT_CREATE, CHAT_READ, CHAT_APPEND, ITEM_LIST, ITEM_READ].map(&:to_s).freeze
       SESSION_RECORDABLE_TYPE = "RecordingStudioAgents::Session"
 
@@ -24,8 +24,16 @@ module RecordingStudioAgents
         OWN_TOOLS.include?(name.to_s)
       end
 
+      def api_available?
+        defined?(::RecordingStudioApi)
+      end
+
+      def api
+        ::RecordingStudioApi
+      end
+
       def register_endpoints!
-        return unless defined?(RecordingStudioApi)
+        return unless api_available?
 
         register_chat_endpoints!
         register_item_endpoints!
@@ -58,7 +66,7 @@ module RecordingStudioAgents
       def register_endpoint!(name, route, handler, summary, contract)
         return if registered?(name)
 
-        RecordingStudioApi.register_endpoint(name, **endpoint_options(name, route, handler, summary, contract))
+        api.register_endpoint(name, **endpoint_options(name, route, handler, summary, contract))
       end
 
       def endpoint_options(name, route, handler, summary, contract)
@@ -83,9 +91,9 @@ module RecordingStudioAgents
       end
 
       def registered?(name)
-        return false unless RecordingStudioApi.respond_to?(:registered_endpoint)
+        return false unless api.respond_to?(:registered_endpoint)
 
-        RecordingStudioApi.registered_endpoint(name).present?
+        api.registered_endpoint(name).present?
       end
     end
   end

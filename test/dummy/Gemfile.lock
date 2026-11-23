@@ -24,14 +24,14 @@ GIT
 
 GIT
   remote: https://github.com/bowerbird-app/RecordingStudio_MCP.git
-  revision: 9c47f042daf87efa2b61b5f29c41de030846f317
-  tag: v0.39.2
+  revision: 4452e2b785c04ece8f6dba60e6a646e6292275e9
+  tag: v0.45.2
   specs:
-    recording_studio_mcp (0.39.2)
+    recording_studio_mcp (0.45.2)
       rails (~> 8.1.0)
       recording_studio (>= 7.0, < 8.0)
       recording_studio_admin (>= 2.19.0, < 3.0)
-      recording_studio_api (>= 1.19.0, < 2.0)
+      recording_studio_api (>= 1.21.3, < 2.0)
       recording_studio_logs (>= 0.8.0, < 1.0)
       recording_studio_metrics (>= 0.9.0, < 1.0)
       recording_studio_oauth (>= 0.22.0, < 1.0)
@@ -79,10 +79,10 @@ GIT
 
 GIT
   remote: https://github.com/bowerbird-app/RecordingStudio_api.git
-  revision: 758371de7752a7893d1614e6ea477b2f71c30063
-  tag: v1.21.2
+  revision: 02b8fd5062ed8a7cd451c67208017dd9f55f786d
+  tag: v1.21.3
   specs:
-    recording_studio_api (1.21.2)
+    recording_studio_api (1.21.3)
       flat_pack (>= 0.1.356, < 2.0)
       rails (~> 8.1.0)
       recording_studio (>= 7.7.0, < 8.0)
@@ -233,7 +233,7 @@ GIT
 PATH
   remote: ../..
   specs:
-    recording_studio_agents (0.20.0)
+    recording_studio_agents (0.21.0)
       flat_pack (>= 0.1.354)
       rails (~> 8.1.0)
       recording_studio (~> 7.7)
@@ -559,7 +559,7 @@ GEM
       nio4r (~> 2.0)
     raabro (1.5.0)
     racc (1.8.1)
-    rack (3.2.8)
+    rack (3.2.9)
     rack-protection (4.2.2)
       base64 (>= 0.1.0)
       logger (>= 1.6.0)
@@ -718,7 +718,7 @@ GEM
     uri (1.1.2)
     useragent (0.16.11)
     version_gem (1.1.17)
-    view_component (4.24.0)
+    view_component (4.25.0)
       actionview (>= 7.1.0)
       activesupport (>= 7.1.0)
       prism (>= 1.0)
@@ -771,7 +771,7 @@ DEPENDENCIES
   recording_studio_cache (~> 0.8)!
   recording_studio_icons (~> 0.5)!
   recording_studio_logs (~> 0.9)!
-  recording_studio_mcp!
+  recording_studio_mcp (~> 0.45.2)!
   recording_studio_metrics (~> 0.10)!
   recording_studio_moveable (~> 6.1)!
   recording_studio_oauth!
@@ -925,7 +925,7 @@ CHECKSUMS
   puma (8.1.2) sha256=3a6d9a34c9a4d0175eabd11b703939b5d43ebe08bc2534ac7dfd4df33a6ceedc
   raabro (1.5.0) sha256=3f998a7bc84f9c84df3ab580634d2e0a5bda4f0841168d56035f529c9877440a
   racc (1.8.1) sha256=4a7f6929691dbec8b5209a0b373bc2614882b55fc5d2e447a21aaa691303d62f
-  rack (3.2.8) sha256=1fecc85e463ebc7a2a945fff829ffcd549babeb1556384796fad946c28dc4ec7
+  rack (3.2.9) sha256=8235c1d08f0c461bedcff4413bbeba888173e5b09e1332ae951c98f0ee460dcc
   rack-protection (4.2.2) sha256=0e75764dae462c4041544452ce568bb1f1ced556b791cd32ac479d0781065a99
   rack-session (2.1.2) sha256=595434f8c0c3473ae7d7ac56ecda6cc6dfd9d37c0b2b5255330aa1576967ffe8
   rack-test (2.3.0) sha256=b118d177cc002c572fc1b6fd8d19c9ed5881a36e8d6f689f9e618f9f861241e8
@@ -941,14 +941,14 @@ CHECKSUMS
   recording_studio (7.8.0)
   recording_studio_accessible (0.58.0)
   recording_studio_admin (2.20.0)
-  recording_studio_agents (0.20.0)
+  recording_studio_agents (0.21.0)
   recording_studio_ai (0.26.0)
-  recording_studio_api (1.21.2)
+  recording_studio_api (1.21.3)
   recording_studio_attachable (0.34.0)
   recording_studio_cache (0.8.0)
   recording_studio_icons (0.5.0)
   recording_studio_logs (0.9.0)
-  recording_studio_mcp (0.39.2)
+  recording_studio_mcp (0.45.2)
   recording_studio_metrics (0.10.0)
   recording_studio_moveable (6.1.0)
   recording_studio_oauth (0.25.1)
@@ -1001,7 +1001,7 @@ CHECKSUMS
   uri (1.1.2) sha256=89292e98eabbef6248b0a0ed5e7e398e152f83f17560023a6d94a7f492b169fb
   useragent (0.16.11) sha256=700e6413ad4bb954bb63547fa098dddf7b0ebe75b40cc6f93b8d54255b173844
   version_gem (1.1.17) sha256=70420b9675fbb77a7e7e7eb8ed6580dd4dd25be53b1454c1a79cc18f3c5a8dfd
-  view_component (4.24.0) sha256=03d47405cd63ea5c7154332b122cc24c50382b55e8f94eb2a269ce8ad73ae98a
+  view_component (4.25.0) sha256=c6acf5d257dded3c9afc3b3c4d10c92e06ec1ba42d382028d1f30e3efc41b1f5
   warden (1.2.9) sha256=46684f885d35a69dbb883deabf85a222c8e427a957804719e143005df7a1efd0
   web-console (4.3.0) sha256=e13b71301cdfc2093f155b5aa3a622db80b4672d1f2f713119cc7ec7ac6a6da4
   websocket-driver (0.9.0) sha256=4dfcc6ac0ea1b6771daf5fb54cbbca131e4d5922ea0a65ba2da980370dadbe9f

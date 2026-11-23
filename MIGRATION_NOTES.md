@@ -2,7 +2,7 @@
 
 ## Current Requirements
 
-- Gem version `0.20.0`
+- Gem version `0.21.0`
 - Ruby 3.3 or newer
 - Rails 8.1 or newer
 - Recording Studio gemspec `~> 7.7`. This repository pins `~> 7.8` (tag `v7.8.0`). Hosts MUST run the Recording Studio 7.4, 7.5, and 7.7 migrations. The dummy does not vendor those migrations. Fresh installs use Recording Studio `db/install_migrate`.
@@ -13,8 +13,27 @@
 - Cache dummy tag `v0.8.0`
 - FlatPack gemspec `>= 0.1.354`. The root and dummy Gemfiles pin `~> 0.2` (tag `v0.2.0`). Attachable `v0.34.0` requires FlatPack `>= 0.1.376`. Hosts moving to 0.2 remove the manual `flat_pack/heroicons` importmap pin and any `flat-pack--icon` controller registration.
 - view_component `>= 4.14`, `< 5` (this repository locks `~> 4.19`)
-- Users dummy tag `v0.37.0`, Oauth dummy tag `v0.25.1`, MCP dummy tag `v0.39.2`, API dummy tag `v1.21.2`, Moveable dummy tag `v6.1.0`, Icons dummy tag `v0.5.0`, Admin dummy tag `v2.20.0`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.34.0` (`require: false`)
+- Users dummy tag `v0.37.0`, Oauth dummy tag `v0.25.1`, MCP dummy tag `v0.45.2` (`~> 0.45.2`), API dummy tag `v1.21.3`, Moveable dummy tag `v6.1.0`, Icons dummy tag `v0.5.0`, Admin dummy tag `v2.20.0`, Site Settings dummy tag `v0.6.0`, Attachable dummy tag `v0.34.0` (`require: false`)
 - Public RubyGems and GitHub access for dependency installation
+
+## Named MCP tools
+
+0.21.0 renames the six chat tools. The old names are gone.
+
+| Was | Now |
+| --- | --- |
+| `agent_chats_list` | `list_agent_chats` |
+| `agent_chats_create` | `create_agent_chat` |
+| `agent_chats_read` | `read_agent_chat` |
+| `agent_chats_append` | `append_agent_chat` |
+| `agent_items_list` | `list_agent_items` |
+| `agent_items_read` | `read_agent_item` |
+
+Recording Studio MCP stays optional. This gem does not depend on it. When the host loads MCP 0.45 or newer, boot calls `RecordingStudioMcp.register_tool` with `endpoint:` for each name. Tools are opt-in, so a host that mounts MCP must add `RecordingStudioAgents::McpCopy.tool_names` to `register_server` `include_tools`. A server that leaves them out does not advertise the chat tools. `describe` is still present. Generic tree tools (`list`, `show`, `create`, `update`, `delete`, `capability_action`) are not in `tool_names`. Include those names yourself when the host still wants them, and call `register_type` for each recordable they should cover. MCP 0.45 advertises a generic tool only for a type registered that way.
+
+MCP `0.45.2` needs Recording Studio API `>= 1.21.3`. The dummy pins MCP `~> 0.45.2` (`v0.45.2`) and API `v1.21.3`.
+
+In-chat tools still use `RecordingStudioMcp::ToolSurface.for` and `RecordingStudioMcp::Dispatcher.call`. The six chat tools stay out of that list.
 
 ## Turning chats off
 

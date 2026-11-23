@@ -10,12 +10,12 @@ module RecordingStudioAgents
       SUCCESS = "200"
 
       SCHEMAS = {
-        agent_chats_list: Chats::LIST,
-        agent_chats_create: Chats::CREATE,
-        agent_chats_read: Chats::THREAD,
-        agent_chats_append: Chats::APPEND,
-        agent_items_list: Items::LIST,
-        agent_items_read: Items::ITEM
+        list_agent_chats: Chats::LIST,
+        create_agent_chat: Chats::CREATE,
+        read_agent_chat: Chats::THREAD,
+        append_agent_chat: Chats::APPEND,
+        list_agent_items: Items::LIST,
+        read_agent_item: Items::ITEM
       }.freeze
 
       EXAMPLES = Chats::EXAMPLES.merge(Items::EXAMPLES).freeze
